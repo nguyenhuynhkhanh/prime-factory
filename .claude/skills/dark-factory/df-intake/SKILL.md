@@ -16,7 +16,20 @@ You are the orchestrator for the spec creation phase.
    - Pass the raw input as context
    - The spec-agent will handle all research, Q&A, and writing
 3. Wait for the spec-agent to complete
-4. Report what was created:
+4. Update `dark-factory/manifest.json`:
+   - Read the current manifest
+   - Add a new entry under `"features"` keyed by the feature name:
+     ```json
+     "{name}": {
+       "type": "feature" or "bugfix",
+       "status": "active",
+       "specPath": "dark-factory/specs/features/{name}.spec.md",
+       "created": "{ISO timestamp}",
+       "rounds": 0
+     }
+     ```
+   - Write the updated manifest back
+5. Report what was created:
    - Spec file path and type (feature/bugfix)
    - Public scenarios created
    - Holdout scenarios created

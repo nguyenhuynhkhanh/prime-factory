@@ -42,6 +42,16 @@ Developer Input
        │     content)
        ▼
    Max 3 rounds
+       │
+  All tests pass
+       │
+       ▼
+┌────────────────┐
+│ Promote Agent  │  Adapts holdout tests → permanent test suite
+└──────┬─────────┘
+       │
+       ▼
+   Archive specs + scenarios
 ```
 
 ## Information Barriers
@@ -51,12 +61,14 @@ Developer Input
 | spec-agent | Codebase, docs, existing specs | Holdout results, code-agent output |
 | code-agent | Spec, public scenarios, codebase | Holdout scenarios, results |
 | test-agent | Spec, holdout scenarios, implemented code | Public scenarios |
+| promote-agent | Results, test conventions, CLAUDE.md | Source code (read-only for conventions) |
 
 ## Directory Structure
 
 ```
 dark-factory/
 ├── README.md                          # This file
+├── manifest.json                      # Feature lifecycle tracking
 ├── specs/
 │   ├── features/                      # Feature specs
 │   │   └── {name}.spec.md
@@ -71,10 +83,16 @@ dark-factory/
 │       └── {name}/
 │           ├── holdout-01.md
 │           └── holdout-02.md
-└── results/                           # Test output (gitignored)
+├── results/                           # Test output (gitignored)
+│   └── {name}/
+│       ├── holdout-tests.spec.ts
+│       └── run-{timestamp}.md
+└── archive/                           # Archived specs + scenarios
     └── {name}/
-        ├── holdout-tests.spec.ts
-        └── run-{timestamp}.md
+        ├── spec.md
+        └── scenarios/
+            ├── public/
+            └── holdout/
 ```
 
 ## Commands
@@ -107,6 +125,14 @@ The orchestrator will:
 2. Spawn an independent code-agent (reads spec + public scenarios)
 3. Spawn an independent test-agent (validates with holdout scenarios)
 4. If failures: extract behavioral descriptions, retry (max 3 rounds)
+5. On success: promote holdout tests into permanent test suite
+6. Archive specs and scenarios to `dark-factory/archive/{name}/`
+
+### `/df-cleanup`
+Recovery and maintenance. Reads `dark-factory/manifest.json` and:
+- Retries stuck promotions (status: `passed`)
+- Completes stuck archival (status: `promoted`)
+- Lists stale active features (older than 7 days)
 
 ### `/df-spec`
 Show spec templates for manual writing.
@@ -130,6 +156,19 @@ Show scenario templates for manual writing.
 3. **Review**: Check the spec in `dark-factory/specs/bugfixes/`
 4. **Review holdouts**: Check holdout scenarios cover edge cases
 5. **Fix**: `/df-orchestrate {name}`
+
+## Feature Lifecycle
+
+Each feature tracked in `dark-factory/manifest.json` transitions through these statuses:
+
+| Status | Meaning |
+|--------|---------|
+| `active` | Spec created, awaiting implementation |
+| `passed` | All holdout tests passed, awaiting promotion |
+| `promoted` | Tests promoted to permanent suite, awaiting archive |
+| `archived` | Specs + scenarios archived, lifecycle complete |
+
+Use `/df-cleanup` to diagnose and fix features stuck in intermediate states.
 
 ## Key Principles
 

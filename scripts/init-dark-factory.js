@@ -348,6 +348,68 @@ You are the validation agent for the Dark Factory pipeline.
 `;
 }
 
+function getPromoteAgentContent() {
+  return `---
+name: promote-agent
+description: "Adapts holdout tests from Dark Factory results and places them into the project's permanent test suite. Never modifies source code."
+tools: Read, Glob, Grep, Bash, Write, Edit
+---
+
+# Promote Agent
+
+You are the test promotion agent for the Dark Factory pipeline. Your job is to take holdout tests that passed during validation and adapt them into the project's permanent test suite for regression coverage.
+
+## Your Inputs
+1. The feature name
+2. The holdout test file from \`dark-factory/results/{name}/\`
+
+## Your Process
+
+### 1. Learn Project Test Conventions
+- Read \`CLAUDE.md\` for any test-related instructions
+- Glob for existing test files (e.g., \`**/*.spec.ts\`, \`**/*.test.ts\`, \`**/__tests__/**\`)
+- Determine:
+  - **Test file naming**: \`.spec.ts\`, \`.test.ts\`, etc.
+  - **Test location**: colocated with source (\`src/foo/__tests__/\`) or centralized (\`tests/\`)
+  - **Test framework**: Jest, Vitest, Mocha, etc.
+  - **Import style**: relative paths, aliases, etc.
+
+### 2. Read the Holdout Test File
+- Read \`dark-factory/results/{name}/holdout-tests.spec.ts\` (or similar)
+- Understand what behaviors are being tested
+
+### 3. Adapt Tests
+- Strip any dark-factory-specific paths or imports
+- Fix imports to reference the actual source code locations
+- Rename describe blocks to match project conventions
+- Add a header comment: \`// Promoted from Dark Factory holdout: {name}\`
+- Ensure test setup/teardown matches project patterns
+
+### 4. Place Tests
+- Place the adapted test file where project conventions dictate
+- If colocated: next to the relevant source module
+- If centralized: in the project's test directory
+- Use a clear filename: \`{name}.promoted.spec.ts\` or similar to distinguish from hand-written tests
+
+### 5. Verify
+- Run the promoted tests to confirm they pass in their new location
+- If tests fail: diagnose and fix import/path issues (NOT the test logic itself)
+- Report the final promoted test file path
+
+## Your Constraints
+- NEVER modify source code files — only create/modify test files
+- NEVER change test assertions or logic — only adapt paths, imports, and structure
+- If tests cannot be made to pass due to source code issues, report the problem without fixing source code
+- You are spawned as an independent agent — you have NO context from previous runs
+
+## Output
+Report:
+- Promoted test file path
+- Number of test cases promoted
+- Pass/fail status of promoted tests
+`;
+}
+
 function getSkillContent(name) {
   const skills = {
     "df-intake": `---
@@ -368,7 +430,11 @@ You are the orchestrator for the spec creation phase.
    - Pass the raw input as context
    - The spec-agent will handle all research, Q&A, and writing
 3. Wait for the spec-agent to complete
-4. Report what was created:
+4. Update \`dark-factory/manifest.json\`:
+   - Read the current manifest
+   - Add a new entry under \`"features"\` keyed by the feature name with type, status \`"active"\`, specPath, created timestamp, and rounds 0
+   - Write the updated manifest back
+5. Report what was created:
    - Spec file path and type (feature/bugfix)
    - Public scenarios created
    - Holdout scenarios created
@@ -425,11 +491,29 @@ Check if \`dark-factory/results/{name}/\` has previous results:
 - Read the results file from \`dark-factory/results/{name}/\`
 
 **Step 3: Evaluate**
-- If all passed → report success, DONE
+- If all passed → proceed to Step 4 (Promote)
 - If failures and rounds < 3:
   - Extract ONLY the behavioral failure descriptions (NO holdout content)
   - Go to Round N+1 with this sanitized summary
 - If failures and rounds = 3 → report to developer, suggest manual review
+
+## Post-Implementation Lifecycle
+
+When all holdout tests pass:
+
+**Step 4: Promote**
+- Update \`dark-factory/manifest.json\`: set feature status to \`"passed"\`, record timestamp
+- Spawn an **independent** promote-agent (Agent tool with \`.claude/agents/promote-agent.md\`) with:
+  - The feature name
+  - The holdout test file path from \`dark-factory/results/{name}/\`
+- If promoted tests pass: update manifest to \`"promoted"\`, record promotedTestPath and timestamp
+- If promoted tests fail: keep status as \`"passed"\`, report failure, STOP
+
+**Step 5: Archive**
+- Move spec file to \`dark-factory/archive/{name}/spec.md\`
+- Move scenarios to \`dark-factory/archive/{name}/scenarios/\`
+- Delete \`dark-factory/results/{name}/\`
+- Update manifest: set status to \`"archived"\`, record timestamp
 
 ## Information Barrier Rules
 - NEVER pass holdout scenario content to the code-agent
@@ -561,6 +645,37 @@ Additional context for the test runner.
 - Test business rule violations
 - For bugfixes: test the exact reproduction case + variations
 `,
+    "df-cleanup": `---
+name: df-cleanup
+description: "Recovery and maintenance for Dark Factory lifecycle. Retries stuck promotions, completes archival, and lists stale features."
+---
+
+# Dark Factory — Cleanup & Recovery
+
+You are the cleanup/recovery handler for the Dark Factory lifecycle.
+
+## Trigger
+\`/df-cleanup\` — no arguments needed
+
+## Process
+
+### 1. Read Manifest
+- Read \`dark-factory/manifest.json\`
+- If manifest doesn't exist or is empty, report "No features tracked" and stop
+
+### 2. Identify Issues
+Scan all features and categorize:
+- **Stuck at \`passed\`**: Retry promotion by spawning promote-agent.
+- **Stuck at \`promoted\`**: Complete archival.
+- **Stale \`active\`**: Created more than 7 days ago. List for developer attention.
+- **\`archived\`**: No action needed.
+
+### 3. Execute Fixes
+For each stuck feature, retry the appropriate lifecycle step.
+
+### 4. Report
+Display a status table of all features with actions taken.
+`,
   };
   return skills[name];
 }
@@ -573,7 +688,8 @@ This project uses the Dark Factory pattern for feature development and bug fixes
 
 ### Available Commands
 - \`/df-intake {description}\` — Start spec creation. Spawns an independent BA agent to research, brainstorm, and write specs + scenarios.
-- \`/df-orchestrate {name}\` — Start implementation. Spawns independent code and test agents.
+- \`/df-orchestrate {name}\` — Start implementation. Spawns independent code and test agents. Auto-promotes holdout tests and archives on success.
+- \`/df-cleanup\` — Recovery/maintenance. Retries stuck promotions, completes archival, lists stale features.
 - \`/df-spec\` — Show spec templates for manual writing.
 - \`/df-scenario\` — Show scenario templates.
 
@@ -581,6 +697,8 @@ This project uses the Dark Factory pattern for feature development and bug fixes
 1. **Spec phase** (\`/df-intake\`): Developer provides raw input → spec-agent researches, clarifies, challenges, writes spec + all scenarios → DONE
 2. **Review**: Lead reviews holdout scenarios in \`dark-factory/scenarios/holdout/\`
 3. **Implementation phase** (\`/df-orchestrate\`): Code-agent implements → test-agent validates with holdout → iterate (max 3 rounds)
+4. **Promote**: On success, holdout tests are automatically promoted into the permanent test suite
+5. **Archive**: Specs and scenarios are moved to \`dark-factory/archive/{name}/\`
 
 ### Rules
 - Spec creation and implementation are FULLY DECOUPLED — never auto-triggered
@@ -589,12 +707,18 @@ This project uses the Dark Factory pattern for feature development and bug fixes
 - NEVER pass public scenario content to the test-agent
 - Spec-agent writes ALL scenarios (public + holdout); lead reviews holdout before orchestration
 
+### Lifecycle Tracking
+- \`dark-factory/manifest.json\` tracks feature status: active → passed → promoted → archived
+- Status transitions are managed by df-intake and df-orchestrate
+
 ### Directory
 - \`dark-factory/specs/features/\` — Feature specs
 - \`dark-factory/specs/bugfixes/\` — Bug report specs
 - \`dark-factory/scenarios/public/{name}/\` — Scenarios visible to code-agent
 - \`dark-factory/scenarios/holdout/{name}/\` — Hidden scenarios for validation
 - \`dark-factory/results/{name}/\` — Test output (gitignored)
+- \`dark-factory/archive/{name}/\` — Archived specs + scenarios (post-completion)
+- \`dark-factory/manifest.json\` — Feature lifecycle manifest
 `;
 }
 
@@ -708,6 +832,15 @@ function main() {
   touchGitkeep(path.join(dfDir, "scenarios", "public"));
   touchGitkeep(path.join(dfDir, "scenarios", "holdout"));
   touchGitkeep(path.join(dfDir, "results"));
+  touchGitkeep(path.join(dfDir, "archive"));
+
+  // 1b. Create manifest if it doesn't exist
+  const manifestPath = path.join(dfDir, "manifest.json");
+  if (!fs.existsSync(manifestPath)) {
+    writeFile(manifestPath, JSON.stringify({ version: 1, features: {} }, null, 2) + "\n");
+  } else {
+    console.log(`  manifest.json already exists`);
+  }
 
   // 2. Create agent files
   console.log("\nCreating agents...");
@@ -723,10 +856,14 @@ function main() {
     path.join(dir, ".claude", "agents", "test-agent.md"),
     getTestAgentContent()
   );
+  writeFile(
+    path.join(dir, ".claude", "agents", "promote-agent.md"),
+    getPromoteAgentContent()
+  );
 
   // 3. Create skill files
   console.log("\nCreating skills...");
-  for (const skill of ["df-intake", "df-orchestrate", "df-spec", "df-scenario"]) {
+  for (const skill of ["df-intake", "df-orchestrate", "df-spec", "df-scenario", "df-cleanup"]) {
     writeFile(
       path.join(dir, ".claude", "skills", "dark-factory", skill, "SKILL.md"),
       getSkillContent(skill)

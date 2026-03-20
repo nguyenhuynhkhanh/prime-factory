@@ -43,11 +43,35 @@ Check if `dark-factory/results/{name}/` has previous results:
 - Read the results file from `dark-factory/results/{name}/`
 
 **Step 3: Evaluate**
-- If all passed → report success, DONE
+- If all passed → proceed to Step 4 (Promote)
 - If failures and rounds < 3:
   - Extract ONLY the behavioral failure descriptions (NO holdout content)
   - Go to Round N+1 with this sanitized summary
 - If failures and rounds = 3 → report to developer, suggest manual review
+
+## Post-Implementation Lifecycle
+
+When all holdout tests pass:
+
+**Step 4: Promote**
+- Update `dark-factory/manifest.json`: set feature status to `"passed"`, record `"passed"` timestamp
+- Spawn an **independent** promote-agent (Agent tool with `.claude/agents/promote-agent.md`) with:
+  - The feature name
+  - The holdout test file path from `dark-factory/results/{name}/`
+- Wait for completion
+- If promoted tests pass:
+  - Update manifest: set status to `"promoted"`, record `"promotedTestPath"` and `"promoted"` timestamp
+- If promoted tests fail:
+  - Update manifest: set status to `"passed"` (do NOT archive)
+  - Report failure to developer and STOP — do not proceed to Step 5
+
+**Step 5: Archive**
+- Move spec file to `dark-factory/archive/{name}/spec.md`
+- Move `dark-factory/scenarios/public/{name}/` to `dark-factory/archive/{name}/scenarios/public/`
+- Move `dark-factory/scenarios/holdout/{name}/` to `dark-factory/archive/{name}/scenarios/holdout/`
+- Delete `dark-factory/results/{name}/` (results are gitignored, no need to archive)
+- Update manifest: set status to `"archived"`, record `"archived"` timestamp
+- Report: archived feature, promoted test path
 
 ## Information Barrier Rules
 - NEVER pass holdout scenario content to the code-agent

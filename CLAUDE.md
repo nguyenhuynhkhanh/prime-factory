@@ -6,7 +6,8 @@ This project uses the Dark Factory pattern for feature development and bug fixes
 
 ### Available Commands
 - `/df-intake {description}` — Start spec creation. Spawns an independent BA agent to research, brainstorm, and write specs + scenarios.
-- `/df-orchestrate {name}` — Start implementation. Spawns independent code and test agents.
+- `/df-orchestrate {name}` — Start implementation. Spawns independent code and test agents. Auto-promotes holdout tests and archives on success.
+- `/df-cleanup` — Recovery/maintenance. Retries stuck promotions, completes archival, lists stale features.
 - `/df-spec` — Show spec templates for manual writing.
 - `/df-scenario` — Show scenario templates.
 
@@ -14,6 +15,8 @@ This project uses the Dark Factory pattern for feature development and bug fixes
 1. **Spec phase** (`/df-intake`): Developer provides raw input → spec-agent researches, clarifies, challenges, writes spec + all scenarios → DONE
 2. **Review**: Lead reviews holdout scenarios in `dark-factory/scenarios/holdout/`
 3. **Implementation phase** (`/df-orchestrate`): Code-agent implements → test-agent validates with holdout → iterate (max 3 rounds)
+4. **Promote**: On success, holdout tests are automatically promoted into the permanent test suite
+5. **Archive**: Specs and scenarios are moved to `dark-factory/archive/{name}/`
 
 ### Rules
 - Spec creation and implementation are FULLY DECOUPLED — never auto-triggered
@@ -22,9 +25,15 @@ This project uses the Dark Factory pattern for feature development and bug fixes
 - NEVER pass public scenario content to the test-agent
 - Spec-agent writes ALL scenarios (public + holdout); lead reviews holdout before orchestration
 
+### Lifecycle Tracking
+- `dark-factory/manifest.json` tracks feature status: active → passed → promoted → archived
+- Status transitions are managed by df-intake and df-orchestrate
+
 ### Directory
 - `dark-factory/specs/features/` — Feature specs
 - `dark-factory/specs/bugfixes/` — Bug report specs
 - `dark-factory/scenarios/public/{name}/` — Scenarios visible to code-agent
 - `dark-factory/scenarios/holdout/{name}/` — Hidden scenarios for validation
 - `dark-factory/results/{name}/` — Test output (gitignored)
+- `dark-factory/archive/{name}/` — Archived specs + scenarios (post-completion)
+- `dark-factory/manifest.json` — Feature lifecycle manifest
