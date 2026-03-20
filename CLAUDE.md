@@ -5,25 +5,36 @@
 This project uses the Dark Factory pattern for feature development and bug fixes.
 
 ### Available Commands
-- `/df-intake {description}` — Start spec creation. Spawns an independent BA agent to research, brainstorm, and write specs + scenarios.
-- `/df-orchestrate {name}` — Start implementation. Spawns independent code and test agents. Auto-promotes holdout tests and archives on success.
+- `/df-intake {description}` — Start **feature** spec creation. Spawns an independent BA agent to research, brainstorm, and write specs + scenarios.
+- `/df-debug {description}` — Start **bug** investigation. Spawns an independent debug-agent for forensic root cause analysis, impact assessment, and debug report writing.
+- `/df-orchestrate {name}` — Start implementation. Auto-detects feature vs. bugfix mode. Auto-promotes holdout tests and archives on success.
 - `/df-cleanup` — Recovery/maintenance. Retries stuck promotions, completes archival, lists stale features.
 - `/df-spec` — Show spec templates for manual writing.
 - `/df-scenario` — Show scenario templates.
 
-### Pipeline
-1. **Spec phase** (`/df-intake`): Developer provides raw input → spec-agent researches, clarifies, challenges, writes spec + all scenarios → DONE
+### Feature Pipeline
+1. **Spec phase** (`/df-intake`): Developer provides raw input → spec-agent discovers scope, challenges, writes spec + all scenarios → DONE
 2. **Review**: Lead reviews holdout scenarios in `dark-factory/scenarios/holdout/`
-3. **Implementation phase** (`/df-orchestrate`): Code-agent implements → test-agent validates with holdout → iterate (max 3 rounds)
-4. **Promote**: On success, holdout tests are automatically promoted into the permanent test suite
-5. **Archive**: Specs and scenarios are moved to `dark-factory/archive/{name}/`
+3. **Architect review** (`/df-orchestrate`): Principal engineer reviews spec for architecture, security, performance, production-readiness → 3+ rounds of refinement with spec-agent → APPROVED or BLOCKED
+4. **Implementation**: Code-agent implements → test-agent validates with holdout → iterate (max 3 rounds)
+5. **Promote**: On success, holdout tests are automatically promoted into the permanent test suite
+6. **Archive**: Specs and scenarios are moved to `dark-factory/archive/{name}/`
+
+### Bugfix Pipeline
+1. **Investigation** (`/df-debug`): Developer reports bug → debug-agent traces root cause, assesses impact, writes debug report + scenarios → DONE
+2. **Review**: Lead reviews diagnosis, holdout scenarios
+3. **Architect review** (`/df-orchestrate`): Principal engineer reviews fix approach, blast radius, systemic patterns → 3+ rounds with debug-agent → APPROVED or BLOCKED
+4. **Red-Green Fix**: Code-agent writes failing test (proves bug) → implements minimal fix (no test changes) → test passes → holdout validation
+5. **Promote + Archive**: Same as feature pipeline
 
 ### Rules
 - Spec creation and implementation are FULLY DECOUPLED — never auto-triggered
 - Every agent spawn is INDEPENDENT — fresh context, no shared state
 - NEVER pass holdout scenario content to the code-agent
 - NEVER pass public scenario content to the test-agent
-- Spec-agent writes ALL scenarios (public + holdout); lead reviews holdout before orchestration
+- NEVER pass test/scenario content to the architect-agent
+- Architect-agent reviews EVERY spec before implementation (minimum 3 rounds of refinement)
+- Architect-agent communicates with spec/debug agents ONLY about the spec — never about tests
 
 ### Lifecycle Tracking
 - `dark-factory/manifest.json` tracks feature status: active → passed → promoted → archived

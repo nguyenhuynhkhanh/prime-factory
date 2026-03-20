@@ -7,7 +7,7 @@ description: "Template reference for manually writing Dark Factory specs."
 
 Use these templates when manually writing specs (instead of using `/df-intake`).
 
-**Tip**: `/df-intake` is strongly recommended over manual writing — the spec-agent helps you discover scope, challenge assumptions, and produce production-grade scenarios. Manual specs risk missing edge cases.
+**Tip**: `/df-intake` is strongly recommended for features, `/df-debug` for bugs.
 
 ## Feature Spec
 Create at: `dark-factory/specs/features/{name}.spec.md`
@@ -65,38 +65,5 @@ Other modules/services affected. Breaking changes to existing behavior.
 Patterns to follow from the existing codebase. NOT a design doc.
 ```
 
-## Bugfix Spec
-Create at: `dark-factory/specs/bugfixes/{name}.spec.md`
-
-```md
-# Bugfix: {name}
-
-## Symptoms
-What is happening? Error messages, wrong behavior.
-
-## Expected Behavior
-What should happen instead?
-
-## Impact
-Who is affected? How often? Severity.
-
-## Reproduction Steps
-1. ...
-
-## Affected Area
-Module, service, endpoint involved.
-
-## Root Cause Analysis
-What investigation revealed.
-
-## Proposed Fix
-What should change and why.
-
-## Acceptance Criteria
-- [ ] AC-1: Bug no longer reproduces under original conditions
-- [ ] AC-2: Regression test added covering the root cause
-- [ ] AC-3: Related edge cases verified
-
-## Regression Risk
-What could break if this fix is applied incorrectly?
-```
+## Bug Reports
+For bugs, use `/df-debug {description}` instead. The debug-agent produces a forensic debug report with root cause analysis and impact assessment.
