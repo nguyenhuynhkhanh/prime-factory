@@ -66,15 +66,45 @@ Before ANY implementation begins, the spec must pass principal engineer review.
 
 ## Feature Mode — Implementation Cycle
 
+### Step 0.5: Determine Parallelism
+
+Read the spec file and look for the **Implementation Size Estimate** section:
+- If the section exists, read the **Suggested parallel tracks** to determine how many code-agents to spawn and what each one implements
+- If the section is missing, analyze the spec yourself:
+  - **small** (1-2 files): 1 code-agent
+  - **medium** (3-5 files): 1-2 code-agents
+  - **large** (6-10 files): 2-3 code-agents
+  - **x-large** (10+ files): 3-4 code-agents
+
+**Rules for parallel tracks:**
+- Each track MUST have **zero file overlap** — no two code-agents can touch the same file
+- If tracks have dependencies (e.g., Track 2 needs the data model from Track 1), run them **sequentially**, not in parallel
+- When in doubt, fewer agents is safer — merging conflicting changes wastes more time than sequential execution
+- Maximum 4 parallel code-agents (diminishing returns beyond that)
+
+Tell the developer how many parallel code-agents you plan to spawn and what each will do. Proceed after confirmation (or immediately if the spec already defined the tracks).
+
 ### Round N (max 3 rounds):
 
-**Step 1: Code Agent** (skip in test-only mode)
+**Step 1: Code Agents** (skip in test-only mode)
 - Read the spec file content
 - Read all public scenario files content
 - If fix mode: also include the sanitized failure summary from previous round
-- Spawn an **independent** code-agent (Agent tool) with this context
+
+**If single track (small scope):**
+- Spawn ONE **independent** code-agent (Agent tool) with the full spec and public scenarios
   - Tell the code-agent it is in **feature mode**
 - Wait for completion
+
+**If multiple tracks (medium-to-xlarge scope):**
+- For each track, spawn an **independent** code-agent **in parallel** (all in a single message) with:
+  - The full spec (for context)
+  - All public scenarios (for context)
+  - **Explicit track assignment**: which specific requirements/sections of the spec this agent is responsible for
+  - **Explicit file boundaries**: which files this agent may create/modify (ONLY these files)
+  - **Instruction**: "You are implementing Track N of M. ONLY create/modify the files listed in your track assignment. Other tracks are being implemented in parallel by other agents."
+- Wait for ALL code-agents to complete
+- **Verify no file conflicts**: check that no two agents modified the same file. If conflicts exist, report to developer and resolve before proceeding.
 
 **Step 2: Test Agent**
 - Spawn an **independent** test-agent (Agent tool) with:
@@ -87,6 +117,8 @@ Before ANY implementation begins, the spec must pass principal engineer review.
 - If all passed → proceed to Step 4 (Promote)
 - If failures and rounds < 3:
   - Extract ONLY the behavioral failure descriptions (NO holdout content)
+  - Identify which track(s) likely caused the failure based on affected files
+  - In the next round, only re-spawn code-agents for the failing tracks (unchanged tracks keep their code)
   - Go to Round N+1 with this sanitized summary
 - If failures and rounds = 3 → report to developer, suggest manual review
 

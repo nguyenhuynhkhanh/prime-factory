@@ -5,9 +5,9 @@ This project uses the Dark Factory pattern for feature development and bug fixes
 ## Available Commands
 - **`/df {description}`** — **Just describe what you need.** Auto-detects bug vs feature and routes to the right pipeline. Asks you to confirm if ambiguous.
 - `/df-onboard` — Map the project. Produces `dark-factory/project-profile.md` with architecture, conventions, quality bar. **Run this first on any existing project.**
-- `/df-intake {description}` — Start **feature** spec creation. Spawns an independent BA agent to research, brainstorm, and write specs + scenarios.
+- `/df-intake {description}` — Start **feature** spec creation. Spawns 3 parallel spec-agents (user/product, architecture, reliability perspectives), synthesizes into one spec.
 - `/df-debug {description}` — Start **bug** investigation. Spawns 3 parallel debug-agents investigating from different angles (code path, history, patterns), synthesizes findings, then writes the report.
-- `/df-orchestrate {name}` — Start implementation. Auto-detects feature vs. bugfix mode. Auto-promotes holdout tests and archives on success.
+- `/df-orchestrate {name}` — Start implementation. Auto-scales parallel code-agents based on spec size. Auto-promotes holdout tests and archives on success.
 - `/df-cleanup` — Recovery/maintenance. Retries stuck promotions, completes archival, lists stale features.
 - `/df-spec` — Show spec templates for manual writing.
 - `/df-scenario` — Show scenario templates.
@@ -16,10 +16,10 @@ This project uses the Dark Factory pattern for feature development and bug fixes
 `/df-onboard` → onboard-agent maps the codebase → produces `dark-factory/project-profile.md` → all agents reference it
 
 ## Feature Pipeline
-1. **Spec phase** (`/df-intake`): Developer provides raw input → spec-agent discovers scope, challenges, writes spec + all scenarios → DONE
+1. **Spec phase** (`/df-intake`): Developer provides raw input → 3 spec-agents analyze from different perspectives (user/product, architecture, reliability) → orchestrator synthesizes → developer confirms → spec + scenarios written → DONE
 2. **Review**: Lead reviews holdout scenarios in `dark-factory/scenarios/holdout/`
 3. **Architect review** (`/df-orchestrate`): Principal engineer reviews spec for architecture, security, performance, production-readiness → 3+ rounds of refinement with spec-agent → APPROVED or BLOCKED
-4. **Implementation**: Code-agent implements → test-agent validates with holdout → iterate (max 3 rounds)
+4. **Implementation**: Parallel code-agents implement (scaled by spec size) → test-agent validates with holdout → iterate (max 3 rounds)
 5. **Promote**: On success, holdout tests are automatically promoted into the permanent test suite
 6. **Archive**: Specs and scenarios are moved to `dark-factory/archive/{name}/`
 
