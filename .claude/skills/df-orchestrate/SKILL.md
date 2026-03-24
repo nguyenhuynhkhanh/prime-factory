@@ -42,7 +42,7 @@ Before ANY implementation begins, the spec must pass principal engineer review.
   - If APPROVED → skip review, proceed to implementation
   - If APPROVED WITH NOTES → skip review, proceed to implementation
   - If BLOCKED or no review exists → run review
-- Spawn an **independent** architect-agent (Agent tool with `.claude/agents/architect-agent.md`) with:
+- Spawn an **independent** architect-agent (Agent tool with `.claude/agents/architect-agent.md`, `isolation: "worktree"`) with:
   - The spec file path
   - The feature name
   - Whether this is a feature or bugfix
@@ -52,6 +52,7 @@ Before ANY implementation begins, the spec must pass principal engineer review.
   3. Each round: architect identifies gaps → spawns spec/debug agent to update spec → re-reviews
   4. Produce a review summary with APPROVED / APPROVED WITH NOTES / BLOCKED status
 - Wait for completion
+- **Merge worktree branch**: If the architect-agent made changes (spec updates, review files), merge its branch back: `git merge <branch> --no-edit`
 - Read the review file
 - If BLOCKED → report to developer, do NOT proceed to implementation
 - If APPROVED → proceed to implementation
@@ -98,12 +99,16 @@ Tell the developer how many parallel code-agents you plan to spawn and what each
 
 **If multiple tracks (medium-to-xlarge scope):**
 - For each track, spawn an **independent** code-agent **in parallel** (all in a single message) with:
+  - **`isolation: "worktree"`** — each agent gets its own git worktree (isolated branch + directory)
   - The full spec (for context)
   - All public scenarios (for context)
   - **Explicit track assignment**: which specific requirements/sections of the spec this agent is responsible for
   - **Explicit file boundaries**: which files this agent may create/modify (ONLY these files)
   - **Instruction**: "You are implementing Track N of M. ONLY create/modify the files listed in your track assignment. Other tracks are being implemented in parallel by other agents."
 - Wait for ALL code-agents to complete
+- **Merge worktree branches**: Each agent returns its worktree branch. Merge all branches back to the current branch sequentially:
+  - `git merge <branch-1> --no-edit` then `git merge <branch-2> --no-edit` etc.
+  - If a merge conflict occurs, report to developer with the conflicting files and stop
 - **Verify no file conflicts**: check that no two agents modified the same file. If conflicts exist, report to developer and resolve before proceeding.
 
 **Step 2: Test Agent**

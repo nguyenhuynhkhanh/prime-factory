@@ -14,7 +14,7 @@ You are the orchestrator for the bug investigation phase. To reduce blind spots 
 
 ### Step 1: Spawn 3 investigators in parallel
 
-Take the developer's raw input and spawn **3 independent debug-agents simultaneously** (using the Agent tool with subagent_type `debug-agent`). Each gets the SAME bug description but a DIFFERENT investigation direction.
+Take the developer's raw input and spawn **3 independent debug-agents simultaneously** (using the Agent tool with subagent_type `debug-agent`, `isolation: "worktree"`). Each gets the SAME bug description but a DIFFERENT investigation direction. Worktree isolation ensures each investigator reads a consistent snapshot of the codebase without interference.
 
 **All 3 must be launched in a single message** (parallel Agent tool calls).
 

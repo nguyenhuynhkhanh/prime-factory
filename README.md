@@ -126,10 +126,10 @@ Dark Factory separates concerns into independent agents with strict information 
 | Agent | Role | How it works |
 |-------|------|-------------|
 | **Onboard** | Maps the project before any work begins | Analyzes codebase → produces project profile |
-| **Spec** (x3) | Discovers scope, challenges assumptions, writes specs | 3 parallel leads: user/product, architecture, reliability |
-| **Debug** (x3) | Forensic root cause analysis, impact assessment | 3 parallel investigators: code path, history, patterns |
-| **Architect** | Reviews specs for architecture, security, performance | Tiered: skip for small, single round for medium, parallel domains for large |
-| **Code** (x1-4) | Implements features and fixes | Auto-scaled by spec size with strict file boundaries |
+| **Spec** (x3) | Discovers scope, challenges assumptions, writes specs | 3 leads research in parallel — each with isolated codebase access |
+| **Debug** (x3) | Forensic root cause analysis, impact assessment | 3 investigators run in parallel — code path, history, patterns |
+| **Architect** | Reviews specs for architecture, security, performance | Tiered by scope; parallel domain review for large changes |
+| **Code** (x1-4) | Implements features and fixes | Auto-scaled parallel sessions, each with isolated codebase access |
 | **Test** | Validates with hidden scenarios | Unit tests + Playwright e2e (auto-detected) |
 | **Promote** | Moves holdout tests into permanent test suite | Adapts both unit and e2e tests to project conventions |
 
@@ -235,13 +235,15 @@ your-project/
 
 ## Design Decisions
 
+**Why massive parallelism?** — Speed without cutting corners. Every phase runs multiple agents simultaneously: 3 spec leads research in parallel, 3 debug investigators trace different angles in parallel, 1-4 code-agents implement different tracks in parallel. Each agent gets its own isolated session so they never interfere with each other. The result: a 3-person investigation completes in the time of one.
+
 **Why 3 parallel leads/investigators?** — A single agent has blind spots. Three agents with different lenses (user, architecture, reliability for features; code path, history, patterns for bugs) catch more issues and produce a more complete spec.
 
 **Why holdout scenarios?** — Without them, the AI writes code and tests from the same understanding. Holdout scenarios are written by the spec-agent and validated by the test-agent. The code-agent must implement correctly to pass tests it's never seen.
 
 **Why tiered architect review?** — A one-file change doesn't need the same scrutiny as a 10-file architectural overhaul. Small changes skip review (test-agent is the safety net), medium gets one round, large gets full parallel domain review.
 
-**Why auto-scaled code-agents?** — A large spec with independent tracks can be implemented faster with multiple agents working in parallel, each with strict file boundaries to prevent conflicts.
+**Why auto-scaled code-agents?** — A large spec with independent tracks can be implemented faster with multiple agents working in parallel, each in its own isolated session to prevent conflicts. Changes are merged back automatically after all tracks complete.
 
 **Why unit + Playwright?** — The test-agent auto-detects available test infrastructure and classifies each scenario as unit test, e2e test, or both. If Playwright isn't installed, it suggests it for UI scenarios but doesn't block.
 

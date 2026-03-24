@@ -23,7 +23,7 @@ If the input looks like a bug report:
 
 ### Step 1: Spawn 3 spec leads in parallel
 
-Take the developer's raw input and spawn **3 independent spec-agents simultaneously** (using the Agent tool with subagent_type `spec-agent`). Each gets the SAME feature description but a DIFFERENT perspective.
+Take the developer's raw input and spawn **3 independent spec-agents simultaneously** (using the Agent tool with subagent_type `spec-agent`, `isolation: "worktree"`). Each gets the SAME feature description but a DIFFERENT perspective. Worktree isolation ensures each lead reads a consistent snapshot of the codebase without interference.
 
 **All 3 must be launched in a single message** (parallel Agent tool calls).
 
