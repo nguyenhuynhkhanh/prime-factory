@@ -53,3 +53,5 @@ Analyze the developer's input and classify it as **bug** or **feature**.
 - When in doubt, ASK — a wrong pipeline wastes more time than a quick question
 - Pass the FULL original description to the downstream skill, unmodified
 - This skill is ONLY a router — it does no spec writing or debugging itself
+- **NEVER implement code directly.** When `/df` is invoked (explicitly or via auto-detection), you MUST route to `/df-intake` or `/df-debug`. No exceptions. No "this is small enough to just do directly." No "let me just make this quick change." The entire point of Dark Factory is that every change goes through the pipeline — spec, scenarios, architect review, implementation, holdout validation.
+- **NEVER skip the pipeline for any reason.** Even if the task seems trivial, simple, or small — route it. The pipeline handles scope sizing internally (small specs get lighter review). Your job is ONLY to classify and route.

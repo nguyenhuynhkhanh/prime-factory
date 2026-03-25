@@ -13,12 +13,15 @@ This project uses the Dark Factory pattern for feature development and bug fixes
 - Describes a user story, requirement, or product need (feature)
 - References a ticket, issue, or task to implement (feature or bug)
 
-**Do NOT trigger `/df` when the message:**
+**Do NOT auto-trigger `/df` when the message:**
 - Is a question about the codebase ("how does X work?", "where is Y defined?")
-- Is a small, direct code change ("rename this variable", "add a log line here")
 - Is about Dark Factory itself ("show me the manifest", "what's the status of X")
 - Is a general conversation, greeting, or config request
 - Is explicitly using another `/df-*` command already
+
+**But if the developer explicitly types `/df {description}`, ALWAYS run it through the pipeline.** No exceptions — even for small changes. The pipeline handles scope sizing internally.
+
+**CRITICAL: NEVER implement code directly when `/df` is invoked.** The ONLY valid response to `/df` is routing to `/df-intake` (features) or `/df-debug` (bugs). You must NOT skip the pipeline, write code directly, or decide a task is "too small" for Dark Factory. Every `/df` invocation goes through spec → scenarios → architect review → implementation → holdout validation.
 
 **Conversations that evolve into implementation:**
 Developers often start with a question or exploration ("how does auth work?", "why is this slow?"), then through discussion arrive at a concrete solution or decision to build something. **Watch for the transition moment** — when the conversation shifts from understanding to action:

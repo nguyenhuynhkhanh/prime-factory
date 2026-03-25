@@ -245,6 +245,7 @@ After the spec(s) and scenarios are written, **show the holdout scenarios direct
 - Implementation size estimate per spec
 
 ## Important
+- **NEVER implement code directly.** This skill produces specs and scenarios ONLY. No code changes, no "quick fixes", no "let me just do this small thing." Every task goes through the full pipeline.
 - All 3 leads MUST be spawned in PARALLEL (single message, 3 Agent tool calls)
 - Each lead is FRESH and INDEPENDENT — no shared state
 - Leads only REPORT findings — they do NOT write files
