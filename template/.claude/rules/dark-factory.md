@@ -36,7 +36,7 @@ When in doubt, ask: "Would you like me to run this through the Dark Factory pipe
 - `/df-onboard` — Map the project. Produces `dark-factory/project-profile.md` with architecture, conventions, quality bar. **Run this first on any existing project.**
 - `/df-intake {description}` — Start **feature** spec creation. Spawns 3 parallel spec-agents (user/product, architecture, reliability perspectives), synthesizes into one spec.
 - `/df-debug {description}` — Start **bug** investigation. Spawns 3 parallel debug-agents investigating from different angles (code path, history, patterns), synthesizes findings, then writes the report.
-- `/df-orchestrate {name}` — Start implementation. Auto-scales parallel code-agents based on spec size. Auto-promotes holdout tests and archives on success.
+- `/df-orchestrate {name} [name2...]` — Start implementation. Each spec runs in its own git worktree. Multiple specs implement in parallel. Auto-scales code-agents per spec (up to 4). Auto-promotes holdout tests and cleans up on success.
 - `/df-cleanup` — Recovery/maintenance. Retries stuck promotions, completes archival, lists stale features.
 - `/df-spec` — Show spec templates for manual writing.
 - `/df-scenario` — Show scenario templates.

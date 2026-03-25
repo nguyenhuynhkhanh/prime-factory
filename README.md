@@ -95,7 +95,7 @@ You can also start with a question — "how does the auth system work?" — and 
 | `/df-onboard` | Map project architecture, conventions, quality bar |
 | `/df-intake {desc}` | Create feature spec (3 parallel leads, synthesized) |
 | `/df-debug {desc}` | Investigate bug (3 parallel investigators, synthesized) |
-| `/df-orchestrate {name}` | Implement (architect review → code → test → promote → archive) |
+| `/df-orchestrate {name} [name2...]` | Implement specs in parallel worktrees (architect review → code → test → promote → cleanup) |
 | `/df-cleanup` | Recover stuck features, list stale work |
 | `/df-spec` | Show spec templates for manual writing |
 | `/df-scenario` | Show scenario templates for manual writing |
@@ -126,10 +126,10 @@ Dark Factory separates concerns into independent agents with strict information 
 | Agent | Role | How it works |
 |-------|------|-------------|
 | **Onboard** | Maps the project before any work begins | Analyzes codebase → produces project profile |
-| **Spec** (x3) | Discovers scope, challenges assumptions, writes specs | 3 leads research in parallel — each in its own git worktree |
+| **Spec** (x3) | Discovers scope, challenges assumptions, writes specs | 3 leads research in parallel from different perspectives |
 | **Debug** (x3) | Forensic root cause analysis, impact assessment | 3 investigators run in parallel — code path, history, patterns |
 | **Architect** | Reviews specs for architecture, security, performance | Tiered by scope; parallel domain review for large changes |
-| **Code** (x1-4) | Implements features and fixes | Auto-scaled parallel sessions, each in its own git worktree |
+| **Code** (x1-4) | Implements features and fixes | Auto-scaled parallel sessions within a worktree-isolated spec |
 | **Test** | Validates with hidden scenarios | Unit tests + Playwright e2e (auto-detected) |
 | **Promote** | Moves holdout tests into permanent test suite | Adapts both unit and e2e tests to project conventions |
 
@@ -235,9 +235,9 @@ your-project/
 
 ## Design Decisions
 
-**Why git worktree isolation?** — Every parallel agent runs in its own [git worktree](https://git-scm.com/docs/git-worktree) — a separate working directory on an isolated branch. This means 3 spec leads, 3 debug investigators, or 4 code-agents can all read and write to the codebase simultaneously without interfering with each other. When agents finish, their branches are merged back automatically. No file conflicts, no race conditions, no stepping on each other's work.
+**Why git worktree isolation?** — Each spec implementation runs in its own [git worktree](https://git-scm.com/docs/git-worktree) — a separate working directory on an isolated branch. When you run `/df-orchestrate spec-a spec-b spec-c`, Dark Factory analyzes dependencies between specs, groups them into waves, and runs independent specs in parallel worktrees. Foundation specs (e.g., project init, shared data models) complete first; dependent specs wait. Each spec can scale up to 4 internal code-agents, so 3 parallel specs could mean 12 agents running simultaneously.
 
-**Why massive parallelism?** — Speed without cutting corners. Every phase runs multiple agents simultaneously: 3 spec leads research in parallel, 3 debug investigators trace different angles in parallel, 1-4 code-agents implement different tracks in parallel. Each agent gets its own git worktree so they never interfere with each other. The result: a 3-person investigation completes in the time of one.
+**Why massive parallelism?** — Speed without cutting corners. Within a single spec: 3 spec leads research in parallel, 3 debug investigators trace different angles, 1-4 code-agents implement different tracks. Across specs: dependency-aware worktree isolation runs independent specs concurrently while respecting ordering constraints.
 
 **Why 3 parallel leads/investigators?** — A single agent has blind spots. Three agents with different lenses (user, architecture, reliability for features; code path, history, patterns for bugs) catch more issues and produce a more complete spec.
 
@@ -245,7 +245,7 @@ your-project/
 
 **Why tiered architect review?** — A one-file change doesn't need the same scrutiny as a 10-file architectural overhaul. Small changes skip review (test-agent is the safety net), medium gets one round, large gets full parallel domain review.
 
-**Why auto-scaled code-agents?** — A large spec with independent tracks can be implemented faster with multiple agents working in parallel, each in its own git worktree to prevent conflicts. Changes are merged back automatically after all tracks complete.
+**Why auto-scaled code-agents?** — A large spec with independent tracks can be implemented faster with multiple agents working in parallel. Combined with worktree-level isolation per spec, you can run many implementations concurrently without any conflicts.
 
 **Why unit + Playwright?** — The test-agent auto-detects available test infrastructure and classifies each scenario as unit test, e2e test, or both. If Playwright isn't installed, it suggests it for UI scenarios but doesn't block.
 

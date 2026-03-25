@@ -8,16 +8,83 @@ description: "Run Dark Factory implementation cycle. Spawns independent code-age
 You are the orchestrator for the implementation phase.
 
 ## Trigger
-`/df-orchestrate {feature-name}`
+`/df-orchestrate {feature-name}` or `/df-orchestrate {name-1} {name-2} ...`
+
+## Worktree Isolation (IMPORTANT)
+
+**Each independent spec implementation runs in its own git worktree.** This is the core mechanism that enables concurrent spec implementations — but only when specs are truly independent.
+
+### Single spec: `/df-orchestrate my-feature`
+1. **Enter a worktree** at the start: use the `EnterWorktree` tool to create an isolated working directory on its own branch
+2. Run the entire implementation cycle (architect review → code agents → test agent → promote) inside the worktree
+3. **Exit the worktree** at the end: use `ExitWorktree` to merge the branch back to the original branch
+
+### Multiple specs: `/df-orchestrate spec-a spec-b spec-c`
+
+**Step 1: Dependency Analysis (MANDATORY)**
+
+Before spawning any agents, analyze ALL specs to build a dependency graph:
+
+1. Read every spec file provided
+2. For each spec, identify:
+   - **Files it will create or modify** (from the spec's implementation details or your own analysis)
+   - **Dependencies on other specs**: Does it reference types, APIs, schemas, or infrastructure from another spec?
+   - **Foundation indicators**: Is this spec establishing architecture, data models, shared services, or project scaffolding that others build on?
+3. Build a dependency graph and identify:
+   - **Independent specs**: No file overlap, no dependency on other specs in the batch → can run in parallel worktrees
+   - **Foundation specs**: Other specs depend on their output (e.g., project init, shared data model, core service) → must complete first
+   - **Dependent specs**: Require a foundation spec to complete before they can start → run sequentially after their dependency
+
+4. Present the execution plan to the developer:
+   ```
+   Dependency analysis for 4 specs:
+
+   Wave 1 (sequential — foundation):
+     - project-init (other specs depend on this architecture)
+
+   Wave 2 (parallel worktrees):
+     - user-auth (independent)
+     - payment-api (independent)
+
+   Wave 3 (sequential — depends on wave 2):
+     - billing-reports (depends on payment-api data models)
+   ```
+5. Proceed after developer confirms the execution plan
+
+**Step 2: Execute by Waves**
+
+- **Wave 1**: Run foundation specs sequentially, each in its own worktree. Wait for each to complete and merge back before starting the next.
+- **Wave 2+**: Run independent specs in parallel, each in its own worktree:
+  - For each spec in the wave, spawn an **independent background agent** (Agent tool with `run_in_background: true`, `isolation: "worktree"`) that runs the full orchestration cycle
+  - Each agent gets its own worktree — completely isolated branch and directory
+  - Up to `number_of_parallel_specs × 4` code-agents can run simultaneously
+  - As each agent completes, its worktree branch merges back automatically
+  - Wait for ALL specs in a wave to complete before starting the next wave
+- Report results to the developer as each spec completes
+
+**Dependency detection heuristics:**
+- Spec A creates a database schema → Spec B references that schema's tables → B depends on A
+- Spec A sets up project structure/config → all other specs build within it → A is foundation
+- Spec A creates an API → Spec B calls that API → B depends on A
+- Spec A and B touch completely different files and domains → independent, can parallel
+- When uncertain, ask the developer: "Does spec-b depend on spec-a completing first?"
+
+**Worktree rules:**
+- The worktree is created BEFORE any implementation work begins
+- ALL implementation work happens inside the worktree (architect review, code agents, test, promote)
+- Code-agents within a single spec's worktree do NOT need their own worktrees — they share the spec's worktree (use `isolation: "worktree"` only for multi-track parallel code-agents within a spec)
+- Cleanup (Step 5) happens after exiting the worktree, back on the original branch
+- Foundation specs MUST merge back before dependent specs start their worktrees
 
 ## Pre-flight Checks
+Run these for EVERY spec name provided (fail fast — check all before starting any):
 1. Check if `dark-factory/project-profile.md` exists:
    - If missing → warn the developer: "No project profile found. Run `/df-onboard` first for best results. Agents will work without it, but may miss project conventions."
    - Do NOT block — proceed with the warning
 2. Verify spec exists: `dark-factory/specs/features/{name}.spec.md` OR `dark-factory/specs/bugfixes/{name}.spec.md`
 3. Verify public scenarios exist: `dark-factory/scenarios/public/{name}/` has files
 4. Verify holdout scenarios exist: `dark-factory/scenarios/holdout/{name}/` has files
-5. If spec or scenarios missing → abort with clear message
+5. If ANY spec or scenarios missing → abort with clear message listing what's missing
 
 ## Smart Re-run Detection
 Check if `dark-factory/results/{name}/` has previous results:
@@ -42,17 +109,17 @@ Before ANY implementation begins, the spec must pass principal engineer review.
   - If APPROVED → skip review, proceed to implementation
   - If APPROVED WITH NOTES → skip review, proceed to implementation
   - If BLOCKED or no review exists → run review
-- Spawn an **independent** architect-agent (Agent tool with `.claude/agents/architect-agent.md`, `isolation: "worktree"`) with:
+- Spawn an **independent** architect-agent (Agent tool with `subagent_type: "architect-agent"`) with:
   - The spec file path
   - The feature name
   - Whether this is a feature or bugfix
+  - Note: the architect runs inside the spec's worktree — no separate worktree needed
 - The architect-agent will:
   1. Deep-review the spec against the codebase
   2. Run at least 3 rounds of discussion with the spec-agent (features) or debug-agent (bugs)
   3. Each round: architect identifies gaps → spawns spec/debug agent to update spec → re-reviews
   4. Produce a review summary with APPROVED / APPROVED WITH NOTES / BLOCKED status
 - Wait for completion
-- **Merge worktree branch**: If the architect-agent made changes (spec updates, review files), merge its branch back: `git merge <branch> --no-edit`
 - Read the review file
 - If BLOCKED → report to developer, do NOT proceed to implementation
 - If APPROVED → proceed to implementation
@@ -171,6 +238,11 @@ The bugfix cycle enforces strict integrity: test and implementation are written 
 ## Post-Implementation Lifecycle
 
 When all holdout tests pass:
+
+**Step 3.5: Exit Worktree**
+- Use `ExitWorktree` to merge the spec's worktree branch back to the original branch
+- All implementation work is now on the main branch
+- If merge conflicts occur, report to developer and stop
 
 **Step 4: Promote**
 - Update `dark-factory/manifest.json`: set feature status to `"passed"`, record `"passed"` timestamp
