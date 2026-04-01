@@ -121,6 +121,8 @@ Dark Factory separates concerns into independent agents with strict information 
 | Bug fixes that mask symptoms | 3 debug-agents investigate from different angles; strict red-green cycle prevents symptom-masking |
 | AI doesn't understand the existing codebase | Onboard-agent maps architecture, conventions, and quality bar before any work begins |
 | Small changes get stuck in heavy process | Scope-based fast track — small changes skip architect review, test-agent is the safety net |
+| AI forgets migration plans for production data | Every spec requires a mandatory Migration & Deployment section — existing data, rollback, stale cache, deployment order |
+| Specs get updated but scenarios don't | Scenario re-evaluation is mandatory after every spec change during architect review — no exceptions |
 
 ---
 
