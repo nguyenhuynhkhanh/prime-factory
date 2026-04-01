@@ -131,17 +131,25 @@ function updateGitignore(dir) {
 // ---------------------------------------------------------------------------
 
 function cmdInit(targetDir, opts = {}) {
-  const templateDir = path.join(__dirname, "..", "template");
+  const pluginDir = path.join(__dirname, "..", "plugins", "dark-factory");
 
   log("");
   log(`${BOLD}Dark Factory${RESET} — installing into ${CYAN}${targetDir}${RESET}`);
   log("");
 
-  // 1. Copy .claude/ (agents, skills, rules) — always overwrite to latest
+  // 1. Copy agents, skills, rules — always overwrite to latest
   log(`${BOLD}Agents & Skills${RESET}`);
   copyDirRecursive(
-    path.join(templateDir, ".claude"),
-    path.join(targetDir, ".claude"),
+    path.join(pluginDir, "agents"),
+    path.join(targetDir, ".claude", "agents"),
+  );
+  copyDirRecursive(
+    path.join(pluginDir, "skills"),
+    path.join(targetDir, ".claude", "skills"),
+  );
+  copyDirRecursive(
+    path.join(pluginDir, ".claude", "rules"),
+    path.join(targetDir, ".claude", "rules"),
   );
 
   // 2. Create dark-factory/ working directories — never overwrite existing content
@@ -192,7 +200,7 @@ function cmdInit(targetDir, opts = {}) {
 }
 
 function cmdUpdate(targetDir) {
-  const templateDir = path.join(__dirname, "..", "template");
+  const pluginDir = path.join(__dirname, "..", "plugins", "dark-factory");
 
   log("");
   log(`${BOLD}Dark Factory${RESET} — updating agents, skills & rules in ${CYAN}${targetDir}${RESET}`);
@@ -200,8 +208,16 @@ function cmdUpdate(targetDir) {
 
   log(`${BOLD}Agents & Skills${RESET}`);
   copyDirRecursive(
-    path.join(templateDir, ".claude"),
-    path.join(targetDir, ".claude"),
+    path.join(pluginDir, "agents"),
+    path.join(targetDir, ".claude", "agents"),
+  );
+  copyDirRecursive(
+    path.join(pluginDir, "skills"),
+    path.join(targetDir, ".claude", "skills"),
+  );
+  copyDirRecursive(
+    path.join(pluginDir, ".claude", "rules"),
+    path.join(targetDir, ".claude", "rules"),
   );
 
   // Also update .gitignore in case new entries were added

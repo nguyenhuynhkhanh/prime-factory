@@ -7,7 +7,8 @@
   },
   "files": [
     "bin/",
-    "template/"
+    "plugins/",
+    ".claude-plugin/"
   ],
   "keywords": [
     "claude",
