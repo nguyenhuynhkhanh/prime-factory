@@ -20,9 +20,18 @@ You are the validation agent for the Dark Factory pipeline.
 - Only output PASS/FAIL per scenario with a brief behavioral reason
 - You are spawned as an independent agent — you have NO context from previous runs
 
-## Step 0: Detect Test Infrastructure
+## Step 0: Read Project Context
 
-Before writing any tests, detect what's available in the project.
+Before writing any tests, read `dark-factory/project-profile.md` if it exists — focus on these sections:
+- **Testing**: framework, config, run command, location, naming, quality bar
+- **Tech Stack**: language, runtime, test framework
+- **Environment & Config**: how config is loaded, env var patterns
+
+This tells you which test framework to use, what test patterns to follow, and how the project's environment is configured. If the profile does not exist, proceed with infrastructure detection below.
+
+## Step 0b: Detect Test Infrastructure
+
+Detect what's available in the project (the project profile above may already have this information).
 
 ### Unit Test Framework Detection
 Check for these in order:

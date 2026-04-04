@@ -24,6 +24,8 @@ Take the developer's raw input and spawn **3 independent debug-agents simultaneo
 >
 > Bug description: {raw input}
 >
+> Before starting your investigation, read `dark-factory/project-profile.md` if it exists -- it provides a map of the project's architecture, conventions, and patterns. Focus on sections relevant to your investigation angle.
+>
 > IMPORTANT: After your investigation, output your findings as a structured report with these sections: Execution Trace, Failure Point, Root Cause Hypothesis, Evidence (with file:line references). Do NOT write any files — just report your findings.
 
 **Investigator B — History Detective**
@@ -31,6 +33,8 @@ Take the developer's raw input and spawn **3 independent debug-agents simultaneo
 > Focus on: git blame/log for the affected area, recent commits that touched this code, when this behavior was introduced (was it always broken or a regression?), who changed what and why, related PRs or issues.
 >
 > Bug description: {raw input}
+>
+> Before starting your investigation, read `dark-factory/project-profile.md` if it exists -- it provides a map of the project's architecture, conventions, and patterns. Focus on sections relevant to your investigation angle.
 >
 > IMPORTANT: After your investigation, output your findings as a structured report with these sections: Recent Changes, When Introduced, Relevant Commits, Root Cause Hypothesis, Evidence (with commit refs and file:line references). Do NOT write any files — just report your findings.
 
@@ -40,7 +44,24 @@ Take the developer's raw input and spawn **3 independent debug-agents simultaneo
 >
 > Bug description: {raw input}
 >
-> IMPORTANT: After your investigation, output your findings as a structured report with these sections: Similar Patterns Found, Edge Cases, Systemic Issues, Root Cause Hypothesis, Evidence (with file:line references). Do NOT write any files — just report your findings.
+> Before starting your investigation, read `dark-factory/project-profile.md` if it exists -- it provides a map of the project's architecture, conventions, and patterns. Focus on sections relevant to your investigation angle.
+>
+> **Search scope**: Search the same module/directory as the bug FIRST. Only expand to codebase-wide search if the bug's root cause is in shared/core code (utilities, middleware, base classes, shared services). State which directories/modules you searched and why.
+>
+> **Every bug gets systemic search**, but output is proportional to complexity:
+> - Simple/trivial bug (typo, off-by-one in isolated function): brief output — "No systemic patterns found. Classification: isolated incident." with brief justification
+> - Complex logic bug or shared code: full pattern search with file:line refs, risk assessment, and variant analysis
+>
+> IMPORTANT: After your investigation, output your findings as a structured report with these MANDATORY sections:
+> 1. **Similar Patterns Found** — For EACH similar pattern, provide: file:line reference, description of the pattern, and risk level (high/medium/low). If no similar patterns exist, state "No similar patterns found" with justification.
+> 2. **Search Scope** — Which directories/modules were searched and why. If search was limited to one module, state why expansion was not needed.
+> 3. **Classification** — One of: isolated incident / systemic pattern / shared-code risk. With brief rationale.
+> 4. **Regression Risk Assessment** — Risk level (high/medium/low) and what future changes (with concrete code references) could reintroduce this bug.
+> 5. **Edge Cases** — Boundary conditions and edge cases related to the bug.
+> 6. **Systemic Issues** — Whether this is a symptom of a larger design problem.
+> 7. **Root Cause Hypothesis** — Your hypothesis with Evidence (file:line references).
+>
+> Do NOT write any files — just report your findings.
 
 ### Step 2: Synthesize findings
 
@@ -52,7 +73,8 @@ After all 3 investigators complete, YOU (the orchestrator) synthesize their find
    - If all 3 diverge → the bug may be more complex than expected, present all angles
 2. **Merge evidence** — combine the strongest evidence from each investigator
 3. **Merge impact analysis** — union of all affected code paths found by all 3
-4. **Pick the best fix approach** — informed by all 3 perspectives
+4. **Merge regression risk findings** — carry forward regression risk assessments from ALL 3 investigators. Take the HIGHEST risk level with rationale from the investigator who identified it. Combine reintroduction vectors, similar patterns, and variant paths from all investigators into a unified regression risk assessment. Regression risk is a first-class synthesis dimension alongside root cause, evidence, and impact analysis.
+5. **Pick the best fix approach** — informed by all 3 perspectives
 
 ### Step 3: Present to developer
 

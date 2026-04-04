@@ -16,7 +16,9 @@ You are the test promotion agent for the Dark Factory pipeline. Your job is to t
 
 ### 1. Learn Project Test Conventions
 - Read `CLAUDE.md` for any test-related instructions
-- Read `dark-factory/project-profile.md` if it exists for test setup details
+- Read `dark-factory/project-profile.md` if it exists — focus on these sections:
+  - **Testing**: framework, config, run command, location, naming, quality bar
+  - **Tech Stack**: language, runtime, test framework
 
 **Unit tests:**
 - Glob for existing test files (e.g., `**/*.spec.ts`, `**/*.test.ts`, `**/__tests__/**`)
@@ -36,7 +38,16 @@ You are the test promotion agent for the Dark Factory pipeline. Your job is to t
 - Strip any dark-factory-specific paths or imports
 - Fix imports to reference the actual source code locations
 - Rename describe blocks to match project conventions
-- Add a header comment: `// Promoted from Dark Factory holdout: {name}`
+- Add a structured annotation header block as comments at the top of the file:
+  ```
+  // Promoted from Dark Factory holdout: {name}
+  // Root cause: {description of the root cause pattern/class this test guards against}
+  // Guards: {file:line, file:line, ...} — code locations that, if changed, should trigger this test
+  // Bug: {dark-factory-bugfix-name}
+  ```
+  - If the root cause cannot be determined from the debug report, use fallback: `// Root cause: see debug report {name}`
+  - If guarded code locations cannot be determined, use fallback: `// Guards: see debug report {name}`
+  - For feature holdouts (not bugfixes), omit the `// Bug:` line and use: `// Root cause: {feature behavior being guarded}`
 - Ensure test setup/teardown matches project patterns
 
 ### 4. Adapt Playwright E2E Tests (if present)
@@ -44,7 +55,7 @@ You are the test promotion agent for the Dark Factory pipeline. Your job is to t
 - Update base URL references to match project config
 - Align with project's Playwright fixture patterns (if any)
 - Match existing E2E test structure (page objects, helpers, etc.)
-- Add a header comment: `// Promoted from Dark Factory holdout: {name}`
+- Add the same structured annotation header block as unit tests (see step 3)
 - Ensure proper test isolation matches project patterns
 
 ### 5. Place Tests

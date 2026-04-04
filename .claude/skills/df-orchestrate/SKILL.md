@@ -103,27 +103,92 @@ Check if `dark-factory/results/{name}/` has previous results:
 
 ## Architect Review (MANDATORY — both modes)
 
-Before ANY implementation begins, the spec must pass principal engineer review.
+**Every spec gets 3 parallel domain-focused architect reviews. No exceptions. No gating. No skipping. Quality is non-negotiable.**
 
-**Step 0: Architect Review**
-- Check if `dark-factory/specs/features/{name}.review.md` or `dark-factory/specs/bugfixes/{name}.review.md` already exists with status APPROVED:
-  - If APPROVED → skip review, proceed to implementation
-  - If APPROVED WITH NOTES → skip review, proceed to implementation
-  - If BLOCKED or no review exists → run review
-- Spawn an **independent** architect-agent (Agent tool with `.claude/agents/architect-agent.md`, `subagent_type: "architect-agent"`) with:
-  - The spec file path
-  - The feature name
-  - Whether this is a feature or bugfix
-  - Note: the architect runs inside the spec's worktree — no separate worktree needed
-- The architect-agent will:
-  1. Deep-review the spec against the codebase
-  2. Run at least 3 rounds of discussion with the spec-agent (features) or debug-agent (bugs)
-  3. Each round: architect identifies gaps → spawns spec/debug agent to update spec → re-reviews
-  4. Produce a review summary with APPROVED / APPROVED WITH NOTES / BLOCKED status
-- Wait for completion
-- Read the review file
-- If BLOCKED → report to developer, do NOT proceed to implementation
-- If APPROVED → proceed to implementation
+### Step 0: Extract Estimated File Count
+
+Read the spec file and look for the **Implementation Size Estimate** section:
+- If present, extract the `Estimated file count` field and record it in `dark-factory/manifest.json` as `"estimatedFiles"` (integer or null)
+- If missing, set `"estimatedFiles"` to null
+- Also set `"actualFiles"` to null (updated post-implementation)
+
+### Parallel Domain Review
+
+- Check if `{name}.review.md` already exists with APPROVED or APPROVED WITH NOTES:
+  - If yes → skip review, extract and forward findings (see Findings Forwarding below)
+  - If individual domain review files exist but synthesized review is missing → re-synthesize from domain files (do not re-run architects)
+  - If BLOCKED or no review → run parallel domain review
+
+**Parallel Domain Review (Pass 1):**
+
+Spawn 3 architect-agents **in parallel** (all in a single message, each using `.claude/agents/architect-agent.md`), each with a domain parameter:
+
+1. **Security & Data Integrity domain** — Spawn architect-agent with:
+   - The spec file path, feature name, feature/bugfix mode
+   - Domain: "Security & Data Integrity"
+   - Instruction: focus ONLY on auth, sanitization, data exposure, migrations, concurrent writes
+   - Output file: `{name}.review-security.md`
+
+2. **Architecture & Performance domain** — Spawn architect-agent with:
+   - The spec file path, feature name, feature/bugfix mode
+   - Domain: "Architecture & Performance"
+   - Instruction: focus ONLY on module boundaries, patterns, N+1 queries, caching, scalability
+   - Output file: `{name}.review-architecture.md`
+
+3. **API Design & Backward Compatibility domain** — Spawn architect-agent with:
+   - The spec file path, feature name, feature/bugfix mode
+   - Domain: "API Design & Backward Compatibility"
+   - Instruction: focus ONLY on contracts, versioning, error handling, observability
+   - Output file: `{name}.review-api.md`
+
+**Critical rule**: In parallel review mode, architect-agents produce domain-specific review files but do NOT spawn spec-agents or write to the spec. Only the orchestrator synthesizes and spawns a single spec-agent for all changes.
+
+Wait for all three to complete.
+
+**Synthesis:**
+- Read all three domain review files
+- **Strictest-wins**: If ANY domain returns BLOCKED → overall status is BLOCKED
+- **Contradiction detection**: If domain reviews contain contradictory recommendations (e.g., one says "add encryption" and another says "keep simple"), escalate both positions to the developer and wait for resolution
+- **Deduplicate**: Remove overlapping findings that appear in multiple domain reviews
+- Write synthesized review to `{name}.review.md` with backward-compatible format:
+  ```
+  ## Architect Review: {name}
+  ### Status: {strictest status across all domains}
+  ### Key Decisions Made
+  - {deduplicated decisions from all domains with domain attribution}
+  ### Remaining Notes
+  - {deduplicated notes from all domains with domain attribution}
+  ### Blockers (if BLOCKED)
+  - [{domain}] {blocker description}
+  ```
+
+**If BLOCKED:**
+- Spawn ONE spec-agent (features) or debug-agent (bugfixes) with all findings from all three domains
+- After spec update, run verification round (Pass 2)
+
+**Follow-up Verification (Pass 2-3):**
+- Maximum 3 total passes: initial parallel (Pass 1) + up to 2 follow-ups (Pass 2, 3)
+- Verification can be a single architect round covering all domains, or parallel — use judgment based on what was blocked
+- If Pass 3 still has blockers → report to developer and STOP
+- Update synthesized review file with final status
+
+**If APPROVED:**
+- Extract and forward findings, proceed to implementation
+
+### Findings Forwarding to Code-Agents
+
+After architect review completes (APPROVED or APPROVED WITH NOTES), extract findings for the code-agent:
+
+1. Read `{name}.review.md`
+2. Extract ONLY these sections (whitelist-based):
+   - **"Key Decisions Made"** — architectural decisions and their rationale
+   - **"Remaining Notes"** — notes on acceptable trade-offs
+3. **Strip everything else** — round-by-round discussion, blocker history, domain attribution details, and any other content is NOT forwarded
+4. Pass the extracted findings to code-agents as supplementary context alongside the spec and public scenarios
+
+**If the review file has no "Key Decisions Made" section**: pass empty findings (no-op, not an error).
+
+**For cached reviews** (re-runs where APPROVED review already exists): still read and forward findings. Cached reviews must not degrade implementation quality.
 
 **Important rules for architect review:**
 - The architect NEVER discusses tests or scenarios with the spec/debug agent
@@ -158,6 +223,7 @@ Tell the developer how many parallel code-agents you plan to spawn and what each
 **Step 1: Code Agents** (skip in test-only mode)
 - Read the spec file content
 - Read all public scenario files content
+- If architect review findings exist (from Findings Forwarding above): include "Key Decisions Made" and "Remaining Notes" as supplementary context
 - If fix mode: also include the sanitized failure summary from previous round
 
 **If single track (small scope):**
@@ -204,9 +270,11 @@ The bugfix cycle enforces strict integrity: test and implementation are written 
 ### Step 1: Red Phase (Prove the Bug)
 - Read the debug report content
 - Read all public scenario files content (reproduction cases)
+- If architect review findings exist (from Findings Forwarding above): include "Key Decisions Made" and "Remaining Notes" as supplementary context
 - Spawn an **independent** code-agent (Agent tool) with:
   - The debug report content
   - The public scenarios
+  - If available: architect review findings (Key Decisions + Remaining Notes only)
   - Explicit instruction: **bugfix mode, Step 1 only — write the failing test, NO source code changes**
 - Wait for completion
 - **Verify**: Check that the code-agent ONLY created/modified test files (no source code changes)
@@ -217,6 +285,7 @@ The bugfix cycle enforces strict integrity: test and implementation are written 
 - Spawn an **independent** code-agent (Agent tool) with:
   - The debug report content
   - The public scenarios
+  - If available: architect review findings (Key Decisions + Remaining Notes only)
   - The test file path from Step 1
   - Explicit instruction: **bugfix mode, Step 2 only — implement the fix, NO test file changes**
 - Wait for completion
@@ -239,6 +308,12 @@ The bugfix cycle enforces strict integrity: test and implementation are written 
 ## Post-Implementation Lifecycle
 
 When all holdout tests pass:
+
+**Step 3.1: Post-Hoc File Count**
+- Count the distinct files modified during implementation (using `git diff --name-only` against the pre-implementation commit)
+- Update `dark-factory/manifest.json`: set `"actualFiles"` to the count
+- The delta between `estimatedFiles` and `actualFiles` is informational only — no automatic action is taken
+- If the count cannot be determined, set `"actualFiles"` to null and log a warning
 
 **Step 3.5: Exit Worktree**
 - Use `ExitWorktree` to merge the spec's worktree branch back to the original branch
@@ -278,4 +353,5 @@ Tests are promoted. Specs and scenarios are in git history. No need to keep file
 - NEVER pass test/scenario content to the architect-agent
 - The architect-agent communicates ONLY about spec content with spec/debug agents — never about tests
 - Each agent spawn is completely independent (fresh context)
-- Only pass: spec content, scenario content (appropriate type), and sanitized failure summaries
+- Only pass: spec content, scenario content (appropriate type), sanitized failure summaries, and architect review findings (Key Decisions Made + Remaining Notes ONLY)
+- Findings forwarding is whitelist-based: ONLY "Key Decisions Made" and "Remaining Notes" sections from the review file are forwarded to code-agents — all other content (round discussion, blocker history, domain details) is stripped

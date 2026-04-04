@@ -18,7 +18,7 @@ Dark Factory is an open-source multi-agent framework for Claude Code. Just descr
                                     │
                           ┌─────────────────────────┐
                           │  Architect Review        │──▶ APPROVED
-                          │  (tiered by scope size)  │
+                          │  (3 parallel domains)    │
                           └─────────────────────────┘
                                     │
                           ┌─────────────┐     ┌─────────────┐
@@ -82,7 +82,7 @@ You can also start with a question — "how does the auth system work?" — and 
 2. Findings are synthesized → you confirm scope
 3. **Smart decomposition**: large features are automatically split into smaller, independent specs with declared dependencies — you confirm the split
 4. Spec(s) + scenarios written → holdout scenarios shown inline for your review
-5. Architect review (tiered by scope size)
+5. Architect review: 3 parallel domain-focused reviews (security, architecture, API) for every spec
 6. Implementation in parallel worktrees: each spec gets its own worktree, with up to 4 code-agents per spec → test-agent validates
 7. On success: holdout tests promoted into your permanent test suite, artifacts cleaned up (git history is the archive)
 
@@ -116,11 +116,11 @@ Dark Factory separates concerns into independent agents with strict information 
 | What goes wrong without it | How Dark Factory prevents it |
 |---|---|
 | AI guesses the scope instead of asking | 3 spec-agents research from different perspectives — user, architecture, reliability |
-| AI skips architecture review | Architect-agent reviews every spec (tiered by scope — small skips, large gets full parallel review) |
+| AI skips architecture review | Architect-agent reviews every spec with 3 parallel domain-focused reviews (security, architecture, API) |
 | AI writes tests that match its own implementation | Test-agent uses **holdout scenarios** the code-agent has never seen |
 | Bug fixes that mask symptoms | 3 debug-agents investigate from different angles; strict red-green cycle prevents symptom-masking |
 | AI doesn't understand the existing codebase | Onboard-agent maps architecture, conventions, and quality bar before any work begins |
-| Small changes get stuck in heavy process | Scope-based fast track — small changes skip architect review, test-agent is the safety net |
+| Small changes get stuck in heavy process | Parallel domain reviews run fast — same depth in 1/3 the wall-clock time, test-agent is the safety net |
 | AI forgets migration plans for production data | Every spec requires a mandatory Migration & Deployment section — existing data, rollback, stale cache, deployment order |
 | Specs get updated but scenarios don't | Scenario re-evaluation is mandatory after every spec change during architect review — no exceptions |
 
@@ -135,7 +135,7 @@ Dark Factory separates concerns into independent agents with strict information 
 | **Onboard** | Maps the project before any work begins | Analyzes codebase → produces project profile |
 | **Spec** (x3) | Discovers scope, challenges assumptions, writes specs | 3 leads research in parallel from different perspectives |
 | **Debug** (x3) | Forensic root cause analysis, impact assessment | 3 investigators run in parallel — code path, history, patterns |
-| **Architect** | Reviews specs for architecture, security, performance | Tiered by scope; parallel domain review for large changes |
+| **Architect** | Reviews specs for architecture, security, performance | 3 parallel domain-focused reviews for every spec |
 | **Code** (x1-4) | Implements features and fixes | Auto-scaled parallel sessions within a worktree-isolated spec |
 | **Test** | Validates with hidden scenarios | Unit tests + Playwright e2e (auto-detected) |
 | **Promote** | Moves holdout tests into permanent test suite | Adapts both unit and e2e tests to project conventions |
@@ -250,7 +250,7 @@ your-project/
 
 **Why holdout scenarios?** — Without them, the AI writes code and tests from the same understanding. Holdout scenarios are written by the spec-agent and validated by the test-agent. The code-agent must implement correctly to pass tests it's never seen.
 
-**Why tiered architect review?** — A one-file change doesn't need the same scrutiny as a 10-file architectural overhaul. Small changes skip review (test-agent is the safety net), medium gets one round, large gets full parallel domain review.
+**Why parallel domain review for every spec?** — Quality is non-negotiable. Every spec gets 3 parallel domain-focused architect reviews (security, architecture, API). Same depth as sequential rounds, but in 1/3 the wall-clock time. Each domain goes deeper than a generalist doing one pass.
 
 **Why auto-scaled code-agents?** — A large spec with independent tracks can be implemented faster with multiple agents working in parallel. Combined with worktree-level isolation per spec, you can run many implementations concurrently without any conflicts.
 

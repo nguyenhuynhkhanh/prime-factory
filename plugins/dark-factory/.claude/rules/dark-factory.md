@@ -50,15 +50,15 @@ When in doubt, ask: "Would you like me to run this through the Dark Factory pipe
 ## Feature Pipeline
 1. **Spec phase** (`/df-intake`): Developer provides raw input → 3 spec-agents analyze from different perspectives (user/product, architecture, reliability) → orchestrator synthesizes → developer confirms → spec + scenarios written → DONE
 2. **Review**: Lead reviews holdout scenarios in `dark-factory/scenarios/holdout/`
-3. **Architect review** (`/df-orchestrate`): Principal engineer reviews spec for architecture, security, performance, production-readiness → 3+ rounds of refinement with spec-agent → APPROVED or BLOCKED
-4. **Implementation**: Parallel code-agents implement (scaled by spec size) → test-agent validates with holdout → iterate (max 3 rounds)
+3. **Architect review** (`/df-orchestrate`): Every spec gets 3 parallel domain-focused architect reviews (security, architecture, API) — no exceptions. Architect findings forwarded to code-agents.
+4. **Implementation**: Parallel code-agents implement (scaled by spec size) with architect findings as context → test-agent validates with holdout → iterate (max 3 rounds)
 5. **Promote**: On success, holdout tests are automatically promoted into the permanent test suite
 6. **Cleanup**: All artifacts committed to git then deleted — git history is the archive
 
 ## Bugfix Pipeline
 1. **Investigation** (`/df-debug`): Developer reports bug → 3 debug-agents investigate in parallel (code path, history, patterns) → orchestrator synthesizes findings → developer confirms → report + scenarios written → DONE
 2. **Review**: Lead reviews diagnosis, holdout scenarios
-3. **Architect review** (`/df-orchestrate`): Principal engineer reviews fix approach, blast radius, systemic patterns → 3+ rounds with debug-agent → APPROVED or BLOCKED
+3. **Architect review** (`/df-orchestrate`): Same parallel domain review as features — every spec gets 3 domain-focused reviews. Findings forwarded to code-agents.
 4. **Red-Green Fix**: Code-agent writes failing test (proves bug) → implements minimal fix (no test changes) → test passes → holdout validation
 5. **Promote + Cleanup**: Same as feature pipeline
 
@@ -68,7 +68,8 @@ When in doubt, ask: "Would you like me to run this through the Dark Factory pipe
 - NEVER pass holdout scenario content to the code-agent
 - NEVER pass public scenario content to the test-agent
 - NEVER pass test/scenario content to the architect-agent
-- Architect-agent reviews EVERY spec before implementation (minimum 3 rounds of refinement)
+- Every spec gets 3 parallel domain-focused architect reviews (security, architecture, API) — no gating, no skipping, no tiering
+- Architect findings (Key Decisions Made + Remaining Notes only) are forwarded to code-agents — round discussion is stripped to preserve information barriers
 - Architect-agent communicates with spec/debug agents ONLY about the spec — never about tests
 
 ## Lifecycle Tracking

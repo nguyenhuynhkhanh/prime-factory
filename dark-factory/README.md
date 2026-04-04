@@ -11,13 +11,13 @@ Dark Factory separates software development into independent phases with strict 
 
 ### Feature Pipeline
 1. **Spec Agent** (Business Analyst) — Discovers scope, challenges assumptions, produces a detailed spec with comprehensive test scenarios
-2. **Architect Agent** (Principal Engineer) — Reviews spec for architecture, security, performance, production-readiness. Drives 3+ rounds of refinement with the spec-agent before any code is written.
-3. **Code Agent** (Developer) — Implements the feature using only the spec and public scenarios
+2. **Architect Agent** (Principal Engineer) — Reviews every spec with 3 parallel domain-focused reviews (security, architecture, API). No exceptions. Findings forwarded to code-agents.
+3. **Code Agent** (Developer) — Implements the feature using the spec, public scenarios, and architect review findings
 4. **Test Agent** (QA) — Validates the implementation using holdout scenarios that the code agent never sees
 
 ### Bugfix Pipeline
 1. **Debug Agent** (Forensic Investigator) — Traces root cause, assesses impact, writes debug report with regression scenarios
-2. **Architect Agent** (Principal Engineer) — Reviews fix approach, blast radius, systemic patterns. Drives 3+ rounds of refinement with the debug-agent.
+2. **Architect Agent** (Principal Engineer) — Same parallel domain review as features — every spec gets 3 domain-focused reviews.
 3. **Code Agent** (Surgeon) — Writes a failing test that proves the bug, then implements the minimal fix in a strict red-green cycle
 4. **Test Agent** (QA) — Validates with holdout scenarios
 
@@ -39,7 +39,7 @@ Developer Input (feature)
        ▼
 ┌─────────────────┐
 │ Architect Agent  │  Reviews architecture, security, performance
-│ (Principal Eng)  │  3+ rounds of refinement with spec-agent
+│ (Principal Eng)  │  3 parallel domain reviews for every spec
 │                  │  ⚠ NEVER sees or discusses tests/scenarios
 └──────┬──────────┘
        │ APPROVED
@@ -75,7 +75,7 @@ Developer Input (bug)
        ▼
 ┌─────────────────┐
 │ Architect Agent  │  Reviews fix approach, blast radius,
-│ (Principal Eng)  │  systemic patterns. 3+ rounds with debug-agent.
+│ (Principal Eng)  │  systemic patterns. 3 parallel domain reviews.
 │                  │  ⚠ NEVER sees or discusses tests/scenarios
 └──────┬──────────┘
        │ APPROVED
@@ -205,10 +205,10 @@ Start the implementation phase for a named spec. Auto-detects feature vs. bugfix
 /df-orchestrate user-csv-export
 ```
 
-**Both modes start with architect review:**
-1. Architect-agent reviews spec for architecture, security, performance, production-readiness
-2. 3+ rounds of refinement with the spec/debug agent (NEVER discusses tests)
-3. Must be APPROVED before any implementation begins
+**Both modes start with parallel domain architect review:**
+1. Every spec gets 3 parallel domain-focused architect reviews (security, architecture, API) — no exceptions
+2. Architect findings (Key Decisions + Remaining Notes) forwarded to code-agents
+3. Must be APPROVED before any implementation begins (NEVER discusses tests)
 
 **Feature mode**: code-agent implements → test-agent validates → iterate (max 3 rounds)
 
@@ -239,7 +239,7 @@ Show scenario templates for manual writing.
 2. **Answer questions**: The spec-agent will ask clarifying questions to discover scope
 3. **Review**: Check the spec in `dark-factory/specs/features/`
 4. **Review holdouts**: Check `dark-factory/scenarios/holdout/{name}/` — add/edit scenarios
-5. **Implement**: `/df-orchestrate {name}` — architect reviews first (3+ rounds), then code-agent implements
+5. **Implement**: `/df-orchestrate {name}` — scope-tiered architect review, then code-agent implements with findings
 6. **Check results**: Review any failures, iterate if needed
 
 ## How to Report a Bug
@@ -267,7 +267,7 @@ Use `/df-cleanup` to diagnose and fix features stuck in intermediate states.
 ## Key Principles
 
 - **Spec-first**: Always build a good spec (features) or debug report (bugs) before any code is written
-- **Architect review**: Every spec passes principal engineer review (3+ rounds) before implementation — architecture, security, performance, production-readiness
+- **Architect review**: Every spec gets 3 parallel domain-focused reviews (security, architecture, API) before implementation. Findings forwarded to code-agents.
 - **Discovery over speed**: For bugs, understanding the root cause and impact is more important than a fast fix
 - **Fully decoupled**: Spec/debug and implementation are never auto-triggered
 - **Independent agents**: Every agent spawn is fresh — no shared state between runs

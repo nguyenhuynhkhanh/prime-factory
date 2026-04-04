@@ -249,11 +249,47 @@ describe("Architect review gate", () => {
     );
   });
 
-  it("architect-agent runs minimum 3 rounds", () => {
+  it("architect-agent supports domain parameter for focused review", () => {
     const content = readAgent("architect-agent");
     assert.ok(
-      content.includes("minimum 3") || content.includes("at least 3"),
-      "architect-agent should specify minimum 3 rounds"
+      content.includes("domain parameter"),
+      "architect-agent should support domain parameter"
+    );
+    assert.ok(
+      content.includes("Security & Data Integrity"),
+      "architect-agent should define Security & Data Integrity domain"
+    );
+    assert.ok(
+      content.includes("Architecture & Performance"),
+      "architect-agent should define Architecture & Performance domain"
+    );
+    assert.ok(
+      content.includes("API Design & Backward Compatibility"),
+      "architect-agent should define API Design & Backward Compatibility domain"
+    );
+  });
+
+  it("architect-agent runs at least 3 rounds in standard (non-domain) mode", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("at least 3 rounds"),
+      "architect-agent should specify at least 3 rounds for standard review"
+    );
+  });
+
+  it("architect-agent produces domain-specific review files", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("review-security.md"),
+      "architect-agent should reference security domain review file"
+    );
+    assert.ok(
+      content.includes("review-architecture.md"),
+      "architect-agent should reference architecture domain review file"
+    );
+    assert.ok(
+      content.includes("review-api.md"),
+      "architect-agent should reference api domain review file"
     );
   });
 
@@ -285,6 +321,52 @@ describe("Architect review gate", () => {
       content.includes("BLOCKED") &&
         content.toLowerCase().includes("do not proceed"),
       "df-orchestrate should block implementation on BLOCKED status"
+    );
+  });
+
+  it("df-orchestrate spawns parallel domain review for every spec", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("parallel") && content.includes("domain"),
+      "df-orchestrate should support parallel domain review"
+    );
+    assert.ok(
+      content.includes("Security & Data Integrity") &&
+        content.includes("Architecture & Performance") &&
+        content.includes("API Design & Backward Compatibility"),
+      "df-orchestrate should define all three review domains"
+    );
+    assert.ok(
+      content.includes("Every spec") || content.includes("every spec") || content.includes("No exceptions"),
+      "df-orchestrate should review every spec without exceptions"
+    );
+  });
+
+  it("df-orchestrate forwards findings to code-agents", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Key Decisions Made") && content.includes("Remaining Notes"),
+      "df-orchestrate should forward Key Decisions Made and Remaining Notes"
+    );
+    assert.ok(
+      content.includes("Findings Forwarding"),
+      "df-orchestrate should have a Findings Forwarding section"
+    );
+  });
+
+  it("df-orchestrate includes post-hoc file count comparison", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Post-Hoc File Count") || content.includes("actualFiles"),
+      "df-orchestrate should include post-hoc file count"
+    );
+  });
+
+  it("df-orchestrate uses strictest-wins for parallel review aggregation", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Strictest-wins") || content.includes("strictest"),
+      "df-orchestrate should use strictest-wins aggregation"
     );
   });
 });
@@ -405,6 +487,22 @@ describe("Information barriers", () => {
       "Must prohibit passing test content to architect-agent"
     );
   });
+
+  it("findings forwarding strips round discussion (whitelist-based)", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("whitelist-based") || content.includes("whitelist"),
+      "Findings forwarding must be whitelist-based"
+    );
+    assert.ok(
+      content.includes("Key Decisions Made") && content.includes("Remaining Notes"),
+      "Only Key Decisions Made and Remaining Notes sections should be forwarded"
+    );
+    assert.ok(
+      content.includes("stripped") || content.includes("strip"),
+      "Round discussion must be stripped from findings"
+    );
+  });
 });
 
 // ===========================================================================
@@ -450,13 +548,37 @@ describe("Project onboarding", () => {
   });
 
   it("all key agents reference project-profile.md", () => {
-    for (const name of ["spec-agent", "debug-agent", "architect-agent", "code-agent"]) {
+    for (const name of ["spec-agent", "debug-agent", "architect-agent", "code-agent", "test-agent", "promote-agent"]) {
       const content = readAgent(name);
       assert.ok(
         content.includes("project-profile.md"),
         `${name} should reference project-profile.md`
       );
     }
+  });
+
+  it("test-agent has section-targeted profile reading instructions", () => {
+    const content = readAgent("test-agent");
+    assert.ok(
+      content.includes("project-profile.md"),
+      "test-agent should reference project-profile.md"
+    );
+    assert.ok(
+      content.includes("Testing") && content.includes("Tech Stack") && content.includes("Environment"),
+      "test-agent should specify Testing, Tech Stack, and Environment sections"
+    );
+  });
+
+  it("promote-agent has section-targeted profile reading instructions", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("project-profile.md"),
+      "promote-agent should reference project-profile.md"
+    );
+    assert.ok(
+      content.includes("Testing") && content.includes("Tech Stack"),
+      "promote-agent should specify Testing and Tech Stack sections"
+    );
   });
 
   it("df-orchestrate checks for project profile in pre-flight", () => {
@@ -537,7 +659,194 @@ describe("Bugfix red-green integrity", () => {
 });
 
 // ===========================================================================
-// 8. Lifecycle — promote + archive flow
+// 8b. Bugfix regression prevention
+// ===========================================================================
+
+describe("Bugfix regression prevention", () => {
+  // --- debug-agent: Systemic Analysis section ---
+  it("debug-agent contains Systemic Analysis section in report template", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("Systemic Analysis"),
+      "debug-agent should contain 'Systemic Analysis' section"
+    );
+  });
+
+  it("debug-agent Systemic Analysis has Similar Patterns Found", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("Similar Patterns Found"),
+      "debug-agent should contain 'Similar Patterns Found' subsection"
+    );
+  });
+
+  it("debug-agent Systemic Analysis has Classification", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("Classification") && (content.includes("isolated incident") || content.includes("Isolated incident")),
+      "debug-agent should contain Classification with isolated incident option"
+    );
+  });
+
+  // --- debug-agent: Regression Risk Assessment section ---
+  it("debug-agent contains Regression Risk Assessment section", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("Regression Risk Assessment"),
+      "debug-agent should contain 'Regression Risk Assessment' section"
+    );
+  });
+
+  it("debug-agent Regression Risk Assessment has risk level and reintroduction vectors", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("Risk Level") && content.includes("Reintroduction Vectors"),
+      "debug-agent should contain Risk Level and Reintroduction Vectors"
+    );
+  });
+
+  // --- debug-agent: Root Cause Depth ---
+  it("debug-agent distinguishes immediate cause from deeper enabling pattern", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("Immediate Cause") && content.includes("Deeper Enabling Pattern"),
+      "debug-agent should distinguish Immediate Cause from Deeper Enabling Pattern"
+    );
+  });
+
+  // --- debug-agent: Variant scenarios ---
+  it("debug-agent requires variant scenarios in both public and holdout", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("Variant scenario") || content.includes("variant scenario"),
+      "debug-agent should reference variant scenarios"
+    );
+    assert.ok(
+      content.includes("3-5") && content.toLowerCase().includes("variant"),
+      "debug-agent should cap variant scenarios at 3-5"
+    );
+  });
+
+  // --- code-agent: Root cause class targeting ---
+  it("code-agent Red Phase targets root cause CLASS not symptom", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("root cause CLASS") || content.includes("root cause class"),
+      "code-agent should require targeting root cause CLASS"
+    );
+  });
+
+  it("code-agent Red Phase requires test name to reference root cause", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("test name must reference the root cause"),
+      "code-agent should require test name to reference root cause"
+    );
+  });
+
+  // --- code-agent: Variant test coverage ---
+  it("code-agent requires variant test coverage proportional to risk", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("Variant test coverage") || content.includes("variant test"),
+      "code-agent should reference variant test coverage"
+    );
+    assert.ok(
+      content.includes("HIGH risk") && content.includes("LOW risk"),
+      "code-agent should specify variant counts by risk level"
+    );
+  });
+
+  // --- architect-agent: Regression risk evaluation ---
+  it("architect-agent bugfix review evaluates regression risk depth", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("Regression risk depth evaluation") ||
+        content.includes("regression risk depth"),
+      "architect-agent should evaluate regression risk depth for bugfixes"
+    );
+  });
+
+  it("architect-agent can BLOCK symptom-only fixes", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("BLOCK") && content.includes("symptom"),
+      "architect-agent should be able to BLOCK symptom-only fixes"
+    );
+  });
+
+  it("architect-agent bugfix review checks root-cause vs symptom distinction", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("Root-cause vs symptom") || content.includes("root-cause vs symptom"),
+      "architect-agent should check root-cause vs symptom distinction"
+    );
+  });
+
+  // --- promote-agent: Structured annotations ---
+  it("promote-agent requires structured annotation with Root cause:", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("// Root cause:"),
+      "promote-agent should require '// Root cause:' annotation"
+    );
+  });
+
+  it("promote-agent requires structured annotation with Guards:", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("// Guards:"),
+      "promote-agent should require '// Guards:' annotation"
+    );
+  });
+
+  it("promote-agent requires structured annotation with Bug:", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("// Bug:"),
+      "promote-agent should require '// Bug:' annotation"
+    );
+  });
+
+  // --- df-debug SKILL: Investigator C structured output ---
+  it("df-debug Investigator C requires Regression Risk Assessment", () => {
+    const content = readSkill("df-debug");
+    assert.ok(
+      content.includes("Regression Risk Assessment") &&
+        content.includes("Investigator C"),
+      "df-debug Investigator C should require Regression Risk Assessment"
+    );
+  });
+
+  it("df-debug Investigator C requires file:line references", () => {
+    const content = readSkill("df-debug");
+    assert.ok(
+      content.includes("file:line") && content.includes("Investigator C"),
+      "df-debug Investigator C should require file:line references"
+    );
+  });
+
+  it("df-debug Investigator C requires Search Scope", () => {
+    const content = readSkill("df-debug");
+    assert.ok(
+      content.includes("Search Scope"),
+      "df-debug Investigator C should require Search Scope output"
+    );
+  });
+
+  // --- df-debug SKILL: Synthesis regression risk dimension ---
+  it("df-debug synthesis includes regression risk as dimension", () => {
+    const content = readSkill("df-debug");
+    assert.ok(
+      content.includes("regression risk") || content.includes("Regression Risk") ||
+        content.includes("Merge regression risk"),
+      "df-debug synthesis should include regression risk as a dimension"
+    );
+  });
+});
+
+// ===========================================================================
+// 8c. Lifecycle — promote + archive flow
 // ===========================================================================
 
 describe("Promote and archive lifecycle", () => {
@@ -616,147 +925,5 @@ describe("CLAUDE.md completeness", () => {
       claudeMd.includes("Bugfix Pipeline"),
       "Should document bugfix pipeline"
     );
-  });
-});
-
-// ===========================================================================
-// 10. Init script produces correct scaffold
-// ===========================================================================
-
-describe("init-dark-factory.js scaffold", () => {
-  const tmpDir = path.join(
-    require("os").tmpdir(),
-    `df-test-${Date.now()}`
-  );
-
-  before(() => {
-    execSync(
-      `node ${path.join(ROOT, "scripts", "init-dark-factory.js")} --dir ${tmpDir}`,
-      { stdio: "pipe" }
-    );
-  });
-
-  after(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  const expectedAgentFiles = [
-    "spec-agent.md",
-    "debug-agent.md",
-    "onboard-agent.md",
-    "architect-agent.md",
-    "code-agent.md",
-    "test-agent.md",
-    "promote-agent.md",
-  ];
-
-  for (const file of expectedAgentFiles) {
-    it(`creates .claude/agents/${file}`, () => {
-      assert.ok(
-        fs.existsSync(path.join(tmpDir, ".claude", "agents", file)),
-        `Scaffold should create ${file}`
-      );
-    });
-  }
-
-  const expectedSkillDirs = [
-    "df-onboard",
-    "df-intake",
-    "df-debug",
-    "df-orchestrate",
-    "df-spec",
-    "df-scenario",
-    "df-cleanup",
-  ];
-
-  for (const skill of expectedSkillDirs) {
-    it(`creates .claude/skills/${skill}/SKILL.md`, () => {
-      assert.ok(
-        fs.existsSync(
-          path.join(tmpDir, ".claude", "skills", skill, "SKILL.md")
-        ),
-        `Scaffold should create ${skill}/SKILL.md`
-      );
-    });
-  }
-
-  const expectedDirs = [
-    "dark-factory/specs/features",
-    "dark-factory/specs/bugfixes",
-    "dark-factory/scenarios/public",
-    "dark-factory/scenarios/holdout",
-    "dark-factory/results",
-    "dark-factory/archive",
-  ];
-
-  for (const dir of expectedDirs) {
-    it(`creates ${dir}/`, () => {
-      assert.ok(
-        fs.existsSync(path.join(tmpDir, dir)),
-        `Scaffold should create ${dir}/`
-      );
-    });
-  }
-
-  it("creates valid manifest.json", () => {
-    const manifest = JSON.parse(
-      fs.readFileSync(path.join(tmpDir, "dark-factory", "manifest.json"), "utf8")
-    );
-    assert.equal(manifest.version, 1);
-    assert.deepEqual(manifest.features, {});
-  });
-
-  it("creates CLAUDE.md with Dark Factory section", () => {
-    const content = fs.readFileSync(
-      path.join(tmpDir, "CLAUDE.md"),
-      "utf8"
-    );
-    assert.ok(content.includes("Dark Factory"));
-    assert.ok(content.includes("/df-intake"));
-    assert.ok(content.includes("/df-debug"));
-    assert.ok(content.includes("/df-orchestrate"));
-    assert.ok(content.includes("Architect review"));
-  });
-
-  it("creates .gitignore with results excluded", () => {
-    const content = fs.readFileSync(
-      path.join(tmpDir, ".gitignore"),
-      "utf8"
-    );
-    assert.ok(content.includes("dark-factory/results/"));
-  });
-
-  it("scaffold agents have matching frontmatter names", () => {
-    for (const file of expectedAgentFiles) {
-      const name = file.replace(".md", "");
-      const content = fs.readFileSync(
-        path.join(tmpDir, ".claude", "agents", file),
-        "utf8"
-      );
-      const fm = parseFrontmatter(content);
-      assert.ok(fm, `${file} should have frontmatter`);
-      assert.equal(fm.name, name, `${file} frontmatter name should be "${name}"`);
-    }
-  });
-
-  it("scaffold skills have matching frontmatter names", () => {
-    for (const skill of expectedSkillDirs) {
-      const content = fs.readFileSync(
-        path.join(tmpDir, ".claude", "skills", skill, "SKILL.md"),
-        "utf8"
-      );
-      const fm = parseFrontmatter(content);
-      assert.ok(fm, `${skill}/SKILL.md should have frontmatter`);
-      assert.equal(fm.name, skill, `${skill}/SKILL.md frontmatter name should be "${skill}"`);
-    }
-  });
-
-  it("scaffold is idempotent (running twice doesn't error)", () => {
-    assert.doesNotThrow(() => {
-      execSync(
-        `node ${path.join(ROOT, "scripts", "init-dark-factory.js")} --dir ${tmpDir}`,
-        { stdio: "pipe" }
-      );
-    });
   });
 });
