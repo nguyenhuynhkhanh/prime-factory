@@ -7,6 +7,33 @@
       "specPath": "dark-factory/specs/features/pipeline-velocity.spec.md",
       "created": "2026-03-22T03:45:00.000Z",
       "rounds": 0
+    },
+    "onboard-improvement": {
+      "type": "feature",
+      "status": "active",
+      "specPath": "dark-factory/specs/features/onboard-improvement.spec.md",
+      "created": "2026-04-03T00:00:00.000Z",
+      "rounds": 0,
+      "group": null,
+      "dependencies": []
+    },
+    "bugfix-regression-prevention": {
+      "type": "feature",
+      "status": "active",
+      "specPath": "dark-factory/specs/features/bugfix-regression-prevention.spec.md",
+      "created": "2026-04-03T00:00:00.000Z",
+      "rounds": 0,
+      "group": null,
+      "dependencies": []
+    },
+    "group-orchestrate": {
+      "type": "feature",
+      "status": "active",
+      "specPath": "dark-factory/specs/features/group-orchestrate.spec.md",
+      "created": "2026-04-03T00:00:00.000Z",
+      "rounds": 0,
+      "group": null,
+      "dependencies": ["pipeline-velocity"]
     }
   }
 }
