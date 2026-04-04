@@ -33,7 +33,7 @@ Take the developer's raw input and spawn **3 independent spec-agents simultaneou
 >
 > Feature description: {raw input}
 >
-> First, read `dark-factory/project-profile.md` if it exists — it contains the project's architecture, conventions, tech stack, and quality bar. Use it to ground your research.
+> Also read `dark-factory/code-map.md` if it exists — use the **Shared Dependency Hotspots** section to understand which areas of the codebase are heavily connected and may affect scope estimation.
 >
 > Research the codebase, then output your findings as a structured report with these sections:
 > - **Users & Use Cases**: who uses this and how
@@ -51,7 +51,7 @@ Take the developer's raw input and spawn **3 independent spec-agents simultaneou
 >
 > Feature description: {raw input}
 >
-> First, read `dark-factory/project-profile.md` if it exists — it contains the project's architecture, conventions, tech stack, and quality bar. Use it to ground your research.
+> Also read `dark-factory/code-map.md` if it exists — use the **Module Dependency Graph** and **Entry Point Traces** sections to understand how modules connect and where this feature fits architecturally.
 >
 > Research the codebase, then output your findings as a structured report with these sections:
 > - **Affected Systems**: which parts of the codebase this touches
@@ -70,7 +70,7 @@ Take the developer's raw input and spawn **3 independent spec-agents simultaneou
 >
 > Feature description: {raw input}
 >
-> First, read `dark-factory/project-profile.md` if it exists — it contains the project's architecture, conventions, tech stack, and quality bar. Use it to ground your research.
+> Also read `dark-factory/code-map.md` if it exists — use the **Circular Dependencies** and **Cross-Cutting Concerns** sections to identify reliability risks and shared patterns that could be affected.
 >
 > Research the codebase, then output your findings as a structured report with these sections:
 > - **Failure Modes**: what can go wrong and how to handle it

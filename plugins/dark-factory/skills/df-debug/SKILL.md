@@ -26,6 +26,8 @@ Take the developer's raw input and spawn **3 independent debug-agents simultaneo
 >
 > Before starting your investigation, read `dark-factory/project-profile.md` if it exists -- it provides a map of the project's architecture, conventions, and patterns. Focus on sections relevant to your investigation angle.
 >
+> Also read `dark-factory/code-map.md` if it exists -- use the **Entry Point Traces** and **Module Dependency Graph** sections to quickly trace call chains from entry points to the failure area without manually grepping the entire codebase.
+>
 > IMPORTANT: After your investigation, output your findings as a structured report with these sections: Execution Trace, Failure Point, Root Cause Hypothesis, Evidence (with file:line references). Do NOT write any files — just report your findings.
 
 **Investigator B — History Detective**
@@ -36,6 +38,8 @@ Take the developer's raw input and spawn **3 independent debug-agents simultaneo
 >
 > Before starting your investigation, read `dark-factory/project-profile.md` if it exists -- it provides a map of the project's architecture, conventions, and patterns. Focus on sections relevant to your investigation angle.
 >
+> Also read `dark-factory/code-map.md` if it exists -- use the **Shared Dependency Hotspots** section to understand which modules have high fan-in and may have been affected by recent changes.
+>
 > IMPORTANT: After your investigation, output your findings as a structured report with these sections: Recent Changes, When Introduced, Relevant Commits, Root Cause Hypothesis, Evidence (with commit refs and file:line references). Do NOT write any files — just report your findings.
 
 **Investigator C — Pattern & Systemic Analyst**
@@ -45,6 +49,8 @@ Take the developer's raw input and spawn **3 independent debug-agents simultaneo
 > Bug description: {raw input}
 >
 > Before starting your investigation, read `dark-factory/project-profile.md` if it exists -- it provides a map of the project's architecture, conventions, and patterns. Focus on sections relevant to your investigation angle.
+>
+> Also read `dark-factory/code-map.md` if it exists -- use the **Circular Dependencies**, **Cross-Cutting Concerns**, and **Module Dependency Graph** sections to identify systemic patterns and shared dependencies that could harbor the same bug.
 >
 > **Search scope**: Search the same module/directory as the bug FIRST. Only expand to codebase-wide search if the bug's root cause is in shared/core code (utilities, middleware, base classes, shared services). State which directories/modules you searched and why.
 >

@@ -29,6 +29,10 @@ Before writing any tests, read `dark-factory/project-profile.md` if it exists â€
 
 This tells you which test framework to use, what test patterns to follow, and how the project's environment is configured. If the profile does not exist, proceed with infrastructure detection below.
 
+If `dark-factory/code-map.md` exists, also read these sections:
+- **Entry Point Traces**: understand how execution flows to the code being tested
+- **Shared Dependency Hotspots**: identify high-impact modules that need thorough test coverage
+
 ## Step 0b: Detect Test Infrastructure
 
 Detect what's available in the project (the project profile above may already have this information).
