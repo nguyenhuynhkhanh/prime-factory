@@ -22,7 +22,7 @@ Determine what kind of project you're looking at:
 
 1. **Check if the project exists at all**:
    - Is there source code? Or just Dark Factory scaffolding?
-   - If empty: produce a minimal profile noting "greenfield project" and ask the developer about their intended stack, architecture, and conventions
+   - If empty: produce a minimal profile noting "greenfield project" and ask the developer about their intended stack, architecture, and conventions. **Include ALL template sections** — for sections that cannot be determined yet (API Conventions, Auth Model, Environment & Config, Business Domain Entities, Common Gotchas), write "Not yet established — will be populated as the project grows" rather than omitting them. This preserves the template structure so future `/df-onboard` refreshes treat them as updates rather than new sections. Do NOT include code examples for greenfield projects.
    - If source exists: proceed to Phase 2
 
 2. **Check for existing project profile** (incremental refresh):
@@ -63,7 +63,7 @@ Determine what kind of project you're looking at:
    - Layer separation: do they have controllers/services/repositories? Or is it flat?
    - Shared code: utilities, helpers, base classes, middleware — what's reused?
 
-6. **Map code patterns** (sample at least one file per top-level module/directory, not just 3-5 files total):
+6. **Map code patterns** (sample at least one file per top-level module/directory, not just 3-5 files total; if there are more than 20 top-level directories, sample a representative subset of 15-20 and note in the profile that sampling was partial — tell the developer which directories were not sampled):
    - When patterns are inconsistent across modules, flag them and ask the developer which is canonical
    - Naming conventions: camelCase, snake_case, PascalCase for what?
    - File naming: `user.service.ts`, `UserService.ts`, `user-service.ts`?
@@ -132,6 +132,10 @@ Determine what kind of project you're looking at:
 13. **Conditional sections:**
     - **Key Business Domain Entities**: Only include this section when the project has domain-specific constraints that affect implementation (e.g., multi-tenant architecture, compliance requirements, domain-driven design with bounded contexts, complex entity lifecycle rules). Decide based on what you find in the codebase. For simple CRUD apps, libraries, or CLIs, omit this section or mark it "N/A."
     - **Code examples**: Only include inline code examples in the profile when the project has unusual patterns that cannot be described in prose alone. Default to prose descriptions with file path references. Code examples bloat the profile and become stale quickly.
+    - **N/A sections for non-API project types**: For libraries, CLIs, and other non-API projects, do NOT omit sections — instead mark them as not applicable. Specifically:
+      - **API Conventions**: Mark as "N/A — this project is a {type}" (e.g., "N/A — this project is a library")
+      - **Authentication & Authorization Model**: Mark as "N/A — this project is a {type}" for projects without authentication
+      - This distinguishes "not applicable to this project type" from "not yet established" (greenfield), which matters for agents reading the profile.
 
 ## Project Profile Template
 

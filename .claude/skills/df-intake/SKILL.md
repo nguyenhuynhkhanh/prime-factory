@@ -33,6 +33,8 @@ Take the developer's raw input and spawn **3 independent spec-agents simultaneou
 >
 > Feature description: {raw input}
 >
+> First, read `dark-factory/project-profile.md` if it exists — it contains the project's architecture, conventions, tech stack, and quality bar. Use it to ground your research.
+>
 > Research the codebase, then output your findings as a structured report with these sections:
 > - **Users & Use Cases**: who uses this and how
 > - **Proposed Scope**: what's in/out for v1, with rationale
@@ -48,6 +50,8 @@ Take the developer's raw input and spawn **3 independent spec-agents simultaneou
 > Focus on: how this fits into the existing architecture, which modules/services are affected, data model changes, API design, integration points with existing features, performance implications, migration strategy if needed.
 >
 > Feature description: {raw input}
+>
+> First, read `dark-factory/project-profile.md` if it exists — it contains the project's architecture, conventions, tech stack, and quality bar. Use it to ground your research.
 >
 > Research the codebase, then output your findings as a structured report with these sections:
 > - **Affected Systems**: which parts of the codebase this touches
@@ -65,6 +69,8 @@ Take the developer's raw input and spawn **3 independent spec-agents simultaneou
 > Focus on: what can go wrong, concurrency issues, partial failures, data consistency, error handling, security implications, operational concerns (monitoring, alerting, recovery), backward compatibility, what happens at scale.
 >
 > Feature description: {raw input}
+>
+> First, read `dark-factory/project-profile.md` if it exists — it contains the project's architecture, conventions, tech stack, and quality bar. Use it to ground your research.
 >
 > Research the codebase, then output your findings as a structured report with these sections:
 > - **Failure Modes**: what can go wrong and how to handle it

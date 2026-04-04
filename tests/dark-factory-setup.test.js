@@ -1,8 +1,7 @@
-const { describe, it, before, after } = require("node:test");
+const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -249,11 +248,27 @@ describe("Architect review gate", () => {
     );
   });
 
-  it("architect-agent runs minimum 3 rounds", () => {
+  it("architect-agent supports domain parameter for parallel review", () => {
     const content = readAgent("architect-agent");
     assert.ok(
-      content.includes("minimum 3") || content.includes("at least 3"),
-      "architect-agent should specify minimum 3 rounds"
+      content.includes("domain parameter") || content.includes("Domain Parameter"),
+      "architect-agent should support domain parameter for parallel review"
+    );
+  });
+
+  it("df-orchestrate defines parallel domain review", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Parallel domain review") || content.includes("parallel domain review"),
+      "df-orchestrate should define parallel domain review"
+    );
+  });
+
+  it("df-orchestrate forwards findings to code-agents", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Key Decisions Made") && content.includes("Remaining Notes"),
+      "df-orchestrate should forward Key Decisions Made and Remaining Notes to code-agents"
     );
   });
 
@@ -450,7 +465,7 @@ describe("Project onboarding", () => {
   });
 
   it("all key agents reference project-profile.md", () => {
-    for (const name of ["spec-agent", "debug-agent", "architect-agent", "code-agent"]) {
+    for (const name of ["spec-agent", "debug-agent", "architect-agent", "code-agent", "test-agent", "promote-agent"]) {
       const content = readAgent(name);
       assert.ok(
         content.includes("project-profile.md"),
@@ -874,143 +889,1154 @@ describe("Plugin mirrors for group-orchestrate", () => {
 });
 
 // ===========================================================================
-// 13. Init script produces correct scaffold
+// Promoted from Dark Factory holdout: pipeline-velocity
 // ===========================================================================
 
-describe("init-dark-factory.js scaffold", () => {
-  const tmpDir = path.join(
-    require("os").tmpdir(),
-    `df-test-${Date.now()}`
-  );
-
-  before(() => {
-    execSync(
-      `node ${path.join(ROOT, "scripts", "init-dark-factory.js")} --dir ${tmpDir}`,
-      { stdio: "pipe" }
+describe("Pipeline velocity: Contradiction escalation", () => {
+  it("orchestrator defines contradiction detection during synthesis", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Contradiction detection"),
+      "Orchestrator should define contradiction detection"
     );
   });
 
-  after(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  const expectedAgentFiles = [
-    "spec-agent.md",
-    "debug-agent.md",
-    "onboard-agent.md",
-    "architect-agent.md",
-    "code-agent.md",
-    "test-agent.md",
-    "promote-agent.md",
-  ];
-
-  for (const file of expectedAgentFiles) {
-    it(`creates .claude/agents/${file}`, () => {
-      assert.ok(
-        fs.existsSync(path.join(tmpDir, ".claude", "agents", file)),
-        `Scaffold should create ${file}`
-      );
-    });
-  }
-
-  const expectedSkillDirs = [
-    "df-onboard",
-    "df-intake",
-    "df-debug",
-    "df-orchestrate",
-    "df-spec",
-    "df-scenario",
-    "df-cleanup",
-  ];
-
-  for (const skill of expectedSkillDirs) {
-    it(`creates .claude/skills/${skill}/SKILL.md`, () => {
-      assert.ok(
-        fs.existsSync(
-          path.join(tmpDir, ".claude", "skills", skill, "SKILL.md")
-        ),
-        `Scaffold should create ${skill}/SKILL.md`
-      );
-    });
-  }
-
-  const expectedDirs = [
-    "dark-factory/specs/features",
-    "dark-factory/specs/bugfixes",
-    "dark-factory/scenarios/public",
-    "dark-factory/scenarios/holdout",
-    "dark-factory/results",
-    "dark-factory/archive",
-  ];
-
-  for (const dir of expectedDirs) {
-    it(`creates ${dir}/`, () => {
-      assert.ok(
-        fs.existsSync(path.join(tmpDir, dir)),
-        `Scaffold should create ${dir}/`
-      );
-    });
-  }
-
-  it("creates valid manifest.json", () => {
-    const manifest = JSON.parse(
-      fs.readFileSync(path.join(tmpDir, "dark-factory", "manifest.json"), "utf8")
+  it("orchestrator escalates contradictions to developer with both positions", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("BOTH positions") || content.includes("both positions"),
+      "Orchestrator should present both positions"
     );
-    assert.equal(manifest.version, 1);
-    assert.deepEqual(manifest.features, {});
   });
 
-  it("creates CLAUDE.md with Dark Factory section", () => {
-    const content = fs.readFileSync(
-      path.join(tmpDir, "CLAUDE.md"),
-      "utf8"
+  it("orchestrator does not silently drop recommendations", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Do NOT silently drop"),
+      "Orchestrator should not silently drop recommendations"
     );
-    assert.ok(content.includes("Dark Factory"));
-    assert.ok(content.includes("/df-intake"));
-    assert.ok(content.includes("/df-debug"));
-    assert.ok(content.includes("/df-orchestrate"));
-    assert.ok(content.includes("Architect review"));
   });
 
-  it("creates .gitignore with results excluded", () => {
-    const content = fs.readFileSync(
-      path.join(tmpDir, ".gitignore"),
-      "utf8"
+  it("orchestrator waits for developer resolution via AskUserQuestion", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("AskUserQuestion") && content.includes("wait for resolution"),
+      "Orchestrator should wait for developer input on contradictions"
     );
-    assert.ok(content.includes("dark-factory/results/"));
-  });
-
-  it("scaffold agents have matching frontmatter names", () => {
-    for (const file of expectedAgentFiles) {
-      const name = file.replace(".md", "");
-      const content = fs.readFileSync(
-        path.join(tmpDir, ".claude", "agents", file),
-        "utf8"
-      );
-      const fm = parseFrontmatter(content);
-      assert.ok(fm, `${file} should have frontmatter`);
-      assert.equal(fm.name, name, `${file} frontmatter name should be "${name}"`);
-    }
-  });
-
-  it("scaffold skills have matching frontmatter names", () => {
-    for (const skill of expectedSkillDirs) {
-      const content = fs.readFileSync(
-        path.join(tmpDir, ".claude", "skills", skill, "SKILL.md"),
-        "utf8"
-      );
-      const fm = parseFrontmatter(content);
-      assert.ok(fm, `${skill}/SKILL.md should have frontmatter`);
-      assert.equal(fm.name, skill, `${skill}/SKILL.md frontmatter name should be "${skill}"`);
-    }
-  });
-
-  it("scaffold is idempotent (running twice doesn't error)", () => {
-    assert.doesNotThrow(() => {
-      execSync(
-        `node ${path.join(ROOT, "scripts", "init-dark-factory.js")} --dir ${tmpDir}`,
-        { stdio: "pipe" }
-      );
-    });
   });
 });
+
+describe("Pipeline velocity: Findings strip round discussion", () => {
+  it("orchestrator extracts ONLY Key Decisions Made and Remaining Notes", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes('Extract ONLY the "Key Decisions Made" and "Remaining Notes"'),
+      "Orchestrator should extract ONLY Key Decisions Made and Remaining Notes"
+    );
+  });
+
+  it("orchestrator strips round-by-round discussion content", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Strip") && content.includes("round-by-round discussion"),
+      "Orchestrator should strip round-by-round discussion"
+    );
+  });
+
+  it("code-agent documents findings are stripped of round discussion", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("stripped of round discussion"),
+      "Code-agent should note findings are stripped of round discussion"
+    );
+  });
+
+  it("code-agent only lists Key Decisions Made and Remaining Notes as findings content", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes('"Key Decisions Made"') && content.includes('"Remaining Notes"'),
+      "Code-agent should list Key Decisions Made and Remaining Notes"
+    );
+  });
+});
+
+describe("Pipeline velocity: One domain architect fails", () => {
+  it("orchestrator handles partial domain review when some files exist", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("some but not all domain review files exist"),
+      "Orchestrator should handle partial domain review results"
+    );
+  });
+
+  it("orchestrator only re-spawns for missing domains", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Only re-spawn architect-agents for the missing domains"),
+      "Orchestrator should only re-spawn for missing domains"
+    );
+  });
+
+  it("orchestrator reuses existing domain review files for completed domains", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Reuse existing domain review files"),
+      "Orchestrator should reuse existing domain review files"
+    );
+  });
+});
+
+describe("Pipeline velocity: Pass 3 cap enforced", () => {
+  it("orchestrator enforces maximum 3 total passes", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Maximum 3 total passes"),
+      "Orchestrator should enforce maximum 3 total passes"
+    );
+  });
+
+  it("pass count is initial parallel + up to 2 follow-ups", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("initial parallel + up to 2 follow-ups"),
+      "Pass count should be initial parallel + up to 2 follow-ups"
+    );
+  });
+
+  it("orchestrator does not proceed to implementation after BLOCKED on all passes", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("BLOCKED after all passes") && content.includes("do NOT proceed"),
+      "Orchestrator should not proceed after BLOCKED on all passes"
+    );
+  });
+});
+
+describe("Pipeline velocity: Overlapping concerns deduplicated", () => {
+  it("orchestrator defines deduplication of overlapping findings", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Deduplicate overlapping findings across domains"),
+      "Orchestrator should define deduplication of overlapping findings"
+    );
+  });
+
+  it("orchestrator merges semantic overlaps into a single finding", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("SINGLE finding"),
+      "Orchestrator should merge overlaps into a single finding"
+    );
+  });
+
+  it("orchestrator attributes all source domains in deduplicated findings", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Attribute all source domains"),
+      "Orchestrator should attribute source domains"
+    );
+  });
+
+  it("orchestrator uses highest severity from any domain for merged findings", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("highest severity"),
+      "Orchestrator should use highest severity from any domain"
+    );
+  });
+
+  it("orchestrator provides rate limiting dedup example", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("rate limiting") && content.includes("ONE finding"),
+      "Orchestrator should provide a concrete dedup example"
+    );
+  });
+});
+
+describe("Pipeline velocity: Empty Key Decisions forwarding", () => {
+  it("orchestrator handles no Key Decisions section as no-op", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("no-op, not an error"),
+      "Empty findings should be no-op, not an error"
+    );
+  });
+
+  it("orchestrator passes empty findings to code-agent when no Key Decisions exist", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("pass empty findings"),
+      "Orchestrator should pass empty findings"
+    );
+  });
+
+  it("code-agent treats findings as optional input", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("(optional)") && content.includes("Architect Review Findings"),
+      "Code-agent should treat architect findings as optional"
+    );
+  });
+});
+
+describe("Pipeline velocity: Test suite integrity", () => {
+  it("test suite does not reference deleted init script", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "tests", "dark-factory-setup.test.js"),
+      "utf8"
+    );
+    // Split string to avoid self-reference
+    assert.ok(
+      !content.includes("init-dark-" + "factory.js"),
+      "Test suite should not reference deleted init script"
+    );
+  });
+
+  it("test suite does not assert old 3-round model", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "tests", "dark-factory-setup.test.js"),
+      "utf8"
+    );
+    // Split strings to avoid self-reference
+    assert.ok(
+      !content.includes("minimum 3 " + "rounds") && !content.includes("at least 3 " + "rounds"),
+      "Test suite should not assert old 3-round model"
+    );
+  });
+
+  it("test suite asserts domain parameter support in architect-agent", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "tests", "dark-factory-setup.test.js"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("domain parameter"),
+      "Suite 5 should assert domain parameter support"
+    );
+  });
+
+  it("test suite asserts parallel domain review in orchestrator", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "tests", "dark-factory-setup.test.js"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("parallel domain review"),
+      "Suite 5 should assert parallel domain review"
+    );
+  });
+
+  it("test suite asserts findings forwarding to code-agents", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "tests", "dark-factory-setup.test.js"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("forwards findings") || content.includes("Key Decisions Made"),
+      "Suite 5 should assert findings forwarding"
+    );
+  });
+
+  it("architect review gate suite still exists with meaningful assertions", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "tests", "dark-factory-setup.test.js"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("Architect review gate"),
+      "Suite 5 (Architect review gate) should still exist"
+    );
+  });
+
+  it("deleted init script no longer exists on disk", () => {
+    const scriptName = "init-dark-" + "factory.js";
+    assert.ok(
+      !fs.existsSync(path.join(ROOT, "scripts", scriptName)),
+      "scripts/" + scriptName + " should be deleted"
+    );
+  });
+});
+
+describe("Pipeline velocity: Review file backward compatibility", () => {
+  it("architect-agent standard review format has all required section headers", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(content.includes("## Architect Review:"), "Should have ## Architect Review: header");
+    assert.ok(content.includes("### Rounds:"), "Should have ### Rounds: header");
+    assert.ok(content.includes("### Status:"), "Should have ### Status: header");
+    assert.ok(content.includes("### Key Decisions Made"), "Should have ### Key Decisions Made section");
+    assert.ok(content.includes("### Remaining Notes"), "Should have ### Remaining Notes section");
+    assert.ok(content.includes("### Blockers"), "Should have ### Blockers section");
+  });
+
+  it("orchestrator writes synthesized review in backward-compatible format", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("backward-compatible format"),
+      "Orchestrator should write backward-compatible review format"
+    );
+  });
+
+  it("orchestrator checks for existing review APPROVED status to skip re-review", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("already exists with status APPROVED"),
+      "Orchestrator should check for cached review APPROVED status"
+    );
+  });
+
+  it("domain review format is separate from standard review format", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("## Domain Review:"),
+      "Domain review should have its own format header"
+    );
+    assert.ok(
+      content.includes("Do NOT write to") && content.includes("review.md"),
+      "Domain review should not write to main review file"
+    );
+  });
+});
+
+describe("Pipeline velocity: Information barrier - architects and scenarios", () => {
+  it("architect-agent NEVER reads, discusses, or references scenarios", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("NEVER read, discuss, or reference scenarios"),
+      "Architect-agent must never read, discuss, or reference scenarios"
+    );
+  });
+
+  it("orchestrator information barriers prohibit passing test content to architect-agent", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("NEVER pass") && content.includes("architect-agent"),
+      "Orchestrator must prohibit passing test/scenario content to architect-agent"
+    );
+  });
+});
+
+describe("Pipeline velocity: Post-hoc file count with parallel agents", () => {
+  it("orchestrator defines post-implementation file count check section", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Post-Implementation File Count"),
+      "Orchestrator should define Post-Implementation File Count section"
+    );
+  });
+
+  it("orchestrator gathers files from ALL code-agents across ALL tracks", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("ALL code-agents across ALL tracks"),
+      "Orchestrator should gather files from all code-agents across all tracks"
+    );
+  });
+
+  it("orchestrator computes distinct union of modified files", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("distinct") && content.includes("union"),
+      "Orchestrator should compute distinct union"
+    );
+  });
+
+  it("orchestrator updates manifest with actualFiles and estimatedFiles", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("actualFiles") && content.includes("estimatedFiles") && content.includes("manifest"),
+      "Orchestrator should update manifest with actualFiles and estimatedFiles"
+    );
+  });
+
+  it("orchestrator warns not to only count last agent files", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("do not only count the last agent"),
+      "Orchestrator should warn against counting only last agent's files"
+    );
+  });
+});
+
+describe("Pipeline velocity: Re-synthesize from cached domain files", () => {
+  it("orchestrator checks for cached domain review files before spawning", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Check for cached domain review files"),
+      "Orchestrator should check for cached domain files"
+    );
+  });
+
+  it("orchestrator does not re-spawn when all domain files exist", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Do NOT re-spawn architect-agents"),
+      "Orchestrator should not re-spawn when domain files are cached"
+    );
+  });
+
+  it("orchestrator re-synthesizes from existing domain files", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Re-synthesiz"),
+      "Orchestrator should re-synthesize from cached domain files"
+    );
+  });
+
+  it("domain review files are described as source of truth", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("domain reviews are cached and are the source of truth"),
+      "Domain review files should be the source of truth"
+    );
+  });
+});
+
+describe("Pipeline velocity: Domain timeout and targeted retry", () => {
+  it("orchestrator supports targeted retry for missing domains only", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Only re-spawn architect-agents for the missing domains"),
+      "Orchestrator should only re-spawn for missing domains"
+    );
+  });
+
+  it("orchestrator preserves completed domain reviews during retry", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Reuse existing domain review files for the domains that completed"),
+      "Orchestrator should reuse existing domain review files"
+    );
+  });
+});
+
+describe("Pipeline velocity: Plugin mirrors match source files", () => {
+  it("plugin architect-agent.md matches source", () => {
+    const source = readAgent("architect-agent");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "architect-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin architect-agent.md should match source");
+  });
+
+  it("plugin code-agent.md matches source", () => {
+    const source = readAgent("code-agent");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "code-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin code-agent.md should match source");
+  });
+
+  it("README files do not contain legacy 3+ rounds language", () => {
+    const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
+    const dfReadme = fs.readFileSync(path.join(ROOT, "dark-factory", "README.md"), "utf8");
+    assert.ok(!readme.includes("3+ rounds"), "README.md should not contain '3+ rounds'");
+    assert.ok(!dfReadme.includes("3+ rounds"), "dark-factory/README.md should not contain '3+ rounds'");
+  });
+});
+
+// ===========================================================================
+// Promoted from Dark Factory holdout: onboard-improvement
+// ===========================================================================
+
+describe("Onboard improvement: Greenfield handling", () => {
+  it("onboard-agent addresses greenfield projects explicitly", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.toLowerCase().includes("greenfield"),
+      "onboard-agent should address greenfield projects"
+    );
+  });
+
+  it("onboard-agent includes placeholder guidance for greenfield template sections", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("Not yet established") || content.includes("placeholder"),
+      "onboard-agent should include placeholder guidance for greenfield sections"
+    );
+  });
+});
+
+describe("Onboard improvement: Non-API project N/A guidance", () => {
+  it("onboard-agent marks API sections as N/A for non-API project types", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("N/A") && content.includes("API Conventions"),
+      "onboard-agent should mark API Conventions as N/A for non-API projects"
+    );
+  });
+
+  it("onboard-agent distinguishes N/A from not-yet-established", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("not applicable") || content.includes("not yet established"),
+      "onboard-agent should distinguish N/A from greenfield placeholders"
+    );
+  });
+});
+
+describe("Onboard improvement: Large project sampling cap", () => {
+  it("onboard-agent caps sampling for projects with many top-level directories", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("20 top-level directories") || content.includes("more than 20"),
+      "onboard-agent should cap at 20 top-level directories"
+    );
+  });
+
+  it("onboard-agent notifies developer when sampling is partial", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("sampling was partial") || content.includes("not sampled"),
+      "onboard-agent should notify developer about partial sampling"
+    );
+  });
+});
+
+describe("Onboard improvement: Incremental refresh", () => {
+  it("onboard-agent supports per-section accept/reject during refresh", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("accept or reject"),
+      "onboard-agent should support per-section accept/reject"
+    );
+  });
+
+  it("onboard-agent preserves custom sections from existing profile", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("custom") && content.includes("preserved"),
+      "onboard-agent should preserve custom sections"
+    );
+  });
+});
+
+describe("Onboard improvement: Sign-off rejection handling", () => {
+  it("onboard-agent handles rejection with revision cycle", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("rejects") || content.includes("reject"),
+      "onboard-agent should handle rejection"
+    );
+    assert.ok(
+      content.includes("revise") || content.includes("re-present"),
+      "onboard-agent should support revision cycle"
+    );
+  });
+});
+
+describe("Onboard improvement: Consuming agents use soft profile language", () => {
+  it("all key agents use soft language for profile section targeting", () => {
+    for (const name of ["code-agent", "architect-agent", "debug-agent", "promote-agent", "spec-agent", "test-agent"]) {
+      const content = readAgent(name);
+      assert.ok(
+        content.includes("focus on these sections") || content.includes("if it exists"),
+        `${name} should use soft language for profile reading`
+      );
+    }
+  });
+});
+
+describe("Onboard improvement: Intake leads read profile before research", () => {
+  it("df-intake leads read project profile before codebase research", () => {
+    const content = readSkill("df-intake");
+    assert.ok(
+      content.includes("project-profile.md"),
+      "df-intake should reference project-profile.md"
+    );
+  });
+});
+
+describe("Onboard improvement: Debug investigators read profile before investigation", () => {
+  it("df-debug investigators read project profile before investigation", () => {
+    const content = readSkill("df-debug");
+    assert.ok(
+      content.includes("project-profile.md"),
+      "df-debug should reference project-profile.md"
+    );
+  });
+});
+
+describe("Onboard improvement: Plugin mirrors match source files", () => {
+  it("plugin architect-agent.md matches source for onboard changes", () => {
+    const source = readAgent("architect-agent");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "architect-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin architect-agent.md should match source");
+  });
+
+  it("plugin debug-agent.md matches source for onboard changes", () => {
+    const source = readAgent("debug-agent");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "debug-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin debug-agent.md should match source");
+  });
+});
+
+// ===========================================================================
+// Promoted from Dark Factory holdout: bugfix-regression-prevention
+// ===========================================================================
+
+describe("Bugfix regression: Systemic Analysis awareness-only constraint", () => {
+  it("debug-agent Systemic Analysis section states patterns are awareness-only", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("awareness only"),
+      "Systemic Analysis should state patterns are for awareness only"
+    );
+    assert.ok(
+      content.includes("developer decides"),
+      "Should state the developer decides whether to fix similar patterns"
+    );
+  });
+});
+
+describe("Bugfix regression: Regression Risk requires concrete refs", () => {
+  it("debug-agent Regression Risk section requires concrete code references", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("concrete code references") ||
+        content.includes("Provide concrete code references"),
+      "Reintroduction vectors should require concrete code references"
+    );
+    assert.ok(
+      content.includes("not abstract categories"),
+      "Should explicitly reject abstract categories"
+    );
+  });
+});
+
+describe("Bugfix regression: Root Cause Depth handles identical pattern", () => {
+  it("debug-agent provides guidance when no deeper pattern exists", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("Immediate cause and deeper pattern are identical"),
+      "Should provide guidance for identical immediate/deeper pattern"
+    );
+    assert.ok(
+      content.includes("no deeper structural issue"),
+      "Should state no deeper structural issue"
+    );
+  });
+});
+
+describe("Bugfix regression: Investigator C preserves output sections", () => {
+  it("df-debug Investigator C has all original sections plus new ones", () => {
+    const content = readSkill("df-debug");
+    assert.ok(content.includes("Similar Patterns Found"), "Should have Similar Patterns Found");
+    assert.ok(content.includes("Edge Cases"), "Should have Edge Cases");
+    assert.ok(content.includes("Systemic Issues"), "Should have Systemic Issues");
+    assert.ok(content.includes("Root Cause Hypothesis"), "Should have Root Cause Hypothesis");
+    assert.ok(content.includes("Search Scope"), "Should have Search Scope");
+    assert.ok(content.includes("Classification"), "Should have Classification");
+    assert.ok(content.includes("Regression Risk Assessment"), "Should have Regression Risk Assessment");
+  });
+});
+
+describe("Bugfix regression: Investigator C search scope expansion", () => {
+  it("df-debug specifies module-first search with conditional expansion", () => {
+    const content = readSkill("df-debug");
+    assert.ok(
+      content.includes("same module/directory") && content.includes("FIRST"),
+      "Should specify module-first search"
+    );
+    assert.ok(
+      content.includes("shared/core code") || content.includes("shared code"),
+      "Should specify expansion only for shared/core code"
+    );
+  });
+});
+
+describe("Bugfix regression: Investigator C proportional output", () => {
+  it("df-debug distinguishes trivial from complex bug output", () => {
+    const content = readSkill("df-debug");
+    assert.ok(
+      content.includes("file:line ref"),
+      "Complex bug output should include file:line references"
+    );
+  });
+});
+
+describe("Bugfix regression: Synthesis takes highest risk", () => {
+  it("df-debug synthesis step takes HIGHEST risk level", () => {
+    const content = readSkill("df-debug");
+    assert.ok(
+      content.includes("HIGHEST risk level"),
+      "Should specify taking highest risk level"
+    );
+    assert.ok(
+      content.includes("rationale from the investigator"),
+      "Should include rationale from the investigator who identified highest risk"
+    );
+  });
+});
+
+describe("Bugfix regression: Code-agent test naming references root cause", () => {
+  it("code-agent Red Phase requires root-cause-based test names", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("test name must reference the root cause"),
+      "Should require root cause in test name"
+    );
+    assert.ok(
+      content.includes("test_unbounded_query_without_limit") ||
+        content.includes("not the symptom"),
+      "Should provide naming example or contrast"
+    );
+  });
+});
+
+describe("Bugfix regression: Code-agent HIGH risk requires 3-5 variants", () => {
+  it("code-agent Red Phase specifies 3-5 variants for HIGH risk", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("HIGH risk") && content.includes("3-5 variant"),
+      "Should specify 3-5 variants for HIGH risk"
+    );
+    assert.ok(
+      content.includes("Maximum 3-5") || content.includes("maximum 3-5"),
+      "Should have explicit cap"
+    );
+  });
+});
+
+describe("Bugfix regression: Code-agent LOW risk requires justification", () => {
+  it("code-agent Red Phase requires justification for zero variants", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("LOW risk") &&
+        content.includes("justification"),
+      "Should require justification for LOW risk zero variants"
+    );
+  });
+});
+
+describe("Bugfix regression: Debug-agent variant scenarios in both public and holdout", () => {
+  it("debug-agent requires variants in both public and holdout", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("Variant scenarios") || content.includes("variant scenarios"),
+      "Should mention variant scenarios"
+    );
+    assert.ok(
+      content.includes("BOTH public") || content.includes("both public"),
+      "Should specify variants in both public and holdout"
+    );
+  });
+});
+
+describe("Bugfix regression: Debug-agent variant cap with prioritization", () => {
+  it("debug-agent caps variants at 3-5 with prioritization guidance", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("Maximum 3-5 variant scenarios") || content.includes("maximum 3-5"),
+      "Should cap at 3-5"
+    );
+    assert.ok(
+      content.includes("prioritize by risk"),
+      "Should provide prioritization guidance"
+    );
+  });
+});
+
+describe("Bugfix regression: Architect proportional BLOCK for symptom-only fixes", () => {
+  it("architect-agent can BLOCK symptom-only fixes proportionally", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("BLOCK") && content.includes("symptom"),
+      "Should mention BLOCK for symptom-only fixes"
+    );
+    assert.ok(
+      content.includes("proportional") || content.includes("be proportional"),
+      "Should specify proportionality"
+    );
+    assert.ok(
+      content.includes("Regression Risk Assessment") && content.includes("calibrate"),
+      "Should use Regression Risk Assessment to calibrate"
+    );
+  });
+});
+
+describe("Bugfix regression: Promote-agent annotation uses structured format", () => {
+  it("promote-agent uses specific annotation comment format", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("// Root cause:"),
+      "Should have Root cause annotation format"
+    );
+    assert.ok(
+      content.includes("// Guards:"),
+      "Should have Guards annotation format"
+    );
+    assert.ok(
+      content.includes("// Bug:"),
+      "Should have Bug annotation format"
+    );
+    assert.ok(
+      content.includes("// Promoted from Dark Factory holdout:"),
+      "Should have existing Promoted annotation"
+    );
+  });
+});
+
+describe("Bugfix regression: Promote-agent fallback annotation for missing data", () => {
+  it("promote-agent has fallback when root cause or guards unknown", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("see debug report"),
+      "Should have fallback pointing to debug report"
+    );
+  });
+});
+
+describe("Bugfix regression: Backward compat for missing new sections", () => {
+  it("code-agent defaults to LOW risk when Regression Risk Assessment is absent", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("no Regression Risk Assessment") && content.includes("default"),
+      "Should default to LOW when section is missing"
+    );
+  });
+
+  it("promote-agent has fallback for missing root cause data", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("cannot be determined") && content.includes("fallback"),
+      "Should have fallback behavior for missing data"
+    );
+  });
+});
+
+describe("Bugfix regression: Plugin mirrors match source files", () => {
+  const mirrorPairs = [
+    [".claude/agents/debug-agent.md", "plugins/dark-factory/agents/debug-agent.md"],
+    [".claude/agents/code-agent.md", "plugins/dark-factory/agents/code-agent.md"],
+    [".claude/agents/architect-agent.md", "plugins/dark-factory/agents/architect-agent.md"],
+    [".claude/agents/promote-agent.md", "plugins/dark-factory/agents/promote-agent.md"],
+    [".claude/skills/df-debug/SKILL.md", "plugins/dark-factory/skills/df-debug/SKILL.md"],
+  ];
+
+  for (const [source, mirror] of mirrorPairs) {
+    it(`${path.basename(source)} plugin mirror matches source`, () => {
+      const srcContent = fs.readFileSync(path.join(ROOT, source), "utf8");
+      const mirContent = fs.readFileSync(path.join(ROOT, mirror), "utf8");
+      assert.equal(srcContent, mirContent, `${mirror} should match ${source}`);
+    });
+  }
+});
+
+// ===========================================================================
+// Promoted from Dark Factory holdout: group-orchestrate
+// ===========================================================================
+
+describe("Group orchestrate: Group matching uses exact equality", () => {
+  it("df-orchestrate specifies exact string match for --group", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("exactly equals") || content.includes("exact match") || content.includes("exact string match"),
+      "df-orchestrate should specify exact match for group lookup"
+    );
+  });
+
+  it("df-orchestrate does not mention substring or partial matching", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      !content.includes("substring match") && !content.includes("partial match"),
+      "df-orchestrate should not mention substring or partial matching"
+    );
+  });
+});
+
+describe("Group orchestrate: Standalone specs treated independently in --all mode", () => {
+  it("df-orchestrate treats null/missing group as standalone", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("standalone"),
+      "df-orchestrate should use term 'standalone' for null group"
+    );
+  });
+
+  it("df-orchestrate treats each standalone spec as independent unit", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("each is an independent unit") || content.includes("independent unit"),
+      "df-orchestrate should treat standalone specs as independent units"
+    );
+  });
+
+  it("df-orchestrate handles missing group field as null", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Missing `group`") && content.includes("null"),
+      "df-orchestrate should treat missing group as null"
+    );
+  });
+
+  it("df-orchestrate handles missing dependencies field as empty array", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Missing `dependencies`") && content.includes("[]"),
+      "df-orchestrate should treat missing dependencies as []"
+    );
+  });
+});
+
+describe("Group orchestrate: Dependencies satisfied by removal from manifest", () => {
+  it("df-orchestrate defines satisfied dependency = not in manifest", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("NOT in the manifest") && content.includes("satisfied"),
+      "df-orchestrate should define removed = satisfied"
+    );
+  });
+
+  it("df-orchestrate shows completed deps as skipped in plan", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("already completed (skipped)") || content.includes("already completed"),
+      "df-orchestrate should show completed deps as skipped"
+    );
+  });
+});
+
+describe("Group orchestrate: Self-dependency is a circular dependency", () => {
+  it("df-orchestrate detects self-dependency as cycle", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("self-dependency") || content.includes("cycle of length 1"),
+      "df-orchestrate should detect self-dependency as a cycle"
+    );
+  });
+
+  it("df-orchestrate reports circular dependency error message format", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Circular dependency detected"),
+      "df-orchestrate should include the circular dependency error message"
+    );
+  });
+
+  it("df-orchestrate aborts before execution on cycle detection", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Abort") || content.includes("abort"),
+      "df-orchestrate should abort on cycle detection"
+    );
+  });
+});
+
+describe("Group orchestrate: Group with single spec", () => {
+  it("df-orchestrate group mode supports wave execution for any number of specs", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Wave 1") || content.includes("wave 1"),
+      "df-orchestrate should support wave execution which naturally handles single-spec groups"
+    );
+  });
+
+  it("df-orchestrate group mode resolves dependencies into waves", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Resolve dependencies into waves") || content.includes("resolve into execution waves"),
+      "Group mode should resolve deps into waves"
+    );
+  });
+});
+
+describe("Group orchestrate: Completed group not found", () => {
+  it("df-orchestrate errors when group has no active specs in manifest", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("No group named") && content.includes("found"),
+      "df-orchestrate should error when group name not found"
+    );
+  });
+
+  it("df-orchestrate lists available groups in the error message", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Available groups"),
+      "df-orchestrate should list available groups in the error"
+    );
+  });
+});
+
+describe("Group orchestrate: Failure pauses transitive dependents", () => {
+  it("df-orchestrate pauses transitive dependents on failure", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("transitive") && content.includes("dependent"),
+      "df-orchestrate should pause transitive dependents"
+    );
+  });
+
+  it("df-orchestrate continues independent specs after failure", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Continue") && content.includes("independent"),
+      "df-orchestrate should continue independent specs"
+    );
+  });
+
+  it("df-orchestrate does not auto-retry failed specs", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Ask the developer") || content.includes("ask the developer") ||
+      content.includes("Do NOT auto-retry") || content.includes("do NOT auto-retry"),
+      "df-orchestrate should not auto-retry, instead ask developer"
+    );
+  });
+
+  it("df-orchestrate reports completed, failed, and blocked specs", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Completed") && content.includes("Failed") && content.includes("Blocked"),
+      "df-orchestrate should report completed, failed, and blocked"
+    );
+  });
+});
+
+describe("Group orchestrate: Diamond dependency wave resolution", () => {
+  it("df-orchestrate defines topological sort for wave resolution", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Topological sort") || content.includes("topological sort") || content.includes("Topologically sort"),
+      "df-orchestrate should use topological sort for waves"
+    );
+  });
+
+  it("df-orchestrate wave resolution is deterministic", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("deterministic"),
+      "Wave resolution should be deterministic"
+    );
+  });
+
+  it("df-orchestrate places specs with all deps satisfied in earliest wave", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("waves < N") || content.includes("earlier wave"),
+      "Specs should go in earliest possible wave based on deps"
+    );
+  });
+});
+
+describe("Group orchestrate: --all with no active specs", () => {
+  it("df-orchestrate shows info message when no active specs found", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("No active specs found") && content.includes("Nothing to do"),
+      "df-orchestrate should show 'No active specs found. Nothing to do.'"
+    );
+  });
+});
+
+describe("Group orchestrate: --group with empty string", () => {
+  it("df-orchestrate errors on --group with no argument or empty string", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("--group requires a group name"),
+      "df-orchestrate should error on empty --group"
+    );
+  });
+
+  it("df-orchestrate shows usage hint for --group error", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Usage: /df-orchestrate --group <name>") ||
+      content.includes("Usage: /df-orchestrate --group"),
+      "df-orchestrate should show usage for --group error"
+    );
+  });
+});
+
+describe("Group orchestrate: All mode with uneven wave depths across groups", () => {
+  it("df-orchestrate runs groups independently in --all mode", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("independent orchestration unit") ||
+      content.includes("independent groups"),
+      "Groups should be independent orchestration units"
+    );
+  });
+
+  it("df-orchestrate runs cross-group waves in parallel", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("group A wave 1 and group B wave 1") ||
+      content.includes("groups' waves in parallel"),
+      "Cross-group waves should run in parallel"
+    );
+  });
+
+  it("df-orchestrate keeps intra-group waves sequential", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Within each group, waves are sequential") ||
+      content.includes("within each group"),
+      "Waves within a group should be sequential"
+    );
+  });
+});
+
+describe("Group orchestrate: Explicit mode same group does not trigger cross-group guard", () => {
+  it("df-orchestrate cross-group guard only triggers for different groups", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("same group") && content.includes("no guard") ||
+      content.includes("same group") && content.includes("proceed normally"),
+      "Cross-group guard should not trigger when all specs are same group"
+    );
+  });
+
+  it("df-orchestrate cross-group guard only applies in explicit mode", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Explicit Mode Only") || content.includes("explicit mode"),
+      "Cross-group guard should only apply in explicit mode"
+    );
+  });
+
+  it("df-orchestrate single spec never triggers guard", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Single spec") && content.includes("Never triggers"),
+      "Single spec should never trigger the guard"
+    );
+  });
+});
+
+describe("Group orchestrate: All mode with only standalone specs", () => {
+  it("df-orchestrate standalone specs run in parallel in --all mode", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Standalone") && content.includes("parallel"),
+      "Standalone specs should run in parallel"
+    );
+  });
+
+  it("df-orchestrate execution plan has a Standalone section", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Standalone:"),
+      "Execution plan should have a Standalone section"
+    );
+  });
+
+  it("df-orchestrate standalone specs do not need wave ordering", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Standalone specs run in parallel") ||
+      content.includes("run in parallel with everything"),
+      "Standalone specs should not need wave ordering"
+    );
+  });
+});
+

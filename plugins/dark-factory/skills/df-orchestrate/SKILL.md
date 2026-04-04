@@ -225,24 +225,69 @@ Check if `dark-factory/results/{name}/` has previous results:
 Before ANY implementation begins, the spec must pass principal engineer review.
 
 **Step 0: Architect Review**
+
+**Step 0a: Check for existing review**
 - Check if `dark-factory/specs/features/{name}.review.md` or `dark-factory/specs/bugfixes/{name}.review.md` already exists with status APPROVED:
-  - If APPROVED → skip review, proceed to implementation
-  - If APPROVED WITH NOTES → skip review, proceed to implementation
-  - If BLOCKED or no review exists → run review
-- Spawn an **independent** architect-agent (Agent tool with `.claude/agents/architect-agent.md`, `subagent_type: "architect-agent"`) with:
+  - If APPROVED → skip review, extract and forward findings to code-agents (see Step 0d), proceed to implementation
+  - If APPROVED WITH NOTES → skip review, extract and forward findings to code-agents (see Step 0d), proceed to implementation
+  - If BLOCKED or no review exists → check for cached domain reviews (Step 0b)
+
+**Step 0b: Check for cached domain review files**
+- Before spawning new architect-agents, check if domain review files already exist:
+  - Look for `{name}.review-security.md`, `{name}.review-architecture.md`, `{name}.review-api.md` in the spec directory
+  - If ALL three domain review files exist but the synthesized `{name}.review.md` is missing:
+    - Do NOT re-spawn architect-agents — the domain reviews are cached and are the source of truth
+    - Re-synthesize `{name}.review.md` from the existing domain files (go directly to Step 0c)
+    - Log: "Re-synthesizing review from cached domain files (domain reviews exist but synthesized review is missing)"
+  - If some but not all domain review files exist:
+    - Only re-spawn architect-agents for the missing domains
+    - Reuse existing domain review files for the domains that completed
+  - If no domain review files exist → run full parallel review (Step 0c)
+
+**Step 0c: Parallel domain review**
+- Spawn 3 **independent** architect-agents in parallel (all in a single message) with `.claude/agents/architect-agent.md`, each with a domain parameter:
+  1. **Security & Data Integrity** — domain parameter: "Security & Data Integrity"
+  2. **Architecture & Performance** — domain parameter: "Architecture & Performance"
+  3. **API Design & Backward Compatibility** — domain parameter: "API Design & Backward Compatibility"
+- Each agent receives:
   - The spec file path
   - The feature name
   - Whether this is a feature or bugfix
-  - Note: the architect runs inside the spec's worktree — no separate worktree needed
-- The architect-agent will:
-  1. Deep-review the spec against the codebase
-  2. Run at least 3 rounds of discussion with the spec-agent (features) or debug-agent (bugs)
-  3. Each round: architect identifies gaps → spawns spec/debug agent to update spec → re-reviews
-  4. Produce a review summary with APPROVED / APPROVED WITH NOTES / BLOCKED status
-- Wait for completion
-- Read the review file
-- If BLOCKED → report to developer, do NOT proceed to implementation
-- If APPROVED → proceed to implementation
+  - Its assigned domain parameter
+  - Note: each architect runs inside the spec's worktree — no separate worktree needed
+- Each domain architect-agent will:
+  1. Deep-review the spec against the codebase, focused ONLY on its assigned domain
+  2. Produce a domain-specific review file (`{name}.review-{domain-slug}.md`)
+  3. Return to the orchestrator (does NOT spawn spec/debug agents)
+- Wait for ALL three domain architects to complete
+- **Synthesize domain reviews into unified review:**
+  1. Read all three domain review files
+  2. Determine overall status using **strictest-wins aggregation**: any BLOCKED = overall BLOCKED; otherwise any APPROVED WITH NOTES = overall APPROVED WITH NOTES; otherwise APPROVED
+  3. **Contradiction detection**: If two domain reviews make contradictory recommendations (e.g., one says "add field X" and another says "remove field X"), escalate BOTH positions to the developer via AskUserQuestion and wait for resolution. Do NOT silently drop either recommendation.
+  4. **Deduplicate overlapping findings across domains**: When multiple domains flag the same concern (even with different wording), merge them into a SINGLE finding in the synthesized review:
+     - Identify findings that address the same underlying issue (semantic overlap, not just string matching)
+     - Combine the perspectives from all domains that flagged it into one consolidated finding
+     - Attribute all source domains (e.g., "Flagged by: Security, Architecture, API")
+     - Use the highest severity from any domain (e.g., if Security says Blocker and API says Concern, it's a Blocker)
+     - Preserve the unique insight from each domain's perspective in the merged finding
+     - Example: If Security says "Add rate limiting for brute-force prevention", Architecture says "Add rate limiting for resource exhaustion", and API says "Add rate limiting and document 429 response" — produce ONE finding that captures all three angles
+  5. Collect all unique (deduplicated) findings into "Key Decisions Made" and "Remaining Notes" sections
+  6. Write the synthesized review to `{name}.review.md` in backward-compatible format
+- If any domain returned BLOCKED:
+  - Collect all blockers from all domains
+  - Spawn a SINGLE spec-agent (features) or debug-agent (bugs) with all findings to update the spec
+  - After spec update, run a follow-up verification round (re-spawn only the domains that had blockers or concerns)
+  - Maximum 3 total passes (initial parallel + up to 2 follow-ups)
+- If overall BLOCKED after all passes → report to developer, do NOT proceed to implementation
+- If APPROVED or APPROVED WITH NOTES → proceed to Step 0d
+
+**Step 0d: Extract and forward findings to code-agents**
+- Read the synthesized review file (`{name}.review.md`)
+- Extract ONLY the "Key Decisions Made" and "Remaining Notes" sections
+- Strip any round-by-round discussion content (protect information barrier)
+- Pass these findings to code-agents as supplementary context alongside the spec and public scenarios
+- If the review file has no "Key Decisions Made" section → pass empty findings (no-op, not an error)
+- If no review file exists yet (first run, before review completes) → no findings forwarded
 
 **Important rules for architect review:**
 - The architect NEVER discusses tests or scenarios with the spec/debug agent
@@ -354,6 +399,20 @@ The bugfix cycle enforces strict integrity: test and implementation are written 
 - If all passed → proceed to Step 4 (Promote)
 - If failures and rounds < 3 → extract behavioral descriptions, go back to Step 2
 - If failures and rounds = 3 → report to developer
+
+## Post-Implementation File Count Check
+
+After implementation completes (all code-agents have finished, before holdout validation), perform a post-hoc file count comparison:
+
+1. **Collect actual files modified**: Gather the list of distinct files created or modified by ALL code-agents across ALL tracks. If multiple parallel code-agents ran, collect file lists from every agent's report and compute the distinct union (no double-counting).
+2. **Count distinct files**: `actualFiles` = the number of unique file paths in the union set.
+3. **Read estimated count**: Check the spec's "Implementation Size Estimate" section for "Estimated file count". If present, read the integer value as `estimatedFiles`.
+4. **Update the manifest**: Set `actualFiles` in the manifest entry for this feature. If `estimatedFiles` is not already set in the manifest, set it from the spec.
+5. **Log the delta**: If both values are available, log: "File count: estimated {estimatedFiles}, actual {actualFiles} (delta: {+/-difference})". This is informational only — do not block on mismatches.
+6. **Handle edge cases**:
+   - If no "Estimated file count" in the spec → set `estimatedFiles` to null, still record `actualFiles`
+   - If file count cannot be determined (e.g., agent reports are missing) → set `actualFiles` to null, log a warning
+   - Files from ALL parallel tracks must be counted — do not only count the last agent's files
 
 ## Post-Implementation Lifecycle
 
