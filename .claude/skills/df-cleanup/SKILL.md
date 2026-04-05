@@ -36,6 +36,7 @@ If `--rebuild` was provided:
 - If `dark-factory/promoted-tests.json` does not exist → report: "No promoted test registry found. No promoted tests to check." Skip to step 3.
 - If it exists but is malformed JSON → warn: "promoted-tests.json is malformed. Run `/df-cleanup --rebuild` to reconstruct from annotations." Skip to step 3.
 - If `promotedTests` array is empty → report: "No promoted tests found. Run /df-orchestrate to promote tests." Skip to step 3.
+- **Version check**: Read the `version` field from the registry. The current supported version is `1`. If the registry `version` is higher than supported, warn: "Registry version {v} is newer than supported ({supported}). Some fields may be ignored." Then continue the health check with best-effort parsing of known fields. Do NOT error out or refuse to check.
 
 #### 2c. Verify each promoted test entry
 
@@ -44,16 +45,18 @@ For each entry in the `promotedTests` array, check ALL of the following in a sin
 1. **File existence**: Check that each file in the entry's `files` array exists.
    - If missing → report: "MISSING: {path} (promoted from {feature})"
 
-2. **Skip detection**: Read each promoted test file and check for `.skip()`, `test.skip(`, `it.skip(`, `describe.skip(`, `xit(`, `xdescribe(`, `xtest(` patterns.
+2. **Empty section detection** (co-located tests only): For entries with `sectionMarkers: true`, check whether there is any test content between the `// DF-PROMOTED-START: {feature}` and `// DF-PROMOTED-END: {feature}` markers. If both markers exist but there is no test code between them (only whitespace or blank lines), report: "EMPTY: {path} section for {feature} has no test content". Do NOT report this as MISSING — the file and markers exist, but the section is empty. This is a distinct classification.
+
+3. **Skip detection**: Read each promoted test file and check for `.skip()`, `test.skip(`, `it.skip(`, `describe.skip(`, `xit(`, `xdescribe(`, `xtest(` patterns.
    - For co-located tests with `sectionMarkers: true`, only check within the section markers.
    - For standalone promoted test files, check the entire file.
    - If found → report: "SKIPPED: {path} contains .skip() on promoted tests"
 
-3. **Test execution**: Run the promoted tests using the project's test command.
+4. **Test execution**: Run the promoted tests using the project's test command.
    - If tests fail → report: "FAILING: {path}" with failure output.
    - Continue checking other promoted tests (do not stop at first failure).
 
-4. **Guard annotation check**: Read `// Guards:` annotations in each promoted test file. For each referenced file path:
+5. **Guard annotation check**: Read `// Guards:` annotations in each promoted test file. For each referenced file path:
    - Strip line numbers (e.g., `src/auth.js:42` → check only `src/auth.js`).
    - Check that the referenced file still exists.
    - If missing → report: "STALE GUARD: {path} references {guard-file} which no longer exists"

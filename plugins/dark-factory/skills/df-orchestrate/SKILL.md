@@ -229,7 +229,14 @@ Each wave agent starts with a fresh context (NFR-1: context efficiency). The wav
 After a wave agent completes, the orchestrator updates the manifest, checks for failures, computes transitive blocked specs, and automatically proceeds to the next wave.
 
 ### Single-Spec Mode Exception
-When only one spec is provided (and no `--group` or `--all` flags), the wave agent architecture is NOT used. The orchestrator runs the spec directly using the existing inline behavior (architect review, code agents, holdout validation, promotion, cleanup all within the same context). This avoids unnecessary overhead for simple single-spec runs.
+When only one spec is being executed, the wave agent architecture is NOT used. The orchestrator runs the spec directly using the existing inline behavior (architect review, code agents, holdout validation, promotion, cleanup all within the same context). This avoids unnecessary overhead for simple single-spec runs.
+
+This exception applies in any of these cases:
+- A single spec name is provided directly (e.g., `/df-orchestrate my-feature`)
+- `--group` resolves to exactly one active spec (all other specs in the group are already completed/removed from manifest)
+- `--all` resolves to exactly one active spec across the entire manifest
+
+In all cases, the full lifecycle runs inline: pre-flight, architect review, implementation, holdout, promote, cleanup. The smart re-run default-to-"new" and parallelism auto-proceed behaviors still apply in single-spec mode (these are independent of wave architecture).
 
 ### Progress Reporting
 
@@ -247,6 +254,7 @@ Wave 2 complete (user-auth: passed/promoted, payment-api: failed). Starting Wave
 - **Promoted test failure**: Hard stop for that spec (do not cleanup), continue other specs
 - **All remaining specs blocked**: Stop pipeline early (no work left to do)
 - **Wave agent crash (no result returned)**: Treat all specs in that wave as failed, block their dependents
+- **Wave agent crash with partial results**: If a wave agent returns results for some specs but not all (crash mid-wave), process the completed specs normally (promote if passed, mark if failed) and treat the missing/unfinished specs as failed. Block transitive dependents of the missing specs. Include the partial failure in the final summary with details on which specs completed and which were lost to the crash.
 
 ALL failures are reported in the final summary with actionable next steps.
 
@@ -304,7 +312,12 @@ Before architect review, run the project's full test suite to ensure no pre-exis
 ## Smart Re-run Detection
 Check if `dark-factory/results/{name}/` has previous results:
 - **No results** → proceed as "new" (full run)
-- **Results exist** → in autonomous mode, default to "new": wipe previous results and run a full code-agent → test-agent cycle. Do NOT prompt the developer to choose between new/test-only/fix. Rationale: "new" is the safe default since holdout validation catches regressions, and targeted resume is handled by `--group` after failure.
+- **Results exist** → in autonomous mode, default to "new": wipe previous results and run a full code-agent → test-agent cycle. Do NOT prompt the developer to choose a mode. Rationale: "new" is the safe default since holdout validation catches regressions, and targeted resume is handled by `--group` after failure.
+
+**Re-run modes** (for documentation and future `--rerun` flag support):
+- **"new"**: Wipe previous results and run a full code-agent → test-agent cycle from scratch. This is the default in autonomous mode.
+- **"test-only"**: Keep existing code changes, re-run only the test-agent (holdout validation). Useful when you believe the code is correct but the previous test run had transient failures.
+- **"fix"**: Keep existing code changes and previous test results, spawn code-agent with the failure summary to fix only what failed. Useful for targeted fixes after a partial test failure.
 
 ## Detect Mode
 - If spec is in `dark-factory/specs/features/` → **Feature mode**
