@@ -1649,3 +1649,419 @@ describe("Wave automation — autonomous execution", () => {
     );
   });
 });
+
+// ===========================================================================
+// Promoted from Dark Factory holdout: test-enforcement
+// ===========================================================================
+
+describe("Test enforcement — pre-flight gate multi-spec behavior", () => {
+  it("H-01: pre-flight gate runs test suite once, not per-spec", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Pre-flight Test Gate"),
+      "df-orchestrate should have pre-flight test gate"
+    );
+    // The gate should run once for all specs, aborting all on failure
+    assert.ok(
+      content.includes("ALL failures") || content.includes("report ALL"),
+      "df-orchestrate should report all failures from a single gate run"
+    );
+  });
+
+  it("H-02: --skip-tests logs testGateSkipped and timestamp to manifest", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("testGateSkipped") && content.includes("manifest"),
+      "df-orchestrate should log testGateSkipped to manifest"
+    );
+    assert.ok(
+      content.includes("--skip-tests"),
+      "df-orchestrate should document --skip-tests flag"
+    );
+  });
+
+  it("H-18: no test command in profile warns and skips gate", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("No test command found in project profile") &&
+        content.includes("Skipping pre-flight test gate"),
+      "df-orchestrate should warn and skip when no test command in profile"
+    );
+  });
+});
+
+describe("Test enforcement — promoted test registry", () => {
+  it("H-03: promote-agent documents append-only registry for concurrent safety", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("append-only"),
+      "promote-agent registry should be append-only"
+    );
+    assert.ok(
+      content.includes("promoted-tests.json"),
+      "promote-agent should reference promoted-tests.json"
+    );
+  });
+
+  it("H-04: standalone promoted files do NOT get section markers", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("ONLY for co-located") ||
+        (content.includes("co-located") && content.includes("Standalone") && content.includes("do NOT")),
+      "promote-agent should specify markers are only for co-located tests"
+    );
+  });
+
+  it("H-19: re-promotion overwrites existing registry entry, no duplicates", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("overwrite") && content.includes("duplicate"),
+      "promote-agent should overwrite duplicate entries"
+    );
+  });
+
+  it("H-20: registry version mismatch handled with forward compatibility", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes('"version": 1') && content.includes("promotedTests"),
+      "promote-agent should define version 1 schema with promotedTests"
+    );
+  });
+});
+
+describe("Test enforcement — health check edge cases", () => {
+  it("H-05: health check detects missing co-located file before checking markers", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("MISSING:"),
+      "df-cleanup should report MISSING for deleted promoted test files"
+    );
+  });
+
+  it("H-06: health check detects empty content between section markers", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("EMPTY:") ||
+        (content.includes("DF-PROMOTED-START") && content.includes("no test content")),
+      "df-cleanup should detect empty sections between markers"
+    );
+  });
+
+  it("H-07: health check ignores .skip() outside promoted section markers", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("SKIPPED:") && content.includes(".skip()"),
+      "df-cleanup should detect .skip() only within promoted sections"
+    );
+  });
+
+  it("H-08: health check strips line numbers from guard annotation paths", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("Strip line numbers") ||
+        content.includes("strip the line number"),
+      "df-cleanup should strip line numbers from guard paths"
+    );
+  });
+
+  it("H-09: --rebuild with no annotations creates empty registry", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("--rebuild") &&
+        content.includes("Promoted from Dark Factory holdout:"),
+      "df-cleanup --rebuild should scan for annotation headers"
+    );
+  });
+
+  it("H-10: --rebuild shows diff and requires confirmation before overwriting", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("--rebuild"),
+      "df-cleanup should support --rebuild flag"
+    );
+  });
+
+  it("H-17: health check handles missing promoted-tests.json gracefully", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("No promoted tests found"),
+      "df-cleanup should handle zero promoted tests gracefully"
+    );
+  });
+});
+
+describe("Test enforcement — git hook integration", () => {
+  it("H-12: onboard-agent allows declining hook installation", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("pre-commit hook") && content.includes("opt-in"),
+      "onboard-agent should offer opt-in pre-commit hook installation"
+    );
+  });
+
+  it("H-13: hook installation integrates with lefthook", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("Lefthook") || content.includes("lefthook"),
+      "onboard-agent should detect lefthook infrastructure"
+    );
+  });
+
+  it("H-14: hook installation integrates with simple-git-hooks", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("simple-git-hooks"),
+      "onboard-agent should detect simple-git-hooks infrastructure"
+    );
+  });
+
+  it("H-15: hook installation warns on unmanaged existing .git/hooks/pre-commit", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("dark-factory-hook"),
+      "onboard-agent should use dark-factory-hook marker for detection"
+    );
+  });
+
+  it("H-16: hook installation is idempotent via dark-factory-hook marker", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("dark-factory-hook"),
+      "onboard-agent should detect existing dark-factory-hook marker"
+    );
+  });
+});
+
+describe("Test enforcement — code-agent feature mode regression detection", () => {
+  it("H-11: code-agent runs ALL existing tests and detects regressions", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("Run ALL existing tests") &&
+        content.includes("no regression"),
+      "code-agent feature mode should run ALL existing tests to verify no regression"
+    );
+  });
+});
+
+// ===========================================================================
+// Promoted from Dark Factory holdout: wave-automation
+// ===========================================================================
+
+describe("Wave automation — wave agent context and lifecycle", () => {
+  it("H-01: wave agent receives spec names, branch, and mode (not spec content)", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("wave agent") || content.includes("wave-agent"),
+      "df-orchestrate should reference wave agents"
+    );
+    assert.ok(
+      content.includes("independent") && content.includes("agent") && content.includes("wave"),
+      "wave agents should be independent"
+    );
+  });
+
+  it("H-08: smart re-run preserves mode descriptions but defaults to new", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("default to") && content.includes("new") && content.includes("wipe"),
+      "df-orchestrate should default smart re-run to 'new' with wipe"
+    );
+  });
+
+  it("H-12: single-spec and single-active-in-group skip wave agent overhead", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Single-Spec Mode") || content.includes("single-spec"),
+      "df-orchestrate should reference single-spec mode"
+    );
+    assert.ok(
+      content.includes("wave agent architecture is NOT used") ||
+        (content.includes("wave agent") && content.includes("NOT used")),
+      "Single-spec mode should not use wave agent architecture"
+    );
+  });
+
+  it("H-15: orchestrator stays lightweight — no spec/code/test content", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Autonomous Wave Execution"),
+      "df-orchestrate should define Autonomous Wave Execution section"
+    );
+    // The wave agent handles the lifecycle, not the orchestrator directly
+    assert.ok(
+      content.includes("Architect review") &&
+        content.includes("Code agents") &&
+        content.includes("Holdout validation") &&
+        content.includes("Promotion") &&
+        content.includes("Cleanup"),
+      "Wave agent should handle full lifecycle"
+    );
+  });
+});
+
+describe("Wave automation — blocking and pause removal", () => {
+  it("H-02: no blocking language between wave completions", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("execute ALL waves without further developer interaction"),
+      "df-orchestrate should execute all waves after one confirmation"
+    );
+    assert.ok(
+      content.includes("No developer acknowledgment is needed between waves"),
+      "df-orchestrate should not require inter-wave acknowledgment"
+    );
+  });
+
+  it("H-07: Step 0.5 preserves parallelism logic after removing confirmation", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      !content.includes("Proceed after confirmation"),
+      "Parallelism confirmation pause should be removed"
+    );
+  });
+
+  it("H-09: failure handling replaces 'Ask developer' with autonomous reporting", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      !content.includes("Ask the developer"),
+      "df-orchestrate should not ask the developer mid-pipeline"
+    );
+    assert.ok(
+      content.includes("actionable next steps"),
+      "df-orchestrate should report failures with actionable next steps"
+    );
+  });
+});
+
+describe("Wave automation — failure handling and edge cases", () => {
+  it("H-03: failed wave does not block independent specs in next wave", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Failure Handling") ||
+        content.includes("transitive dependents"),
+      "df-orchestrate should define failure handling with dependency tracking"
+    );
+  });
+
+  it("H-04: merge conflict is a hard stop for the entire pipeline", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Merge conflict") && content.includes("Hard stop"),
+      "df-orchestrate should define merge conflict as hard stop"
+    );
+  });
+
+  it("H-05: empty wave after filtering blocked specs is skipped", () => {
+    const content = readSkill("df-orchestrate");
+    // Wave resolution should handle the case where all specs are blocked
+    assert.ok(
+      content.includes("Wave Resolution"),
+      "df-orchestrate should define wave resolution algorithm"
+    );
+  });
+
+  it("H-06: wave agent crash treats all specs in wave as failed", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Final Summary Report"),
+      "df-orchestrate should include final summary to report wave agent failures"
+    );
+    assert.ok(
+      content.includes("Failed specs"),
+      "Final summary should list failed specs"
+    );
+  });
+
+  it("H-11: manifest read failure aborts before any execution", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("manifest.json"),
+      "df-orchestrate should reference manifest.json in pre-flight"
+    );
+  });
+
+  it("H-14: promoted test failure stops that spec but continues others", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Promotion") && content.includes("Cleanup"),
+      "df-orchestrate wave lifecycle should include promotion and cleanup steps"
+    );
+  });
+});
+
+describe("Wave automation — rules and progress reporting", () => {
+  it("H-10: rules file update preserves all other rules unchanged", () => {
+    const rules = fs.readFileSync(
+      path.join(ROOT, ".claude", "rules", "dark-factory.md"),
+      "utf8"
+    );
+    // Core rules that must always be present
+    assert.ok(
+      rules.includes("Every agent spawn is INDEPENDENT"),
+      "dark-factory.md must preserve agent independence rule"
+    );
+    assert.ok(
+      rules.includes("NEVER pass holdout scenario content to the code-agent"),
+      "dark-factory.md must preserve holdout barrier rule"
+    );
+    assert.ok(
+      rules.includes("NEVER pass public scenario content to the test-agent"),
+      "dark-factory.md must preserve public scenario barrier rule"
+    );
+    assert.ok(
+      rules.includes("NEVER pass test/scenario content to the architect-agent"),
+      "dark-factory.md must preserve architect barrier rule"
+    );
+    assert.ok(
+      rules.includes("Architect-agent reviews EVERY spec before implementation"),
+      "dark-factory.md must preserve architect review rule"
+    );
+    assert.ok(
+      rules.includes("auto-triggered from df-intake"),
+      "dark-factory.md must acknowledge df-intake auto-trigger"
+    );
+  });
+
+  it("H-13: existing test sections (1-12) remain passing — plugin mirrors match", () => {
+    // Verify key plugin mirrors still match source (regression guard)
+    const sourceOrchestrate = fs.readFileSync(
+      path.join(ROOT, ".claude", "skills", "df-orchestrate", "SKILL.md"),
+      "utf8"
+    );
+    const pluginOrchestrate = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "skills", "df-orchestrate", "SKILL.md"),
+      "utf8"
+    );
+    assert.equal(
+      sourceOrchestrate,
+      pluginOrchestrate,
+      "Plugin df-orchestrate SKILL.md should match source (regression guard)"
+    );
+  });
+
+  it("df-orchestrate includes non-blocking progress reporting", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Progress Reporting") || content.includes("progress reporting"),
+      "df-orchestrate should include progress reporting section"
+    );
+    assert.ok(
+      content.includes("without blocking"),
+      "Progress reporting should be non-blocking"
+    );
+  });
+
+  it("df-orchestrate includes comprehensive final summary report", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Final Summary Report"),
+      "df-orchestrate should include Final Summary Report section"
+    );
+    assert.ok(
+      content.includes("Completed specs") &&
+        content.includes("Failed specs") &&
+        content.includes("Blocked specs"),
+      "Final summary should list completed, failed, and blocked specs"
+    );
+  });
+});

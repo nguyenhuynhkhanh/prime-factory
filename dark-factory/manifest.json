@@ -1,23 +1,4 @@
 {
   "version": 1,
-  "features": {
-    "test-enforcement": {
-      "type": "feature",
-      "status": "active",
-      "specPath": "dark-factory/specs/features/test-enforcement.spec.md",
-      "created": "2026-04-05T00:00:00.000Z",
-      "rounds": 0,
-      "group": null,
-      "dependencies": []
-    },
-    "wave-automation": {
-      "type": "feature",
-      "status": "active",
-      "specPath": "dark-factory/specs/features/wave-automation.spec.md",
-      "created": "2026-04-05T00:00:00.000Z",
-      "rounds": 0,
-      "group": null,
-      "dependencies": []
-    }
-  }
+  "features": {}
 }
