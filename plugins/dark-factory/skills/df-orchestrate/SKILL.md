@@ -13,10 +13,11 @@ You are the orchestrator for the implementation phase.
 `/df-orchestrate --group {group-name}` — all active specs in a group
 `/df-orchestrate --all` — every active spec in the manifest
 Optional: `--force` — override cross-group guard in explicit mode
+Optional: `--skip-tests` — bypass the pre-flight test gate (logged in manifest)
 
 ### Argument Parsing
 
-1. **Parse flags first**: Extract `--group`, `--all`, and `--force` from the arguments. Everything else is an explicit spec name.
+1. **Parse flags first**: Extract `--group`, `--all`, `--force`, and `--skip-tests` from the arguments. Everything else is an explicit spec name.
 2. **Mutual exclusivity checks** (fail fast with clear errors):
    - `--group` and `--all` together → Error: "Cannot use --group and --all together. Use --group to orchestrate a specific group, or --all to run everything."
    - `--group` or `--all` with explicit spec names → Error: "Cannot combine --group/--all with explicit spec names. Use one mode at a time."
@@ -110,13 +111,7 @@ When a spec fails during execution (architect blocks it or implementation fails 
 1. **Mark the failed spec**: Note it as failed (it remains `status: "active"` in the manifest — no status change).
 2. **Pause transitive dependents**: Find ALL specs that depend on the failed spec, directly or transitively. Mark them as blocked — do NOT attempt to execute them.
 3. **Continue independent specs**: Specs in the same group (or wave) that do NOT depend on the failed spec continue execution normally.
-4. **Report after all executable specs finish**:
-   ```
-   Completed: spec-a, spec-c
-   Failed: spec-b (architect BLOCKED)
-   Blocked (dependency on failed spec): spec-d, spec-e
-   ```
-5. **Ask the developer** to decide next steps. Do NOT auto-retry.
+4. **Report after all executable specs finish**: Include all failures in the final summary report with actionable next steps (e.g., "Re-run with `/df-orchestrate --group X` after fixing spec-b"). Do NOT pause mid-pipeline or ask the developer to decide next steps — continue executing all independent specs and report everything in the final summary.
 
 ---
 
@@ -169,6 +164,8 @@ Before spawning any agents, analyze ALL specs to build a dependency graph:
    ```
 5. Proceed after developer confirms the execution plan
 
+**After developer confirms the execution plan, execute ALL waves without further developer interaction.** The only conditions that stop execution are: merge conflict (hard stop), or all remaining specs are blocked by prior failures.
+
 **Step 2: Execute by Waves**
 
 - **Wave 1**: Run foundation specs sequentially, each in its own worktree. Wait for each to complete and merge back before starting the next.
@@ -178,7 +175,8 @@ Before spawning any agents, analyze ALL specs to build a dependency graph:
   - Up to `number_of_parallel_specs × 4` code-agents can run simultaneously
   - As each agent completes, its worktree branch merges back automatically
   - Wait for ALL specs in a wave to complete before starting the next wave
-- Report results to the developer as each spec completes
+- After all specs in wave N complete, the orchestrator automatically proceeds to wave N+1. No developer acknowledgment is needed between waves.
+- Report wave completions as non-blocking progress messages (see Progress Reporting below)
 
 **Dependency detection heuristics:**
 - Spec A creates a database schema → Spec B references that schema's tables → B depends on A
@@ -194,6 +192,87 @@ Before spawning any agents, analyze ALL specs to build a dependency graph:
 - Cleanup (Step 5) happens after exiting the worktree, back on the original branch
 - Foundation specs MUST merge back before dependent specs start their worktrees
 
+---
+
+## Autonomous Wave Execution
+
+For multi-spec invocations (group, all, or explicit multi-spec), the orchestrator uses a **high-level orchestrator / wave agent architecture**. The high-level orchestrator is a lightweight coordinator that spawns independent wave agents — it does NOT perform architect review, implementation, or holdout validation itself.
+
+### High-Level Orchestrator Responsibilities
+The high-level orchestrator ONLY:
+1. Reads the manifest and resolves dependencies into waves
+2. Presents the execution plan to the developer for ONE confirmation
+3. Spawns each wave as an independent wave agent sequentially
+4. Collects results from each wave agent
+5. Computes transitive blocked specs after each wave
+6. Reports non-blocking progress between waves
+7. Produces a comprehensive final summary report
+
+The high-level orchestrator does NOT contain inline architect review, code agent, or test agent spawning for multi-spec runs.
+
+### Wave Agent Spawning
+
+For each wave, spawn an **independent** agent (Agent tool with `run_in_background: true`) that receives:
+- The list of spec names for that wave
+- The current branch name (which includes merged changes from prior waves)
+- The mode (feature or bugfix) for each spec
+
+Each wave agent handles the FULL lifecycle for every spec in its wave:
+- Architect review (spawning architect-agents)
+- Code agents (spawning code-agents with worktree isolation)
+- Holdout validation (spawning test-agents)
+- Promotion (spawning promote-agents)
+- Cleanup (deleting artifacts after promotion)
+
+Each wave agent starts with a fresh context (NFR-1: context efficiency). The wave agent returns a structured result with per-spec status: passed/failed/blocked, error details, and promoted test paths.
+
+After a wave agent completes, the orchestrator updates the manifest, checks for failures, computes transitive blocked specs, and automatically proceeds to the next wave.
+
+### Single-Spec Mode Exception
+When only one spec is provided (and no `--group` or `--all` flags), the wave agent architecture is NOT used. The orchestrator runs the spec directly using the existing inline behavior (architect review, code agents, holdout validation, promotion, cleanup all within the same context). This avoids unnecessary overhead for simple single-spec runs.
+
+### Progress Reporting
+
+The orchestrator reports wave completions as they happen, without blocking for developer acknowledgment:
+```
+Wave 1 complete (project-init: passed/promoted). Starting Wave 2...
+Wave 2 complete (user-auth: passed/promoted, payment-api: failed). Starting Wave 3...
+```
+
+### Failure Semantics
+
+- **Spec fails after 3 implementation rounds**: Mark failed, block transitive dependents, continue independent specs in the same and subsequent waves
+- **Architect blocks a spec**: Same as above (mark failed, block dependents, continue others)
+- **Merge conflict**: Hard stop the entire pipeline, report the conflict with file details
+- **Promoted test failure**: Hard stop for that spec (do not cleanup), continue other specs
+- **All remaining specs blocked**: Stop pipeline early (no work left to do)
+- **Wave agent crash (no result returned)**: Treat all specs in that wave as failed, block their dependents
+
+ALL failures are reported in the final summary with actionable next steps.
+
+### Final Summary Report
+
+When all waves are done (or the pipeline stops early), produce a comprehensive final summary:
+
+```
+=== Dark Factory Orchestration Complete ===
+
+Completed specs:
+  - spec-a: passed/promoted (tests: path/to/promoted/tests)
+  - spec-c: passed/promoted (tests: path/to/promoted/tests)
+
+Failed specs:
+  - spec-b: failed (architect BLOCKED — reason)
+    → Next step: Fix spec-b and re-run with `/df-orchestrate spec-b`
+
+Blocked specs (dependency on failed spec):
+  - spec-d: blocked by spec-b (dependency chain: spec-d → spec-b)
+  - spec-e: blocked by spec-b (dependency chain: spec-e → spec-d → spec-b)
+    → Next step: Re-run with `/df-orchestrate --group X` after fixing spec-b
+
+Summary: 2 passed, 1 failed, 2 blocked
+```
+
 ## Pre-flight Checks
 Run these for EVERY spec name provided (fail fast — check all before starting any):
 1. Check if `dark-factory/project-profile.md` exists:
@@ -206,13 +285,26 @@ Run these for EVERY spec name provided (fail fast — check all before starting 
 6. **Circular dependency detection**: For every set of specs being executed (from explicit names, `--group`, or `--all`), validate the dependency graph has no cycles. Perform a DFS-based topological sort — if a back edge is found, report the cycle path: "Circular dependency detected: spec-a -> spec-b -> spec-c -> spec-a. Fix the dependency declarations in the manifest." Abort before any execution. A self-dependency (spec lists itself in dependencies) is a cycle of length 1.
 7. **Cross-group dependency validation**: For every spec being executed, check that all its dependencies are within the same group. If spec-a (group: X) depends on spec-b (group: Y) where X != Y and spec-b still exists in the manifest, report: "spec-a (group: X) depends on spec-b (group: Y). Dependencies must be within the same group." Abort before any execution. Dependencies on specs that have been removed from the manifest (satisfied) skip this check.
 
+## Pre-flight Test Gate
+
+Before architect review, run the project's full test suite to ensure no pre-existing failures pollute implementation. This gate runs BEFORE architect review — catching failures early prevents wasted architect and code-agent time.
+
+1. **Read the test command**: Read `dark-factory/project-profile.md` and extract the test command from the `Testing` section's `Run:` field.
+2. **Handle missing profile or test command**:
+   - If `dark-factory/project-profile.md` does not exist → warn: "No test command found in project profile. Skipping pre-flight test gate." Proceed to architect review without running tests.
+   - If the profile exists but has no `Run:` field in the Testing section → same warning and skip.
+3. **Check for `--skip-tests` flag**:
+   - If `--skip-tests` was provided → log a warning: "Pre-flight test gate skipped by --skip-tests flag." Record `"testGateSkipped": true` and `"testGateSkippedAt"` (ISO 8601 timestamp) in the manifest entry for the feature. Proceed to architect review without running tests.
+4. **Run the test suite**: Execute the test command extracted from the project profile.
+5. **Evaluate results**:
+   - If all tests pass → proceed to architect review (Step 0).
+   - If any tests fail → report ALL failures (not just the first one) so the developer sees the full picture. STOP — do NOT proceed to architect review. No architect-agent is spawned. No code-agent is spawned.
+6. **Multi-spec orchestration**: The test gate runs ONCE before any specs are processed. If it fails, abort ALL specs — the test suite is shared (EC-10).
+
 ## Smart Re-run Detection
 Check if `dark-factory/results/{name}/` has previous results:
 - **No results** → proceed as "new" (full run)
-- **Results exist** → ask the developer:
-  - **new** — wipe results, full code-agent → test-agent cycle
-  - **test-only** — skip code-agent, only run test-agent against existing code
-  - **fix** — load last failure summary, send to code-agent for targeted fixes
+- **Results exist** → in autonomous mode, default to "new": wipe previous results and run a full code-agent → test-agent cycle. Do NOT prompt the developer to choose between new/test-only/fix. Rationale: "new" is the safe default since holdout validation catches regressions, and targeted resume is handled by `--group` after failure.
 
 ## Detect Mode
 - If spec is in `dark-factory/specs/features/` → **Feature mode**
@@ -315,7 +407,7 @@ Read the spec file and look for the **Implementation Size Estimate** section:
 - When in doubt, fewer agents is safer — merging conflicting changes wastes more time than sequential execution
 - Maximum 4 parallel code-agents (diminishing returns beyond that)
 
-Tell the developer how many parallel code-agents you plan to spawn and what each will do. Proceed after confirmation (or immediately if the spec already defined the tracks).
+The orchestrator auto-determines parallelism from the spec's "Implementation Size Estimate" section or its own analysis. No developer confirmation is needed for parallelism decisions — proceed immediately.
 
 ### Round N (max 3 rounds):
 

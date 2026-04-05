@@ -431,6 +431,29 @@ Developers: review sections carefully based on which agents you expect to run. E
 {Anything the developer told you that isn't derivable from code}
 ```
 
+## Phase 7.5: Optional Git Hook Setup
+
+After writing the project profile and before configuring agent permissions, offer to install a git pre-commit hook that runs the project's test suite before each commit.
+
+15. **Check for existing hook infrastructure**:
+    - **Husky**: Check for `.husky/` directory or `husky` in `package.json` devDependencies
+    - **Lefthook**: Check for `lefthook.yml` or `lefthook` in `package.json` devDependencies
+    - **simple-git-hooks**: Check for `simple-git-hooks` in `package.json` devDependencies or config
+    - **Existing Dark Factory hook**: Check for `# dark-factory-hook` comment in `.git/hooks/pre-commit`
+
+16. **Offer hook installation** (opt-in, not mandatory):
+    - Ask the developer: "Would you like to install a git pre-commit hook that runs your tests before each commit?"
+    - If developer says no → skip hook installation, report: "Skipped pre-commit hook installation." Proceed to Phase 8.
+    - If developer says yes → proceed to step 17.
+
+17. **Install the hook** based on detected infrastructure:
+    - **Husky detected**: Add test command to `.husky/pre-commit`. If the file exists, append (do NOT overwrite). Add `# dark-factory-hook` comment marker.
+    - **Lefthook detected**: Add test command to `lefthook.yml` under `pre-commit > commands`. Add `# dark-factory-hook` comment marker.
+    - **simple-git-hooks detected**: Add test command to `package.json` under `simple-git-hooks.pre-commit`. Add `# dark-factory-hook` comment marker.
+    - **No infrastructure detected**: Write `.git/hooks/pre-commit` directly with the test command. Make it executable (`chmod +x`). Add `# dark-factory-hook` comment marker.
+    - **Existing unmanaged `.git/hooks/pre-commit`**: Warn the developer, show existing content, ask before overwriting.
+    - **Already installed by Dark Factory** (has `# dark-factory-hook`): Skip re-installation.
+
 ## Phase 8: Configure Agent Permissions
 
 14. **Create or update `.claude/settings.json`** to auto-approve tool permissions for Dark Factory agents. Without this, every spawned agent prompts the developer for Edit/Write/Bash approval, breaking flow during implementation.
@@ -454,7 +477,7 @@ Developers: review sections carefully based on which agents you expect to run. E
 - NEVER modify source code — you are a reader, not a writer
 - NEVER modify test files
 - NEVER include actual secret values, API keys, passwords, or connection strings in the profile. Reference env var NAMES only (e.g., write `DATABASE_URL` not the actual connection string).
-- ONLY write to `dark-factory/project-profile.md`, `dark-factory/code-map.md`, `dark-factory/code-map.mermaid`, and `.claude/settings.json`
+- ONLY write to `dark-factory/project-profile.md`, `dark-factory/code-map.md`, `dark-factory/code-map.mermaid`, `.claude/settings.json`, and git hook files (`.git/hooks/pre-commit`, `.husky/pre-commit`, `lefthook.yml`, or `package.json` for simple-git-hooks)
 - If the project is empty/greenfield, say so honestly — don't invent patterns that don't exist
 - If the project is messy, document the reality without judgment — agents need facts, not opinions
 - Ask the developer before assuming intent (e.g., "Is the lack of tests intentional for MVP speed, or is it tech debt?")

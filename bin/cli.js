@@ -4,8 +4,9 @@
  * Dark Factory CLI
  *
  * Usage:
- *   npx dark-factory init          Install Dark Factory into current project
- *   npx dark-factory update        Update agents/skills/rules to latest version
+ *   npx dark-factory init              Install Dark Factory into current project
+ *   npx dark-factory init --hooks      Install git pre-commit hook only
+ *   npx dark-factory update            Update agents/skills/rules to latest version
  *   npx dark-factory init --dir /path/to/project
  */
 
@@ -231,17 +232,122 @@ function cmdUpdate(targetDir) {
   log("");
 }
 
+function cmdInitHooks(targetDir) {
+  log("");
+  log(`${BOLD}Dark Factory${RESET} — installing pre-commit hook in ${CYAN}${targetDir}${RESET}`);
+  log("");
+
+  // Read test command from project profile
+  const profilePath = path.join(targetDir, "dark-factory", "project-profile.md");
+  let testCommand = null;
+  if (fs.existsSync(profilePath)) {
+    const profile = fs.readFileSync(profilePath, "utf8");
+    const runMatch = profile.match(/Run:\s*`([^`]+)`/);
+    if (runMatch) {
+      testCommand = runMatch[1];
+    }
+  }
+
+  if (!testCommand) {
+    log(`${YELLOW}Warning:${RESET} No test command found in project profile.`);
+    log(`  Create dark-factory/project-profile.md with a Testing > Run field first.`);
+    log(`  Or run /df-onboard to generate it.`);
+    log("");
+    process.exit(1);
+  }
+
+  const MARKER = "# dark-factory-hook";
+
+  // Detect existing hook infrastructure
+  const hasHusky = fs.existsSync(path.join(targetDir, ".husky"));
+  const hasLefthook = fs.existsSync(path.join(targetDir, "lefthook.yml"));
+  let hasSimpleGitHooks = false;
+  const pkgPath = path.join(targetDir, "package.json");
+  if (fs.existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+      hasSimpleGitHooks = !!(pkg["simple-git-hooks"] || (pkg.devDependencies && pkg.devDependencies["simple-git-hooks"]));
+    } catch (_) { /* ignore parse errors */ }
+  }
+
+  if (hasHusky) {
+    const huskyHook = path.join(targetDir, ".husky", "pre-commit");
+    if (fs.existsSync(huskyHook)) {
+      const existing = fs.readFileSync(huskyHook, "utf8");
+      if (existing.includes(MARKER)) {
+        skip("Pre-commit hook already installed (husky)");
+        log("");
+        return;
+      }
+      fs.appendFileSync(huskyHook, `\n${MARKER}\n${testCommand}\n`);
+    } else {
+      ensureDir(path.join(targetDir, ".husky"));
+      fs.writeFileSync(huskyHook, `#!/usr/bin/env sh\n. "$(dirname -- "$0")/_/husky.sh"\n\n${MARKER}\n${testCommand}\n`, "utf8");
+      fs.chmodSync(huskyHook, "755");
+    }
+    info("Added test command to .husky/pre-commit");
+  } else if (hasLefthook) {
+    const lefthookPath = path.join(targetDir, "lefthook.yml");
+    const existing = fs.readFileSync(lefthookPath, "utf8");
+    if (existing.includes(MARKER)) {
+      skip("Pre-commit hook already installed (lefthook)");
+      log("");
+      return;
+    }
+    fs.appendFileSync(lefthookPath, `\n# dark-factory-hook\npre-commit:\n  commands:\n    dark-factory-tests:\n      run: ${testCommand}\n`);
+    info("Added test command to lefthook.yml");
+  } else if (hasSimpleGitHooks) {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+    if (!pkg["simple-git-hooks"]) pkg["simple-git-hooks"] = {};
+    if (pkg["simple-git-hooks"]["pre-commit"] && pkg["simple-git-hooks"]["pre-commit"].includes(MARKER)) {
+      skip("Pre-commit hook already installed (simple-git-hooks)");
+      log("");
+      return;
+    }
+    pkg["simple-git-hooks"]["pre-commit"] = `${MARKER}\n${testCommand}`;
+    fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf8");
+    info("Added test command to package.json simple-git-hooks");
+  } else {
+    // Direct .git/hooks/pre-commit
+    const hooksDir = path.join(targetDir, ".git", "hooks");
+    const hookPath = path.join(hooksDir, "pre-commit");
+    if (fs.existsSync(hookPath)) {
+      const existing = fs.readFileSync(hookPath, "utf8");
+      if (existing.includes(MARKER)) {
+        skip("Pre-commit hook already installed");
+        log("");
+        return;
+      }
+      log(`${YELLOW}Warning:${RESET} .git/hooks/pre-commit already exists with custom content.`);
+      log(`  Appending Dark Factory test hook.`);
+      fs.appendFileSync(hookPath, `\n${MARKER}\n${testCommand}\n`);
+    } else {
+      ensureDir(hooksDir);
+      fs.writeFileSync(hookPath, `#!/usr/bin/env sh\n${MARKER}\n${testCommand}\n`, "utf8");
+      fs.chmodSync(hookPath, "755");
+    }
+    info("Pre-commit hook installed at .git/hooks/pre-commit");
+  }
+
+  log("");
+  log(`${GREEN}${BOLD}Done!${RESET} Pre-commit hook installed.`);
+  log(`  Test command: ${CYAN}${testCommand}${RESET}`);
+  log("");
+}
+
 function cmdHelp() {
   log(`
 ${BOLD}Dark Factory${RESET} — AI-powered development pipeline for Claude Code
 
 ${BOLD}Usage:${RESET}
   npx dark-factory init              Install into current project
+  npx dark-factory init --hooks      Install git pre-commit hook only
   npx dark-factory update            Update agents/skills/rules to latest
   npx dark-factory help              Show this help
 
 ${BOLD}Options:${RESET}
   --dir <path>                       Target directory (default: current dir)
+  --hooks                            Install pre-commit hook (with init)
 
 ${BOLD}What gets installed:${RESET}
   .claude/agents/     7 specialized AI agents
@@ -264,10 +370,13 @@ function main() {
   const args = process.argv.slice(2);
   let command = null;
   let targetDir = process.cwd();
+  let hooks = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--dir" && args[i + 1]) {
       targetDir = path.resolve(args[++i]);
+    } else if (args[i] === "--hooks") {
+      hooks = true;
     } else if (args[i] === "--help" || args[i] === "-h") {
       command = "help";
     } else if (!args[i].startsWith("-")) {
@@ -277,7 +386,11 @@ function main() {
 
   switch (command) {
     case "init":
-      cmdInit(targetDir);
+      if (hooks) {
+        cmdInitHooks(targetDir);
+      } else {
+        cmdInit(targetDir);
+      }
       break;
     case "update":
       cmdUpdate(targetDir);

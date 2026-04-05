@@ -1044,6 +1044,400 @@ describe("Code map — write target and agent compatibility", () => {
   });
 });
 
+// ===========================================================================
+// 14. Pre-flight test gate
+// ===========================================================================
+
+describe("Pre-flight test gate", () => {
+  it("df-orchestrate includes pre-flight test gate section", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Pre-flight Test Gate"),
+      "df-orchestrate should include Pre-flight Test Gate section"
+    );
+  });
+
+  it("df-orchestrate test gate runs before architect review", () => {
+    const content = readSkill("df-orchestrate");
+    const gateIndex = content.indexOf("Pre-flight Test Gate");
+    const architectIndex = content.indexOf("Architect Review");
+    assert.ok(
+      gateIndex < architectIndex,
+      "Pre-flight Test Gate should appear before Architect Review"
+    );
+  });
+
+  it("df-orchestrate reads test command from project profile", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("project-profile.md") &&
+        content.includes("Run:"),
+      "df-orchestrate should read test command from project profile Run: field"
+    );
+  });
+
+  it("df-orchestrate --skip-tests flag is documented", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("--skip-tests"),
+      "df-orchestrate should document --skip-tests flag"
+    );
+  });
+
+  it("df-orchestrate logs testGateSkipped to manifest on --skip-tests", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("testGateSkipped") &&
+        content.includes("manifest"),
+      "df-orchestrate should log testGateSkipped to manifest when --skip-tests is used"
+    );
+  });
+
+  it("df-orchestrate reports ALL failures on test gate failure", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("ALL failures") ||
+        content.includes("report ALL"),
+      "df-orchestrate should report all test failures, not just the first"
+    );
+  });
+
+  it("df-orchestrate skips test gate when no project profile exists", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("No test command found in project profile") &&
+        content.includes("Skipping pre-flight test gate"),
+      "df-orchestrate should warn and skip when no project profile or test command exists"
+    );
+  });
+});
+
+// ===========================================================================
+// 15. Promoted test registry
+// ===========================================================================
+
+describe("Promoted test registry", () => {
+  it("promote-agent includes registry update step", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("Update Registry") &&
+        content.includes("promoted-tests.json"),
+      "promote-agent should include registry update step writing to promoted-tests.json"
+    );
+  });
+
+  it("promote-agent creates registry with version 1 schema", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes('"version": 1') &&
+        content.includes("promotedTests"),
+      "promote-agent should create registry with version 1 and promotedTests array"
+    );
+  });
+
+  it("promote-agent records feature name, type, files, timestamp, and scenario count", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes('"feature"') &&
+        content.includes('"type"') &&
+        content.includes('"files"') &&
+        content.includes('"promotedAt"') &&
+        content.includes('"holdoutScenarioCount"'),
+      "promote-agent registry entry should record feature, type, files, promotedAt, holdoutScenarioCount"
+    );
+  });
+
+  it("promote-agent adds section markers for co-located tests", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("DF-PROMOTED-START") &&
+        content.includes("DF-PROMOTED-END"),
+      "promote-agent should use DF-PROMOTED-START/END markers for co-located tests"
+    );
+  });
+
+  it("promote-agent section markers are only for co-located tests", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("ONLY for co-located") ||
+        (content.includes("co-located") && content.includes("Standalone") && content.includes("do NOT")),
+      "promote-agent should specify section markers are only for co-located tests"
+    );
+  });
+
+  it("promote-agent handles duplicate feature entries by overwriting", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("overwrite") &&
+        content.includes("duplicate"),
+      "promote-agent should overwrite duplicate feature entries, not create duplicates"
+    );
+  });
+
+  it("promote-agent registry is append-only during normal operation", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("append-only"),
+      "promote-agent should document that registry is append-only during normal operation"
+    );
+  });
+});
+
+// ===========================================================================
+// 16. Promoted test health check
+// ===========================================================================
+
+describe("Promoted test health check", () => {
+  it("df-cleanup includes promoted test health check section", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("Promoted Test Health Check"),
+      "df-cleanup should include Promoted Test Health Check section"
+    );
+  });
+
+  it("df-cleanup health check detects missing promoted test files", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("MISSING:"),
+      "df-cleanup should report MISSING for deleted promoted test files"
+    );
+  });
+
+  it("df-cleanup health check detects .skip() on promoted tests", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("SKIPPED:") &&
+        content.includes(".skip()"),
+      "df-cleanup should report SKIPPED for promoted tests with .skip()"
+    );
+  });
+
+  it("df-cleanup health check detects failing promoted tests", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("FAILING:"),
+      "df-cleanup should report FAILING for promoted tests that do not pass"
+    );
+  });
+
+  it("df-cleanup health check detects stale guard annotations", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("STALE GUARD:"),
+      "df-cleanup should report STALE GUARD for guard annotations referencing deleted files"
+    );
+  });
+
+  it("df-cleanup health check handles zero promoted tests gracefully", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("No promoted tests found"),
+      "df-cleanup should handle zero promoted tests gracefully"
+    );
+  });
+
+  it("df-cleanup supports --rebuild flag", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("--rebuild") &&
+        content.includes("Promoted from Dark Factory holdout:"),
+      "df-cleanup should support --rebuild to reconstruct registry from annotation headers"
+    );
+  });
+
+  it("df-cleanup health check strips line numbers from guard paths", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("Strip line numbers") ||
+        content.includes("strip the line number"),
+      "df-cleanup should strip line numbers from guard annotation file paths"
+    );
+  });
+
+  it("df-cleanup health check does not auto-fix", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("NOT auto-fix") ||
+        content.includes("Do NOT auto-fix"),
+      "df-cleanup health check should not auto-fix issues"
+    );
+  });
+});
+
+// ===========================================================================
+// 17. Git hook integration
+// ===========================================================================
+
+describe("Git hook integration", () => {
+  it("onboard-agent offers pre-commit hook installation", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("pre-commit hook") &&
+        content.includes("opt-in"),
+      "onboard-agent should offer opt-in pre-commit hook installation"
+    );
+  });
+
+  it("onboard-agent detects husky infrastructure", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("Husky") || content.includes("husky") || content.includes(".husky"),
+      "onboard-agent should detect husky infrastructure"
+    );
+  });
+
+  it("onboard-agent detects lefthook infrastructure", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("Lefthook") || content.includes("lefthook"),
+      "onboard-agent should detect lefthook infrastructure"
+    );
+  });
+
+  it("onboard-agent detects simple-git-hooks infrastructure", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("simple-git-hooks"),
+      "onboard-agent should detect simple-git-hooks infrastructure"
+    );
+  });
+
+  it("onboard-agent uses dark-factory-hook marker for detection", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("dark-factory-hook"),
+      "onboard-agent should use # dark-factory-hook comment marker"
+    );
+  });
+
+  it("bin/cli.js supports init --hooks flag", () => {
+    const cliContent = fs.readFileSync(path.join(ROOT, "bin", "cli.js"), "utf8");
+    assert.ok(
+      cliContent.includes("--hooks") &&
+        cliContent.includes("cmdInitHooks"),
+      "bin/cli.js should support --hooks flag and have cmdInitHooks function"
+    );
+  });
+
+  it("bin/cli.js --hooks reads test command from project profile", () => {
+    const cliContent = fs.readFileSync(path.join(ROOT, "bin", "cli.js"), "utf8");
+    assert.ok(
+      cliContent.includes("project-profile.md") &&
+        cliContent.includes("dark-factory-hook"),
+      "bin/cli.js --hooks should read project profile and use dark-factory-hook marker"
+    );
+  });
+
+  it("bin/cli.js --hooks detects husky, lefthook, and simple-git-hooks", () => {
+    const cliContent = fs.readFileSync(path.join(ROOT, "bin", "cli.js"), "utf8");
+    assert.ok(
+      cliContent.includes(".husky") &&
+        cliContent.includes("lefthook") &&
+        cliContent.includes("simple-git-hooks"),
+      "bin/cli.js should detect husky, lefthook, and simple-git-hooks infrastructure"
+    );
+  });
+});
+
+// ===========================================================================
+// 18. Code-agent runs all tests in feature mode
+// ===========================================================================
+
+describe("Code-agent feature mode test coverage", () => {
+  it("code-agent feature mode runs ALL existing tests", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("Run ALL existing tests") &&
+        content.includes("no regression"),
+      "code-agent feature mode should run ALL existing tests to verify no regression"
+    );
+  });
+});
+
+// ===========================================================================
+// 19. Plugin mirrors for test-enforcement
+// ===========================================================================
+
+describe("Plugin mirrors for test-enforcement", () => {
+  it("plugins promote-agent.md matches source", () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, ".claude", "agents", "promote-agent.md"),
+      "utf8"
+    );
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "promote-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin promote-agent.md should match source");
+  });
+
+  it("plugins code-agent.md matches source", () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, ".claude", "agents", "code-agent.md"),
+      "utf8"
+    );
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "code-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin code-agent.md should match source");
+  });
+
+  it("plugins df-cleanup SKILL.md matches source", () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, ".claude", "skills", "df-cleanup", "SKILL.md"),
+      "utf8"
+    );
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "skills", "df-cleanup", "SKILL.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin df-cleanup SKILL.md should match source");
+  });
+
+  it("plugins onboard-agent.md matches source", () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, ".claude", "agents", "onboard-agent.md"),
+      "utf8"
+    );
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "onboard-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin onboard-agent.md should match source");
+  });
+});
+
+// ===========================================================================
+// 20. dark-factory.md documents health check
+// ===========================================================================
+
+describe("dark-factory.md health check documentation", () => {
+  it("dark-factory.md documents promoted test health check in df-cleanup", () => {
+    const rules = fs.readFileSync(
+      path.join(ROOT, ".claude", "rules", "dark-factory.md"),
+      "utf8"
+    );
+    assert.ok(
+      rules.includes("health check") &&
+        rules.includes("promoted test"),
+      "dark-factory.md should document health check for promoted tests in df-cleanup"
+    );
+  });
+
+  it("dark-factory.md documents --rebuild flag", () => {
+    const rules = fs.readFileSync(
+      path.join(ROOT, ".claude", "rules", "dark-factory.md"),
+      "utf8"
+    );
+    assert.ok(
+      rules.includes("--rebuild"),
+      "dark-factory.md should document --rebuild flag"
+    );
+  });
+});
+
 describe("Code map — edge cases in dependency analysis", () => {
   it("H-11: onboard-agent handles circular dependencies in code map without corrupting hotspots", () => {
     const content = readAgent("onboard-agent");
@@ -1092,6 +1486,166 @@ describe("Code map — edge cases in dependency analysis", () => {
       (content.toLowerCase().includes("no import") || content.includes("empty graph") || content.includes("no dependencies") || content.includes("No imports")) &&
         (content.includes("code-map") || content.includes("code map")),
       "onboard-agent should handle projects with no import relationships gracefully"
+    );
+  });
+});
+
+// ===========================================================================
+// Wave automation — autonomous wave execution
+// ===========================================================================
+
+describe("Wave automation — autonomous execution", () => {
+  it("df-orchestrate defines autonomous wave execution section", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Autonomous Wave Execution"),
+      "df-orchestrate should define Autonomous Wave Execution section"
+    );
+  });
+
+  it("df-orchestrate spawns each wave as independent agent", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("wave agent") || content.includes("wave-agent"),
+      "df-orchestrate should reference wave agents"
+    );
+    assert.ok(
+      content.includes("independent") && content.includes("agent") && content.includes("wave"),
+      "df-orchestrate should spawn each wave as an independent agent"
+    );
+  });
+
+  it("df-orchestrate requires only ONE developer confirmation for multi-spec", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("execute ALL waves without further developer interaction"),
+      "df-orchestrate should execute all waves after one confirmation"
+    );
+  });
+
+  it("df-orchestrate auto-continues between waves without developer acknowledgment", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("automatically proceeds to wave N+1") ||
+        content.includes("automatically proceeds to the next wave"),
+      "df-orchestrate should auto-continue between waves"
+    );
+    assert.ok(
+      content.includes("No developer acknowledgment is needed between waves"),
+      "df-orchestrate should not require inter-wave acknowledgment"
+    );
+  });
+
+  it("df-orchestrate does not ask developer to decide next steps on failure", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      !content.includes("Ask the developer"),
+      "df-orchestrate should not ask the developer mid-pipeline (removed pause point)"
+    );
+  });
+
+  it("df-orchestrate does not prompt for smart re-run choice", () => {
+    const content = readSkill("df-orchestrate");
+    // The smart re-run section should not offer interactive choices (new/test-only/fix)
+    assert.ok(
+      !content.includes("**test-only**") && !content.includes("**fix**"),
+      "df-orchestrate should not offer test-only/fix re-run choices (defaults to new)"
+    );
+  });
+
+  it("df-orchestrate smart re-run defaults to new in autonomous mode", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("default to") && content.includes("new") && content.includes("wipe"),
+      "df-orchestrate should default smart re-run to 'new' with wipe"
+    );
+  });
+
+  it("df-orchestrate wave agent handles full lifecycle", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Architect review") &&
+        content.includes("Code agents") &&
+        content.includes("Holdout validation") &&
+        content.includes("Promotion") &&
+        content.includes("Cleanup"),
+      "Wave agent should handle full lifecycle: architect, code, holdout, promote, cleanup"
+    );
+  });
+
+  it("df-orchestrate includes non-blocking progress reporting", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Progress Reporting") || content.includes("progress reporting"),
+      "df-orchestrate should include progress reporting section"
+    );
+    assert.ok(
+      content.includes("without blocking"),
+      "Progress reporting should be non-blocking"
+    );
+  });
+
+  it("df-orchestrate includes comprehensive final summary report", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Final Summary Report"),
+      "df-orchestrate should include Final Summary Report section"
+    );
+    assert.ok(
+      content.includes("Completed specs") && content.includes("Failed specs") && content.includes("Blocked specs"),
+      "Final summary should list completed, failed, and blocked specs"
+    );
+  });
+
+  it("df-orchestrate preserves single-spec mode without wave agent", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Single-Spec Mode") || content.includes("single-spec"),
+      "df-orchestrate should mention single-spec mode exception"
+    );
+    assert.ok(
+      content.includes("wave agent architecture is NOT used") ||
+        content.includes("wave agent") && content.includes("NOT used"),
+      "Single-spec mode should not use wave agent architecture"
+    );
+  });
+
+  it("df-orchestrate defines merge conflict as hard stop", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Merge conflict") && content.includes("Hard stop"),
+      "df-orchestrate should define merge conflict as hard stop"
+    );
+  });
+
+  it("df-orchestrate reports failures with actionable next steps", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("actionable next steps"),
+      "df-orchestrate should report failures with actionable next steps"
+    );
+  });
+
+  it("dark-factory.md rules do not claim implementation is never auto-triggered", () => {
+    const rules = fs.readFileSync(
+      path.join(ROOT, ".claude", "rules", "dark-factory.md"),
+      "utf8"
+    );
+    assert.ok(
+      !rules.includes("never auto-triggered"),
+      "dark-factory.md should not claim implementation is never auto-triggered"
+    );
+    assert.ok(
+      rules.includes("auto-triggered from df-intake"),
+      "dark-factory.md should acknowledge df-intake can auto-trigger orchestrate"
+    );
+  });
+
+  it("df-orchestrate parallelism does not require confirmation", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      !content.includes("Proceed after confirmation"),
+      "df-orchestrate should not require parallelism confirmation (Step 0.5 pause removed)"
     );
   });
 });

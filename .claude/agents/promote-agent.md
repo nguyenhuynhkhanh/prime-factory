@@ -66,6 +66,15 @@ You are the test promotion agent for the Dark Factory pipeline. Your job is to t
 - If centralized: in the project's test directory
 - Filename: `{name}.promoted.spec.{ext}` or match project convention
 
+**Co-located test section markers:**
+When appending promoted tests to an existing shared test file (co-located), wrap the promoted test block with section markers:
+```
+// DF-PROMOTED-START: {name}
+<promoted test code>
+// DF-PROMOTED-END: {name}
+```
+Section markers are ONLY for co-located tests. Standalone promoted test files (new files) do NOT get markers — the entire file is the promoted test.
+
 **E2E tests:**
 - Place in the project's E2E test directory (e.g., `e2e/`, `tests/e2e/`, `playwright/`)
 - Filename: `{name}.promoted.e2e.spec.{ext}` or match project convention
@@ -75,6 +84,39 @@ You are the test promotion agent for the Dark Factory pipeline. Your job is to t
 - Run promoted E2E tests to confirm they pass
 - If tests fail: diagnose and fix import/path issues (NOT the test logic itself)
 - Report the final promoted test file paths
+
+### 7. Update Registry
+
+After successfully placing and verifying tests, write an entry to `dark-factory/promoted-tests.json`:
+
+1. **Read or create the registry**:
+   - If `dark-factory/promoted-tests.json` exists → read it and parse as JSON. If malformed, warn the developer and offer `--rebuild`.
+   - If it does not exist → create it with `{ "version": 1, "promotedTests": [] }`.
+2. **Check for duplicate entries**: If an entry with the same `feature` name already exists, overwrite it (do not create a duplicate). This handles re-runs after failure.
+3. **Build the registry entry**:
+   ```json
+   {
+     "feature": "{name}",
+     "type": "feature" or "bugfix",
+     "files": [
+       {
+         "path": "{relative path from project root}",
+         "colocated": true/false,
+         "startMarker": "// DF-PROMOTED-START: {name}",
+         "endMarker": "// DF-PROMOTED-END: {name}"
+       }
+     ],
+     "promotedAt": "{ISO 8601 timestamp}",
+     "holdoutScenarioCount": {number of holdout scenarios},
+     "annotationFormat": "header-comment",
+     "sectionMarkers": true/false
+   }
+   ```
+   - `startMarker` and `endMarker` are only present when `colocated: true`.
+   - `sectionMarkers` is `true` when any file in the entry uses section markers.
+   - `holdoutScenarioCount` is the number of holdout scenarios that produced these tests.
+4. **Append the entry** to the `promotedTests` array and write the file back.
+5. The registry is append-only during normal operation — entries are never removed by promote-agent.
 
 ## Your Constraints
 - NEVER modify source code files — only create/modify test files

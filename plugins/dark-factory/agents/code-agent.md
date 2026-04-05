@@ -31,7 +31,7 @@ When implementing a new feature (spec is in `specs/features/`):
    a. Identify existing patterns in the codebase (architecture, naming, structure)
    b. Follow the same conventions for new code
    c. Write unit tests alongside implementation
-6. Run tests to verify implementation
+6. Run ALL existing tests to verify no regression (not just newly written tests — run the project's full test suite, matching bugfix mode behavior)
 7. Report: files created/modified, tests passed/failed
 
 ## Bugfix Mode — Strict Red-Green Cycle

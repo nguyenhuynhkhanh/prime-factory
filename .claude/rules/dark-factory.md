@@ -40,7 +40,7 @@ When in doubt, ask: "Would you like me to run this through the Dark Factory pipe
 - `/df-intake {description}` — Start **feature** spec creation. Spawns 3 parallel spec-agents (user/product, architecture, reliability perspectives), synthesizes into one spec.
 - `/df-debug {description}` — Start **bug** investigation. Spawns 3 parallel debug-agents investigating from different angles (code path, history, patterns), synthesizes findings, then writes the report.
 - `/df-orchestrate {name} [name2...] | --group {name} | --all [--force]` — Start implementation. Supports explicit spec names, `--group` for all specs in a group, or `--all` for every active spec. Each spec runs in its own git worktree. Multiple specs implement in parallel. Auto-scales code-agents per spec (up to 4). Auto-promotes holdout tests and cleans up on success.
-- `/df-cleanup` — Recovery/maintenance. Retries stuck promotions, completes archival, lists stale features.
+- `/df-cleanup` — Recovery/maintenance. Runs health check on promoted tests (detects missing, skipped, failing, or stale tests), retries stuck promotions, completes archival, lists stale features. Use `--rebuild` to reconstruct the promoted test registry from annotation headers.
 - `/df-spec` — Show spec templates for manual writing.
 - `/df-scenario` — Show scenario templates.
 
@@ -63,7 +63,7 @@ When in doubt, ask: "Would you like me to run this through the Dark Factory pipe
 5. **Promote + Cleanup**: Same as feature pipeline
 
 ## Rules
-- Spec creation and implementation are FULLY DECOUPLED — never auto-triggered
+- Implementation requires developer confirmation but can be auto-triggered from df-intake after that confirmation
 - Every agent spawn is INDEPENDENT — fresh context, no shared state
 - NEVER pass holdout scenario content to the code-agent
 - NEVER pass public scenario content to the test-agent
