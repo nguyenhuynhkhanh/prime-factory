@@ -74,7 +74,8 @@ async function fetchStats(orgId: string): Promise<StatsData> {
       sql`SELECT COUNT(*) as count
           FROM installs
           WHERE org_id = ${orgId}
-            AND last_seen_at > ${thirtyDaysAgo}`
+            AND last_seen_at > ${thirtyDaysAgo}
+            AND revoked_at IS NULL`
     ),
     db.all<AggregateRow>(
       sql`SELECT command, outcome, COUNT(*) as count

@@ -4,20 +4,22 @@
  * Extracts the `Authorization: Bearer <apiKey>` header, looks up the API key
  * in `installs.apiKey` (stored as plaintext), and returns `{ installId, orgId }`.
  *
- * Performs a best-effort `lastSeenAt` update as a fire-and-forget side-effect.
+ * Checks revocation (revokedAt IS NOT NULL → 403) and expiry (expiresAt < now → 401).
+ *
+ * Performs a fire-and-forget update of both `lastSeenAt` and `expiresAt` (sliding +30 days)
+ * on every successful auth. Errors are swallowed.
  *
  * Returns a 401 NextResponse if:
  *   - the Authorization header is absent or not in Bearer format
  *   - no install row matches the provided API key
+ *   - the install is expired
  *
- * Returns a 500 NextResponse if `API_KEY_SALT` is missing or shorter than 16 chars
- * (misconfiguration guard — this env var is required for install HMAC verification
- * in the installs route, so its absence here signals a misconfigured environment).
+ * Returns a 403 NextResponse if:
+ *   - the install has been revoked (revokedAt IS NOT NULL)
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { getDatabase } from "@/lib/db";
 import { installs } from "@/db/schema";
 
@@ -30,13 +32,8 @@ type ApiKeyResult =
   | { ok: true; context: ApiKeyContext }
   | { ok: false; response: NextResponse };
 
-const MIN_SALT_LENGTH = 16;
-
 /**
  * Validates the Bearer API key from the request and returns the install context.
- *
- * `API_KEY_SALT` is checked at request time (not module load) per NFR-2 and
- * the Cloudflare constraint that env bindings are unavailable at module init.
  *
  * Usage in a Route Handler:
  * ```ts
@@ -48,19 +45,6 @@ const MIN_SALT_LENGTH = 16;
 export async function requireApiKey(
   request: NextRequest
 ): Promise<ApiKeyResult> {
-  // Check API_KEY_SALT at request time.
-  const { env } = getCloudflareContext();
-  const salt = env.API_KEY_SALT ?? "";
-  if (salt.length < MIN_SALT_LENGTH) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { error: "server misconfiguration" },
-        { status: 500 }
-      ),
-    };
-  }
-
   // Extract Bearer token.
   const authHeader = request.headers.get("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -80,9 +64,14 @@ export async function requireApiKey(
 
   const db = getDatabase();
 
-  // Look up install by apiKey.
+  // Look up install by apiKey — select revokedAt and expiresAt for auth checks.
   const installRow = await db
-    .select({ id: installs.id, orgId: installs.orgId })
+    .select({
+      id: installs.id,
+      orgId: installs.orgId,
+      revokedAt: installs.revokedAt,
+      expiresAt: installs.expiresAt,
+    })
     .from(installs)
     .where(eq(installs.apiKey, bearerToken))
     .get();
@@ -94,15 +83,34 @@ export async function requireApiKey(
     };
   }
 
-  // Best-effort lastSeenAt update — fire-and-forget, must not fail the request.
-  try {
-    await db
-      .update(installs)
-      .set({ lastSeenAt: new Date() })
-      .where(eq(installs.id, installRow.id));
-  } catch {
-    // Intentionally swallowed — lastSeenAt is telemetry, not correctness-critical.
+  // Check revocation first (FR-1, BR-5): revoked key → 403.
+  if (installRow.revokedAt !== null) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "api key revoked" }, { status: 403 }),
+    };
   }
+
+  // Check expiry (FR-1, BR-5): expired key → 401.
+  // expiresAt is stored as { mode: "timestamp" } — Drizzle returns a Date object.
+  const now = new Date();
+  if (installRow.expiresAt < now) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "api key expired" }, { status: 401 }),
+    };
+  }
+
+  // Fire-and-forget: update lastSeenAt AND sliding expiresAt (FR-2, BR-4, AC-1, EC-7).
+  // Errors are intentionally swallowed — this must not fail the request.
+  const newExpiresAt = new Date(Math.floor(Date.now() / 1000) * 1000 + 30 * 24 * 60 * 60 * 1000);
+  void db
+    .update(installs)
+    .set({ lastSeenAt: now, expiresAt: newExpiresAt })
+    .where(eq(installs.id, installRow.id))
+    .catch(() => {
+      // Intentionally swallowed — telemetry update, not correctness-critical (EC-7).
+    });
 
   return {
     ok: true,

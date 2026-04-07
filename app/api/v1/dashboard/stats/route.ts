@@ -64,12 +64,14 @@ export async function GET(): Promise<NextResponse> {
     // 2. Run all three queries in parallel (FR-4).
     const [activeInstallsRows, aggregateRows, recentEventsRows] =
       await Promise.all([
-        // Query 1: Active installs — last_seen_at strictly greater than threshold (FR-6, EC-4, EC-5).
+        // Query 1: Active installs — last_seen_at strictly greater than threshold.
+        //          Excludes revoked installs (FR-14, BR-8, AC-15).
         db.all<ActiveInstallsRow>(
           sql`SELECT COUNT(*) as count
               FROM installs
               WHERE org_id = ${orgId}
-                AND last_seen_at > ${thirtyDaysAgo}`
+                AND last_seen_at > ${thirtyDaysAgo}
+                AND revoked_at IS NULL`
         ),
         // Query 2: Event aggregates — single query disaggregated in JS (FR-8).
         db.all<AggregateRow>(
