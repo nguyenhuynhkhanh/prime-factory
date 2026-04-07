@@ -30,8 +30,8 @@ import { CopyInviteLink } from "./CopyInviteLink";
 // Timestamps are Unix epoch seconds (integer) or null.
 interface InstallRow {
   id: string;
-  computer_name: string;
-  git_user_id: string;
+  computer_name: string | null;
+  git_user_id: string | null;
   created_at: number;
   last_seen_at: number | null;
   event_count: number | string;
@@ -41,8 +41,8 @@ interface InstallRow {
 // Shaped install record used in the render tree.
 interface InstallRecord {
   id: string;
-  computerName: string;
-  gitUserId: string;
+  computerName: string | null;
+  gitUserId: string | null;
   createdAt: string;
   lastSeenAt: string | null;
   eventCount: number;
@@ -54,7 +54,7 @@ interface InstallRecord {
 async function fetchInstalls(orgId: string): Promise<InstallRecord[]> {
   const db = getDatabase();
 
-  // Explicit column list — apiKey and hmac intentionally omitted (FR-2, BR-2).
+  // Explicit column list — apiKey intentionally omitted (FR-2, BR-2).
   // LEFT JOIN so installs with zero events still appear (FR-3, BR-5).
   // ORDER BY lastSeenAt DESC NULLS LAST (FR-4).
   // LIMIT 200 safety cap (FR-5, BR-7).
@@ -213,9 +213,9 @@ export default async function InstallsPage(): Promise<React.ReactElement> {
                   <td className="px-4 py-2 max-w-[10rem]">
                     <span
                       className="block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs"
-                      title={install.gitUserId}
+                      title={install.gitUserId ?? "—"}
                     >
-                      {install.gitUserId}
+                      {install.gitUserId ?? "—"}
                     </span>
                   </td>
 
@@ -226,9 +226,9 @@ export default async function InstallsPage(): Promise<React.ReactElement> {
                   <td className="px-4 py-2 max-w-[10rem]">
                     <span
                       className="block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs"
-                      title={install.computerName}
+                      title={install.computerName ?? "—"}
                     >
-                      {install.computerName}
+                      {install.computerName ?? "—"}
                     </span>
                   </td>
 

@@ -18,16 +18,18 @@ export const orgs = sqliteTable("orgs", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// --- Developer installs (CLI identity) ---
+// --- Developer installs (admin-managed API keys) ---
 export const installs = sqliteTable(
   "installs",
   {
-    id: text("id").primaryKey(),              // userId provided at CLI registration
+    id: text("id").primaryKey(),
     orgId: text("org_id").notNull(),
-    computerName: text("computer_name").notNull(),
-    gitUserId: text("git_user_id").notNull(),
-    hmac: text("hmac").notNull(),             // HMAC of userId+computerName+gitUserId (no separator)
+    label: text("label").notNull().default(""),
+    computerName: text("computer_name"),
+    gitUserId: text("git_user_id"),
     apiKey: text("api_key").notNull().unique(),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    revokedAt: integer("revoked_at", { mode: "timestamp" }),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     lastSeenAt: integer("last_seen_at", { mode: "timestamp" }),
   },

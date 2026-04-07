@@ -21,8 +21,8 @@ import Link from "next/link";
 interface EventRow {
   id: string;
   installId: string;
-  computerName: string;
-  gitUserId: string;
+  computerName: string | null;
+  gitUserId: string | null;
   command: string;
   subcommand: string | null;
   startedAt: string;

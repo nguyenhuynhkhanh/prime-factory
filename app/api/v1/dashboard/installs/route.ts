@@ -8,7 +8,7 @@
  * orgId is always sourced from the session — never from query params (FR-1, BR-1).
  *
  * Security:
- * - Explicit column list in SELECT — apiKey and hmac are NEVER selected (FR-2, BR-2).
+ * - Explicit column list in SELECT — apiKey is NEVER selected (FR-2, BR-2).
  * - Allow-list destructuring before JSON serialisation as a second layer of defence (NFR-2).
  *
  * Ordering: lastSeenAt DESC NULLS LAST — most recently active machines first (FR-4).
@@ -25,8 +25,8 @@ import { getDatabase } from "@/lib/db";
 // event_count may come back as number or string from D1 raw SQL.
 interface InstallRow {
   id: string;
-  computer_name: string;
-  git_user_id: string;
+  computer_name: string | null;
+  git_user_id: string | null;
   created_at: number;
   last_seen_at: number | null;
   event_count: number | string;
@@ -36,8 +36,8 @@ interface InstallRow {
 // Allow-listed shape for the JSON response.
 interface InstallRecord {
   id: string;
-  computerName: string;
-  gitUserId: string;
+  computerName: string | null;
+  gitUserId: string | null;
   createdAt: string;
   lastSeenAt: string | null;
   eventCount: number;
@@ -64,7 +64,7 @@ export async function GET(): Promise<NextResponse> {
   const db = getDatabase();
 
   try {
-    // 2. Query with explicit column list — apiKey and hmac are intentionally omitted (FR-2, BR-2).
+    // 2. Query with explicit column list — apiKey is intentionally omitted (FR-2, BR-2).
     //    LEFT JOIN so installs with zero events still appear (FR-3, BR-5).
     //    ORDER BY lastSeenAt DESC NULLS LAST (FR-4).
     //    LIMIT 200 safety cap (FR-5, BR-7).
