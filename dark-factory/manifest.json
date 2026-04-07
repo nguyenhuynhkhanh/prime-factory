@@ -1,26 +1,3 @@
 {
-  "features": {
-    "api-key-management-ui": {
-      "type": "feature",
-      "status": "active",
-      "specPath": "dark-factory/specs/features/api-key-management-ui.spec.md",
-      "created": "2026-04-07T00:00:00.000Z",
-      "rounds": 0,
-      "group": "api-key-management",
-      "dependencies": [
-        "api-key-management-server"
-      ]
-    },
-    "api-key-management-cli": {
-      "type": "feature",
-      "status": "active",
-      "specPath": "dark-factory/specs/features/api-key-management-cli.spec.md",
-      "created": "2026-04-07T00:00:00.000Z",
-      "rounds": 0,
-      "group": "api-key-management",
-      "dependencies": [
-        "api-key-management-server"
-      ]
-    }
-  }
+  "features": {}
 }
