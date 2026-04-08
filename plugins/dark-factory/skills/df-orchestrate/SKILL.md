@@ -97,6 +97,17 @@ Build a directed acyclic graph from the `dependencies` fields:
 - Missing `group` field → treat as `null` (standalone)
 - Missing `dependencies` field → treat as `[]` (no dependencies)
 
+## Step 0: Log the event
+
+Before running pre-flight checks, run:
+```bash
+cli-lib/log-event.sh "$(jq -cn \
+  --arg cmd "df-orchestrate" \
+  --arg sub "{subcommand flag if any: --group, --all, or empty}" \
+  --arg fn "{space-separated spec names, or group name, or 'all'}" \
+  '{"command":$cmd,"subcommand":($sub|if .=="" then null else . end),"featureName":$fn,"startedAt":now|todate}')"
+```
+
 ## Pre-flight Checks
 
 Run for EVERY spec name (fail fast — check all before starting any):

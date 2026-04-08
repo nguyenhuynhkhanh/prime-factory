@@ -17,6 +17,35 @@ You receive from the orchestrator:
 - **Branch name**: current working branch
 - **Skip-tests flag**: whether `--skip-tests` was passed (optional)
 
+## Timing
+
+At the very start, capture the start epoch for duration tracking:
+```bash
+DF_START=$(date +%s)
+```
+
+Use this helper at every terminal exit point to log the outcome:
+```bash
+# Usage: log_df_outcome <outcome> <round_count>
+# outcome: success | failed | blocked | abandoned
+log_df_outcome() {
+  local outcome="$1"
+  local rounds="$2"
+  local end now
+  end=$(date +%s)
+  now=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+  cli-lib/log-event.sh "$(jq -cn \
+    --arg fn "{spec name}" \
+    --arg cmd "df-orchestrate" \
+    --arg outcome "$outcome" \
+    --arg started "$(date -u -r "$DF_START" +"%Y-%m-%dT%H:%M:%S.000Z" 2>/dev/null || date -u -d "@$DF_START" +"%Y-%m-%dT%H:%M:%S.000Z")" \
+    --arg ended "$now" \
+    --argjson dur "$((( end - DF_START ) * 1000))" \
+    --argjson rc "${rounds:-0}" \
+    '{"command":$cmd,"featureName":$fn,"outcome":$outcome,"startedAt":$started,"endedAt":$ended,"durationMs":$dur,"roundCount":$rc}')"
+}
+```
+
 ## Pre-flight Test Gate
 
 Before architect review, run the project's test suite if not already run at the orchestrator level:
@@ -25,6 +54,9 @@ Before architect review, run the project's test suite if not already run at the 
 2. If profile or `Run:` field missing: warn "No test command found in project profile. Skipping pre-flight test gate." and proceed.
 3. If `--skip-tests`: log "Pre-flight test gate skipped by --skip-tests flag." Record `"testGateSkipped": true` and timestamp in manifest. Proceed.
 4. Run the test suite. If failures: report ALL failures and STOP. Do NOT proceed to architect review.
+   ```bash
+   log_df_outcome failed 0
+   ```
 
 ## Smart Re-run Detection
 
@@ -58,6 +90,9 @@ Check if `dark-factory/results/{name}/` has previous results:
   - Write synthesized `{name}.review.md`.
 - If any domain BLOCKED: collect all blockers, spawn spec-agent (features) or debug-agent (bugs) with all findings to update spec. Re-spawn only blocked/concerned domains. Max 3 total passes.
 - If overall BLOCKED after all passes: report to developer, do NOT proceed.
+  ```bash
+  log_df_outcome blocked 0
+  ```
 - If APPROVED or APPROVED WITH NOTES: proceed to Step 0d.
 
 **Step 0d: Extract and forward findings to code-agents**
@@ -100,6 +135,9 @@ Rules: zero file overlap between tracks, sequential if dependencies exist, max 4
 - All passed: proceed to Post-Implementation File Count, then Post-Implementation Lifecycle.
 - Failures and rounds < 3: extract behavioral failure descriptions (NO holdout content), re-spawn only failing tracks.
 - Failures and rounds = 3: report to developer.
+  ```bash
+  log_df_outcome failed 3
+  ```
 
 ## Bugfix Mode — Red-Green Cycle
 
@@ -118,6 +156,9 @@ Rules: zero file overlap between tracks, sequential if dependencies exist, max 4
 - If all passed: proceed to Post-Implementation Lifecycle.
 - If failures and rounds < 3: extract behavioral descriptions, go back to Step 2.
 - If failures and rounds = 3: report to developer.
+  ```bash
+  log_df_outcome failed 3
+  ```
 
 ## Post-Implementation File Count Check
 
@@ -143,6 +184,10 @@ After implementation (before holdout validation):
 - Delete: spec file, review files, `dark-factory/scenarios/public/{name}/`, `dark-factory/scenarios/holdout/{name}/`, `dark-factory/results/{name}/`.
 - Remove entry from `dark-factory/manifest.json`.
 - Commit deletion: `git add -A dark-factory/ && git commit -m "Cleanup {name}: artifacts deleted, tests promoted"`
+- Log success:
+  ```bash
+  log_df_outcome success {actual round count}
+  ```
 
 ## Information Barrier Rules
 
