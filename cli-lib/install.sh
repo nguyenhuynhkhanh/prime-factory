@@ -5,7 +5,7 @@
 set -e
 
 INSTALL_DIR="$HOME/.local/bin"
-BASE_RAW="https://raw.githubusercontent.com/YOUR_ORG/YOUR_REPO/main/cli-lib"
+BASE_RAW="https://raw.githubusercontent.com/nguyenhuynhkhanh/prime-factory/main/cli-lib"
 SCRIPTS="df-onboard.sh df-check-onboard.sh log-event.sh"
 
 echo "Installing Prime Factory CLI to $INSTALL_DIR ..."

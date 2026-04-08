@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Prime Factory
 
-## Getting Started
+A telemetry dashboard for [Dark Factory](https://github.com/nguyenhuynhkhanh/dark-factory) — track CLI usage, developer activity, and feature pipeline health across your team.
 
-First, run the development server:
+## What it does
+
+- **API key management** — generate and revoke install keys for developers
+- **Event explorer** — filter and paginate telemetry events by command, outcome, date range, and machine
+- **Dashboard stats** — at-a-glance view of activity across your org
+
+## Stack
+
+- Next.js 16 (App Router) on Cloudflare Workers via `@opennextjs/cloudflare`
+- D1 (SQLite) via Drizzle ORM
+- Tailwind CSS v4
+
+## Developer CLI
+
+Developers interact with Prime Factory through shell scripts in `cli-lib/`. They never touch the dashboard directly.
+
+### One-line install
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+curl -fsSL https://raw.githubusercontent.com/nguyenhuynhkhanh/prime-factory/main/cli-lib/install.sh | bash
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+This installs three scripts to `~/.local/bin`:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Script | Purpose |
+|---|---|
+| `df-onboard.sh` | First-time setup — validates API key and writes `~/.df-factory/config.json` |
+| `df-check-onboard.sh` | Offline guard — checks config exists before running df commands |
+| `log-event.sh` | Fire-and-forget telemetry — called automatically by Dark Factory skills |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Onboarding a developer
 
-## Learn More
+1. Go to the dashboard → **API Keys** → generate a new key
+2. Share the key and the install command above with the developer
+3. Developer runs `df-onboard.sh`, enters the server URL and API key
+4. Done — events flow automatically from their Dark Factory CLI usage
 
-To learn more about Next.js, take a look at the following resources:
+## Running locally
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm install
+npm run db:setup   # create and migrate local D1
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Open [http://localhost:3000](http://localhost:3000).
 
-## Deploy on Vercel
+## Deploying
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run deploy
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Builds with `opennextjs-cloudflare` and deploys to Cloudflare Workers + D1.
+
+## Running tests
+
+```bash
+npm test   # bats tests for the CLI scripts (requires bats-core)
+```
