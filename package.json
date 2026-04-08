@@ -4,12 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "opennextjs-cloudflare build",
+    "deploy": "opennextjs-cloudflare build && wrangler deploy",
+    "preview": "opennextjs-cloudflare build && wrangler dev",
     "start": "next start",
     "lint": "eslint",
     "db:setup": "wrangler d1 create prime-factory --local 2>/dev/null || true && npm run db:migrate",
     "db:migrate": "wrangler d1 migrations apply prime-factory --local",
     "db:studio": "wrangler d1 studio prime-factory --local",
+    "db:seed": "wrangler d1 execute prime-factory --local --file=db/seed.sql",
     "test": "bats cli-lib/tests/"
   },
   "dependencies": {

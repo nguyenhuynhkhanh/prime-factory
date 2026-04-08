@@ -23,7 +23,7 @@ export default function LoginPage(): React.ReactElement {
       });
 
       if (res.ok) {
-        router.push("/dashboard");
+        router.push("/");
         return;
       }
 
