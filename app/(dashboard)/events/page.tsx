@@ -1,16 +1,17 @@
 /**
  * Event Explorer page — app/(dashboard)/events/page.tsx
  *
- * Server Component. Reads URL search params, calls requireCtoSession, fetches
- * event data and installs from the API endpoints, and renders the filter bar
- * (client component) + paginated event table.
- *
- * searchParams is a Promise in Next.js 16 and must be awaited (project profile note).
+ * Server Component. Queries D1 directly instead of calling the internal API
+ * over HTTP — Cloudflare Workers cannot make loopback fetch() requests to
+ * themselves.
  */
 
 import { redirect } from "next/navigation";
-import { cookies, headers } from "next/headers";
+import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import { requireCtoSession } from "@/lib/auth/requireCtoSession";
+import { getDatabase } from "@/lib/db";
+import { events, installs } from "@/db/schema";
 import { LocalTimestamp } from "@/app/(dashboard)/_components/LocalTimestamp";
 import { EventFilters } from "./_components/EventFilters";
 import type { InstallOption } from "./_components/EventFilters";
@@ -35,32 +36,8 @@ interface EventRow {
   createdAt: string;
 }
 
-interface PaginationData {
-  page: number;
-  limit: number;
-  total: number;
-  hasMore: boolean;
-}
-
-interface EventsResponse {
-  events: EventRow[];
-  pagination: PaginationData;
-}
-
-interface InstallsResponse {
-  installs: InstallOption[];
-}
-
 // ─── Duration formatting helper ──────────────────────────────────────────────
 
-/**
- * formatDuration — converts raw milliseconds to a human-readable string.
- *
- * null → "—"
- * < 1000ms → "< 1s"
- * < 60000ms → "45s"
- * >= 60000ms → "1m 23s"
- */
 export function formatDuration(ms: number | null): string {
   if (ms === null) return "—";
   if (ms < 1000) return "< 1s";
@@ -76,18 +53,30 @@ interface EventsPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
+const VALID_COMMANDS = [
+  "df-intake", "df-debug", "df-orchestrate", "df-onboard", "df-cleanup",
+] as const;
+
+const VALID_OUTCOMES = ["success", "failed", "blocked", "abandoned"] as const;
+
+function parseIsoDate(value: string): Date | null {
+  if (!value.includes("T")) return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return d;
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default async function EventsPage({
   searchParams,
 }: EventsPageProps): Promise<React.ReactElement> {
-  // Resolve session (layout cannot pass orgId — FR-2).
   const sessionResult = await requireCtoSession();
   if (!sessionResult.ok) {
     redirect("/login");
   }
 
-  // Await searchParams (Promise in Next.js 16).
+  const { orgId } = sessionResult.session;
   const sp = await searchParams;
 
   const getString = (key: string): string =>
@@ -102,75 +91,127 @@ export default async function EventsPage({
   const limitStr = getString("limit");
 
   const page = pageStr ? Math.max(1, parseInt(pageStr, 10) || 1) : 1;
+  let limit = limitStr ? parseInt(limitStr, 10) : 50;
+  if (isNaN(limit) || limit < 1) limit = 1;
+  if (limit > 100) limit = 100;
+  const offset = (page - 1) * limit;
 
-  // Build query string for the API call.
-  const apiParams = new URLSearchParams();
-  if (installId) apiParams.set("installId", installId);
-  if (command) apiParams.set("command", command);
-  if (outcome) apiParams.set("outcome", outcome);
-  if (from) apiParams.set("from", from);
-  if (to) apiParams.set("to", to);
-  apiParams.set("page", String(page));
-  if (limitStr) apiParams.set("limit", limitStr);
+  const defaultFrom = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  let fromDate: Date = defaultFrom;
+  let toDate: Date | undefined;
 
-  const headerStore = await headers();
-  const host = headerStore.get("host") ?? "localhost:3000";
-  const proto = host.startsWith("localhost") ? "http" : "https";
-  const baseUrl = `${proto}://${host}`;
+  if (from) {
+    const parsed = parseIsoDate(from);
+    if (parsed) fromDate = parsed;
+  }
+  if (to) {
+    const parsed = parseIsoDate(to);
+    if (parsed) toDate = parsed;
+  }
 
-  // Forward cookies to the internal API calls (session auth).
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore
-    .getAll()
-    .map((c) => `${c.name}=${c.value}`)
-    .join("; ");
+  const db = getDatabase();
 
-  // Fetch events and installs in parallel.
-  let eventsData: EventsResponse | null = null;
+  // Build WHERE conditions.
+  const conditions: SQL[] = [eq(events.orgId, orgId)];
+  if (installId) conditions.push(eq(events.installId, installId));
+  if (command && (VALID_COMMANDS as readonly string[]).includes(command)) {
+    conditions.push(eq(events.command, command as (typeof VALID_COMMANDS)[number]));
+  }
+  if (outcome && (VALID_OUTCOMES as readonly string[]).includes(outcome)) {
+    conditions.push(eq(events.outcome, outcome as (typeof VALID_OUTCOMES)[number]));
+  }
+  conditions.push(gte(events.startedAt, fromDate));
+  if (toDate) conditions.push(lte(events.startedAt, toDate));
+
+  const whereClause = and(...conditions);
+
+  let eventRows: EventRow[] = [];
   let installsData: InstallOption[] = [];
+  let total = 0;
   let fetchError = false;
 
   try {
-    const [eventsRes, installsRes] = await Promise.all([
-      fetch(`${baseUrl}/api/v1/dashboard/events?${apiParams.toString()}`, {
-        headers: { cookie: cookieHeader },
-        cache: "no-store",
-      }),
-      fetch(`${baseUrl}/api/v1/dashboard/installs`, {
-        headers: { cookie: cookieHeader },
-        cache: "no-store",
-      }).catch(() => null), // Degrade gracefully if installs endpoint is unavailable.
+    const [dataRows, countRows, installRows] = await Promise.all([
+      db
+        .select({
+          id: events.id,
+          installId: events.installId,
+          computerName: installs.computerName,
+          gitUserId: installs.gitUserId,
+          command: events.command,
+          subcommand: events.subcommand,
+          startedAt: events.startedAt,
+          endedAt: events.endedAt,
+          durationMs: events.durationMs,
+          outcome: events.outcome,
+          featureName: events.featureName,
+          roundCount: events.roundCount,
+          sessionId: events.sessionId,
+          createdAt: events.createdAt,
+        })
+        .from(events)
+        .innerJoin(installs, eq(events.installId, installs.id))
+        .where(whereClause)
+        .orderBy(desc(events.startedAt))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(events)
+        .innerJoin(installs, eq(events.installId, installs.id))
+        .where(whereClause),
+      db
+        .select({ id: installs.id, label: installs.label, computerName: installs.computerName, gitUserId: installs.gitUserId })
+        .from(installs)
+        .where(eq(installs.orgId, orgId)),
     ]);
 
-    if (!eventsRes.ok) {
-      fetchError = true;
-    } else {
-      eventsData = (await eventsRes.json()) as EventsResponse;
-    }
+    total = countRows[0]?.count ?? 0;
 
-    if (installsRes && installsRes.ok) {
-      const installsJson = (await installsRes.json()) as InstallsResponse;
-      installsData = installsJson.installs ?? [];
-    }
+    eventRows = dataRows.map((row) => ({
+      id: row.id,
+      installId: row.installId,
+      computerName: row.computerName,
+      gitUserId: row.gitUserId,
+      command: row.command,
+      subcommand: row.subcommand ?? null,
+      startedAt: row.startedAt instanceof Date
+        ? row.startedAt.toISOString()
+        : new Date((row.startedAt as number) * 1000).toISOString(),
+      endedAt: row.endedAt instanceof Date
+        ? row.endedAt.toISOString()
+        : row.endedAt != null
+          ? new Date((row.endedAt as number) * 1000).toISOString()
+          : null,
+      durationMs: row.durationMs ?? null,
+      outcome: row.outcome ?? null,
+      featureName: row.featureName ?? null,
+      roundCount: row.roundCount ?? null,
+      sessionId: row.sessionId ?? null,
+      createdAt: row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : new Date((row.createdAt as number) * 1000).toISOString(),
+    }));
+
+    installsData = installRows.map((r) => ({
+      id: r.id,
+      label: r.label,
+      computerName: r.computerName ?? "",
+      gitUserId: r.gitUserId ?? "",
+    }));
   } catch {
     fetchError = true;
   }
 
-  // ── Error state ────────────────────────────────────────────────────────────
-  if (fetchError || eventsData === null) {
+  if (fetchError) {
     return (
       <main className="p-8">
         <h1 className="text-2xl font-bold mb-4">Event Explorer</h1>
-        <p className="text-red-600">
-          Unable to load events. Please refresh the page.
-        </p>
+        <p className="text-red-600">Unable to load events. Please refresh the page.</p>
       </main>
     );
   }
 
-  const { events: eventRows, pagination } = eventsData;
-
-  // ── Build pagination URLs ──────────────────────────────────────────────────
   function buildPageUrl(targetPage: number): string {
     const p = new URLSearchParams();
     if (installId) p.set("installId", installId);
@@ -183,14 +224,13 @@ export default async function EventsPage({
     return "?" + p.toString();
   }
 
-  const totalPages = Math.max(1, Math.ceil(pagination.total / pagination.limit));
+  const hasMore = total > offset + eventRows.length;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <main className="p-8">
       <h1 className="text-2xl font-bold mb-6">Event Explorer</h1>
 
-      {/* Filter bar — client component */}
       <EventFilters
         installs={installsData}
         currentInstallId={installId}
@@ -201,20 +241,17 @@ export default async function EventsPage({
         currentPage={page}
       />
 
-      {/* Results summary */}
       <div className="mb-4 text-sm text-gray-600">
-        {pagination.total === 0 ? (
+        {total === 0 ? (
           <span>No results</span>
         ) : (
           <span>
-            Showing {(page - 1) * pagination.limit + 1}–
-            {Math.min(page * pagination.limit, pagination.total)} of{" "}
-            {pagination.total} events
+            Showing {(page - 1) * limit + 1}–
+            {Math.min(page * limit, total)} of {total} events
           </span>
         )}
       </div>
 
-      {/* Empty state (FR-14, AC-15) */}
       {eventRows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-gray-300 p-12 text-center">
           <p className="text-gray-600 text-lg">
@@ -223,117 +260,54 @@ export default async function EventsPage({
         </div>
       ) : (
         <>
-          {/* Event table */}
           <div className="overflow-x-auto mb-6">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Machine
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Developer
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Command
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Outcome
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Duration
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Feature
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Started
-                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Machine</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Developer</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Command</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Outcome</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Feature</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
                 {eventRows.map((event) => (
                   <tr key={event.id}>
+                    <td className="px-4 py-2 font-mono text-xs">{event.computerName || "—"}</td>
+                    <td className="px-4 py-2 text-xs">{event.gitUserId || "—"}</td>
                     <td className="px-4 py-2 font-mono text-xs">
-                      {event.computerName || "—"}
+                      {event.command}{event.subcommand ? ` ${event.subcommand}` : ""}
                     </td>
-                    <td className="px-4 py-2 text-xs">
-                      {event.gitUserId || "—"}
-                    </td>
-                    <td className="px-4 py-2 font-mono text-xs">
-                      {event.command}
-                      {event.subcommand ? ` ${event.subcommand}` : ""}
-                    </td>
-                    <td className="px-4 py-2 text-xs capitalize">
-                      {/* outcome null renders as "—" (FR-16, AC-17) */}
-                      {event.outcome ?? "—"}
-                    </td>
-                    <td className="px-4 py-2 text-xs">
-                      {/* durationMs human-readable (FR-15, AC-16) */}
-                      {formatDuration(event.durationMs)}
-                    </td>
-                    <td className="px-4 py-2 text-xs">
-                      {event.featureName ?? "—"}
-                    </td>
-                    <td className="px-4 py-2 text-xs">
-                      {/* LocalTimestamp formats in browser's local timezone (FR-18) */}
-                      <LocalTimestamp iso={event.startedAt} />
-                    </td>
+                    <td className="px-4 py-2 text-xs capitalize">{event.outcome ?? "—"}</td>
+                    <td className="px-4 py-2 text-xs">{formatDuration(event.durationMs)}</td>
+                    <td className="px-4 py-2 text-xs">{event.featureName ?? "—"}</td>
+                    <td className="px-4 py-2 text-xs"><LocalTimestamp iso={event.startedAt} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          {/* Pagination (FR-9) */}
           {totalPages > 1 && (
-            <nav
-              aria-label="Pagination"
-              className="flex items-center gap-2 text-sm"
-            >
-              {/* Previous */}
+            <nav aria-label="Pagination" className="flex items-center gap-2 text-sm">
               {page > 1 ? (
-                <Link
-                  href={buildPageUrl(page - 1)}
-                  className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-100"
-                >
-                  Previous
-                </Link>
+                <Link href={buildPageUrl(page - 1)} className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-100">Previous</Link>
               ) : (
-                <span className="px-3 py-1 border border-gray-200 rounded text-gray-400 cursor-not-allowed">
-                  Previous
-                </span>
+                <span className="px-3 py-1 border border-gray-200 rounded text-gray-400 cursor-not-allowed">Previous</span>
               )}
-
-              {/* Page numbers */}
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                (pageNum) => (
-                  <Link
-                    key={pageNum}
-                    href={buildPageUrl(pageNum)}
-                    className={`px-3 py-1 border rounded ${
-                      pageNum === page
-                        ? "bg-gray-900 text-white border-gray-900"
-                        : "border-gray-300 hover:bg-gray-100"
-                    }`}
-                  >
-                    {pageNum}
-                  </Link>
-                )
-              )}
-
-              {/* Next */}
-              {pagination.hasMore ? (
-                <Link
-                  href={buildPageUrl(page + 1)}
-                  className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-100"
-                >
-                  Next
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <Link key={pageNum} href={buildPageUrl(pageNum)}
+                  className={`px-3 py-1 border rounded ${pageNum === page ? "bg-gray-900 text-white border-gray-900" : "border-gray-300 hover:bg-gray-100"}`}>
+                  {pageNum}
                 </Link>
+              ))}
+              {hasMore ? (
+                <Link href={buildPageUrl(page + 1)} className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-100">Next</Link>
               ) : (
-                <span className="px-3 py-1 border border-gray-200 rounded text-gray-400 cursor-not-allowed">
-                  Next
-                </span>
+                <span className="px-3 py-1 border border-gray-200 rounded text-gray-400 cursor-not-allowed">Next</span>
               )}
             </nav>
           )}
