@@ -74,25 +74,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const passwordHash = await hashPassword(password);
 
   try {
-    await db.transaction(async (tx) => {
-      await tx.insert(orgs).values({
-        id: orgId,
-        name: trimmedOrgName,
-        createdAt: now,
-      });
-
-      await tx.insert(users).values({
-        id: userId,
-        email: normalizedEmail,
-        passwordHash,
-        role: "cto",
-        orgId,
-        createdAt: now,
-      });
+    await db.insert(orgs).values({
+      id: orgId,
+      name: trimmedOrgName,
+      createdAt: now,
     });
   } catch (err: unknown) {
-    // Check for UNIQUE constraint violation on email
     const message = err instanceof Error ? err.message : String(err);
+    console.error("[signup] org insert error:", message);
+    return NextResponse.json({ error: "internal server error" }, { status: 500 });
+  }
+
+  try {
+    await db.insert(users).values({
+      id: userId,
+      email: normalizedEmail,
+      passwordHash,
+      role: "cto",
+      orgId,
+      createdAt: now,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    // Roll back the org insert on user failure
+    await db.delete(orgs).where(eq(orgs.id, orgId)).catch(() => {});
     if (
       message.includes("UNIQUE constraint failed") ||
       message.includes("unique constraint") ||
@@ -103,7 +108,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         { status: 409 }
       );
     }
-    console.error("[signup] transaction error:", message);
+    console.error("[signup] user insert error:", message);
     return NextResponse.json({ error: "internal server error" }, { status: 500 });
   }
 
