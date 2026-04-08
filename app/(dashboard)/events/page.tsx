@@ -125,8 +125,6 @@ export default async function EventsPage({
     .map((c) => `${c.name}=${c.value}`)
     .join("; ");
 
-  const baseUrl = `${proto}://${host}`;
-
   // Fetch events and installs in parallel.
   let eventsData: EventsResponse | null = null;
   let installsData: InstallOption[] = [];
