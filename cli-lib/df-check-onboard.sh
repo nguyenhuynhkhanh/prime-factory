@@ -13,14 +13,16 @@ if [ ! -f "$CONFIG_FILE" ]; then
   exit 1
 fi
 
-# ── Check required fields (jq null-safe reads) ───────────────────────────────
-API_KEY="$(jq -r '.apiKey // empty' "$CONFIG_FILE" 2>/dev/null)"
+# ── Check required fields (grep/sed extraction) ───────────────────────────────
+# grep pattern includes the opening quote to ensure the value is a quoted string
+# (rejects null, numbers, booleans which would otherwise partially match)
+API_KEY="$(grep '"apiKey"[[:space:]]*:[[:space:]]*"' "$CONFIG_FILE" | sed 's|.*"apiKey"[[:space:]]*:[[:space:]]*"||;s|".*||')"
 if [ -z "$API_KEY" ]; then
   echo "DF is not configured. Run df-onboard.sh first."
   exit 1
 fi
 
-BASE_URL="$(jq -r '.baseUrl // empty' "$CONFIG_FILE" 2>/dev/null)"
+BASE_URL="$(grep '"baseUrl"[[:space:]]*:[[:space:]]*"' "$CONFIG_FILE" | sed 's|.*"baseUrl"[[:space:]]*:[[:space:]]*"||;s|".*||')"
 if [ -z "$BASE_URL" ]; then
   echo "DF is not configured. Run df-onboard.sh first."
   exit 1

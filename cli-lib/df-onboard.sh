@@ -57,14 +57,7 @@ if [ -z "$GIT_USER_ID" ]; then
 fi
 
 # ── Build request body ───────────────────────────────────────────────────────
-if command -v jq >/dev/null 2>&1; then
-  REQUEST_BODY="$(jq -n \
-    --arg computerName "$COMPUTER_NAME" \
-    --arg gitUserId "$GIT_USER_ID" \
-    '{"computerName":$computerName,"gitUserId":$gitUserId}')"
-else
-  REQUEST_BODY="{\"computerName\":\"${COMPUTER_NAME}\",\"gitUserId\":\"${GIT_USER_ID}\"}"
-fi
+REQUEST_BODY="{\"computerName\":\"${COMPUTER_NAME}\",\"gitUserId\":\"${GIT_USER_ID}\"}"
 
 # ── Call activation endpoint ─────────────────────────────────────────────────
 ACTIVATE_URL="${BASE_URL}/api/v1/installs/activate"
@@ -111,14 +104,7 @@ esac
 # ── Write config ─────────────────────────────────────────────────────────────
 mkdir -p -m 0700 "$DF_DIR" 2>/dev/null || true
 
-if command -v jq >/dev/null 2>&1; then
-  CONFIG_JSON="$(jq -n \
-    --arg apiKey "$API_KEY" \
-    --arg baseUrl "$BASE_URL" \
-    '{"apiKey":$apiKey,"baseUrl":$baseUrl}')"
-else
-  CONFIG_JSON="{\"apiKey\":\"${API_KEY}\",\"baseUrl\":\"${BASE_URL}\"}"
-fi
+CONFIG_JSON="{\"apiKey\":\"${API_KEY}\",\"baseUrl\":\"${BASE_URL}\"}"
 
 # Write atomically via temp file
 TMP_CONFIG="$(mktemp "${DF_DIR}/.config-tmp.XXXXXXXX" 2>/dev/null)"

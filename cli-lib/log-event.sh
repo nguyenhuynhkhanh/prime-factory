@@ -15,7 +15,6 @@ DF_DIR="$HOME/.df-factory"
 
 # ── Prerequisite checks ───────────────────────────────────────────────────────
 command -v curl >/dev/null 2>&1 || exit 0
-command -v jq   >/dev/null 2>&1 || exit 0
 
 # ── Argument validation ───────────────────────────────────────────────────────
 PAYLOAD="$1"
@@ -24,10 +23,10 @@ PAYLOAD="$1"
 # ── Read config ───────────────────────────────────────────────────────────────
 [ -f "$CONFIG_FILE" ] && [ -r "$CONFIG_FILE" ] || exit 0
 
-API_KEY="$(jq -r '.apiKey // empty' "$CONFIG_FILE" 2>/dev/null)"
+API_KEY="$(grep '"apiKey"[[:space:]]*:[[:space:]]*"' "$CONFIG_FILE" | sed 's|.*"apiKey"[[:space:]]*:[[:space:]]*"||;s|".*||')"
 [ -z "$API_KEY" ] && exit 0
 
-BASE_URL="$(jq -r '.baseUrl // empty' "$CONFIG_FILE" 2>/dev/null)"
+BASE_URL="$(grep '"baseUrl"[[:space:]]*:[[:space:]]*"' "$CONFIG_FILE" | sed 's|.*"baseUrl"[[:space:]]*:[[:space:]]*"||;s|".*||')"
 [ -z "$BASE_URL" ] && exit 0
 
 # Normalize trailing slash
@@ -77,10 +76,14 @@ run_locked() {
   fi
 }
 
-# ── Helper: read queue (returns JSON array of events) ────────────────────────
+# ── Helper: extract events array contents from queue file ────────────────────
+# Returns newline-separated JSON event objects, or empty string if none/corrupt.
+# The queue file is a single line: {"version":1,"events":[...]}
+# We validate version=1, then extract the array body between the outermost [ and ]
+# of the "events" value.
 read_queue_events() {
   if [ ! -f "$QUEUE_FILE" ]; then
-    echo "[]"
+    printf ''
     return
   fi
 
@@ -88,49 +91,106 @@ read_queue_events() {
   raw="$(cat "$QUEUE_FILE" 2>/dev/null)"
 
   if [ -z "$raw" ]; then
-    echo "[]"
+    printf ''
     return
   fi
 
-  local ver
-  ver="$(echo "$raw" | jq -r '.version // empty' 2>/dev/null)"
-  if [ "$ver" != "1" ]; then
-    echo "[]"
+  # Collapse multi-line JSON to a single line so sed/grep can process the
+  # full structure in one pass (handles both our compact format and pretty-printed input)
+  local oneline
+  oneline="$(printf '%s' "$raw" | tr -d '\n')"
+
+  # Version check: must contain "version":1
+  if ! printf '%s' "$oneline" | grep -q '"version"[[:space:]]*:[[:space:]]*1'; then
+    printf ''
     return
   fi
 
-  local events
-  events="$(echo "$raw" | jq -c '.events // empty' 2>/dev/null)"
-  if [ -z "$events" ]; then
-    echo "[]"
+  # Structural integrity check: the string must end with ]} (possible whitespace)
+  # This detects truncated/corrupt files that were cut off mid-write
+  if ! printf '%s' "$oneline" | grep -q '\][[:space:]]*}[[:space:]]*$'; then
+    printf ''
     return
   fi
 
-  local type
-  type="$(echo "$events" | jq -r 'type' 2>/dev/null)"
-  if [ "$type" != "array" ]; then
-    echo "[]"
+  # Extract the events array body: strip up to and including "events":[ then strip trailing ]}
+  local events_body
+  events_body="$(printf '%s' "$oneline" | sed 's|.*"events"[[:space:]]*:[[:space:]]*\[||;s|\][[:space:]]*}[[:space:]]*$||')"
+
+  # If events_body is empty, the array was empty — return empty
+  if [ -z "$events_body" ]; then
+    printf ''
     return
   fi
 
-  echo "$events"
+  # Verify we actually have array content (not just the envelope with no events key)
+  # If the substitution didn't work (no "events" key), events_body equals oneline — detect that
+  if printf '%s' "$events_body" | grep -q '"version"'; then
+    # Substitution failed — treat as corrupt
+    printf ''
+    return
+  fi
+
+  # events_body is now the comma-separated list of JSON event objects (possibly with spaces)
+  # Split into one-per-line by tracking brace depth with awk
+  # Each event object is {"queuedAt":"...","payload":{...}}
+  printf '%s' "$events_body" | awk '
+  {
+    # Split on the boundary between consecutive objects: },{ or }, {
+    # We accumulate characters and emit when we close an outermost object
+    depth = 0
+    current = ""
+    n = split($0, chars, "")
+    for (i = 1; i <= n; i++) {
+      c = chars[i]
+      current = current c
+      if (c == "{") depth++
+      else if (c == "}") {
+        depth--
+        if (depth == 0) {
+          print current
+          current = ""
+          # skip any comma or whitespace between objects
+          while (i < n && (chars[i+1] == "," || chars[i+1] == " ")) i++
+        }
+      }
+    }
+    if (current != "" && current != ",") print current
+  }'
 }
 
-# ── Helper: write queue events array back to disk ─────────────────────────────
+# ── Helper: write queue events (newline-separated objects) back to disk ───────
+# Argument: $1 = newline-separated JSON event objects (empty string = no events)
 write_queue_events() {
-  local events_json="$1"
+  local events_lines="$1"
 
+  # Count non-empty lines
   local count
-  count="$(echo "$events_json" | jq 'length' 2>/dev/null)"
-  if [ "$count" = "0" ]; then
+  if [ -z "$events_lines" ]; then
+    count=0
+  else
+    count="$(printf '%s\n' "$events_lines" | grep -c '.'  2>/dev/null || true)"
+  fi
+
+  if [ "${count:-0}" -eq 0 ]; then
     rm -f "$QUEUE_FILE" 2>/dev/null || true
     return
   fi
 
+  # Build the JSON array from the newline-separated objects
+  local events_json
+  events_json="$(printf '%s\n' "$events_lines" | awk '
+  NF > 0 {
+    if (NR > 1) printf ","
+    printf "%s", $0
+  }
+  END { printf "" }
+  ')"
+
   local tmp
   tmp="$(mktemp "$DF_DIR/.queue-tmp.XXXXXXXX" 2>/dev/null)" || return
 
-  printf '{"version":1,"events":%s}\n' "$events_json" > "$tmp" 2>/dev/null
+  printf '{"version":1,"events":[%s]}\n' "$events_json" > "$tmp" 2>/dev/null
   chmod 0600 "$tmp" 2>/dev/null || true
   mv "$tmp" "$QUEUE_FILE" 2>/dev/null || rm -f "$tmp" 2>/dev/null || true
 }
@@ -147,8 +207,11 @@ append_to_queue() {
     local current_events
     current_events="$(read_queue_events)"
     local updated
-    updated="$(printf '%s\n%s' "$current_events" "$new_entry" | jq -cs '.[0] + [.[1]]' 2>/dev/null)"
-    [ -z "$updated" ] && updated="[$new_entry]"
+    if [ -z "$current_events" ]; then
+      updated="$new_entry"
+    else
+      updated="$(printf '%s\n%s' "$current_events" "$new_entry")"
+    fi
     write_queue_events "$updated"
   }
 
@@ -185,22 +248,19 @@ _do_read_queue() {
 }
 
 QUEUED_EVENTS="$(run_locked _do_read_queue)"
-[ -z "$QUEUED_EVENTS" ] && QUEUED_EVENTS="[]"
 
 # ── Phase 2: Flush queued events (no lock held) ───────────────────────────────
-QUEUE_LEN="$(echo "$QUEUED_EVENTS" | jq 'length' 2>/dev/null)"
-QUEUE_LEN="${QUEUE_LEN:-0}"
+SURVIVORS=""
 
-SURVIVORS="[]"
+if [ -n "$QUEUED_EVENTS" ]; then
+  while IFS= read -r entry; do
+    [ -z "$entry" ] && continue
 
-if [ "$QUEUE_LEN" -gt 0 ]; then
-  i=0
-  while [ "$i" -lt "$QUEUE_LEN" ]; do
-    entry="$(echo "$QUEUED_EVENTS" | jq -c ".[$i]" 2>/dev/null)"
-    entry_payload="$(echo "$entry" | jq -c '.payload' 2>/dev/null)"
+    # Extract payload: strip outer {"queuedAt":"...","payload": and trailing }
+    # The payload value is everything after "payload": to the last }
+    entry_payload="$(printf '%s' "$entry" | sed 's|.*"payload"[[:space:]]*:||;s|}[[:space:]]*$||')"
 
     if [ -z "$entry_payload" ] || [ "$entry_payload" = "null" ]; then
-      i=$((i + 1))
       continue
     fi
 
@@ -212,21 +272,27 @@ if [ "$QUEUE_LEN" -gt 0 ]; then
         ;;
       network_error|5*)
         # Keep in queue
-        SURVIVORS="$(printf '%s\n%s' "$SURVIVORS" "$entry" | jq -cs '.[0] + [.[1]]' 2>/dev/null)"
-        [ -z "$SURVIVORS" ] && SURVIVORS="[$entry]"
+        if [ -z "$SURVIVORS" ]; then
+          SURVIVORS="$entry"
+        else
+          SURVIVORS="$(printf '%s\n%s' "$SURVIVORS" "$entry")"
+        fi
         ;;
       4*)
         # Terminal — drop
         ;;
       *)
         # Unknown — keep to be safe
-        SURVIVORS="$(printf '%s\n%s' "$SURVIVORS" "$entry" | jq -cs '.[0] + [.[1]]' 2>/dev/null)"
-        [ -z "$SURVIVORS" ] && SURVIVORS="[$entry]"
+        if [ -z "$SURVIVORS" ]; then
+          SURVIVORS="$entry"
+        else
+          SURVIVORS="$(printf '%s\n%s' "$SURVIVORS" "$entry")"
+        fi
         ;;
     esac
-
-    i=$((i + 1))
-  done
+  done <<EOF
+$QUEUED_EVENTS
+EOF
 fi
 
 # ── Phase 3: Write survivor queue back under lock ─────────────────────────────
