@@ -94,11 +94,11 @@ Not applicable. Dark Factory has no HTTP API — it is a prompt engineering fram
 
 | Scenario | Response | Side Effects |
 |----------|----------|--------------|
-| Map does not exist | Trigger full codemap-agent run (no sign-off) | Map created, hash stored, pipeline proceeds |
+| Map does not exist | Trigger full codemap-agent run (no sign-off); suggest developer run `/df-onboard` to ensure a complete, confirmed map is generated | Map created, hash stored, pipeline proceeds |
 | Map exists, hash matches | No action | Pipeline proceeds immediately |
 | Map exists, hash differs | Run incremental refresh (git diff + fan-in re-scan) | Map updated, hash updated, pipeline proceeds |
 | Fan-in set > 20 modules | Re-scan first 20 only | Map header flagged `COVERAGE: PARTIAL — fan-in set truncated at 20 modules` |
-| Scanner failure during refresh | Write partial results | Map header flagged `COVERAGE: PARTIAL — scanner failure during refresh`; pipeline proceeds with caveat |
+| Scanner failure during refresh | Write partial results | Map header flagged `COVERAGE: PARTIAL — scanner failure during refresh`; pipeline proceeds with caveat; suggest developer run `/df-onboard` to get a clean full map |
 | Greenfield repo (no source files) | Skip map generation | No code-map.md created; agents proceed without map |
 | `git rev-parse HEAD` fails | Log warning, skip refresh | Pipeline proceeds with existing map (or no map) |
 | Changed file not in any module | Add as standalone file entry | Map updated, no flag |

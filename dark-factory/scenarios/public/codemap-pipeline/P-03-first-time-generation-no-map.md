@@ -29,6 +29,7 @@ The df-intake skill executes its Step 0 pre-phase:
 - NO developer sign-off prompt is shown (this is auto-generation, not a `/df-onboard` explicit run)
 - Spec leads proceed with the newly created map
 - The map's `Git hash:` matches `git rev-parse HEAD` so the next pipeline invocation will find a hash match and skip re-scan
+- A non-blocking suggestion is shown to the developer: "Code map auto-generated. For a complete, reviewed map run `/df-onboard`."
 
 ## Failure Mode (if applicable)
 If codemap-agent fails during first-time generation, the map either does not exist or exists with a `COVERAGE: PARTIAL` flag. The pipeline should still proceed — agents use the partial map (or no map) with the caveat noted in the header.

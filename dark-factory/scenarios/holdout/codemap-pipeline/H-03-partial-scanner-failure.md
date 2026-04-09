@@ -38,6 +38,7 @@ Pre-phase invokes codemap-agent in incremental refresh mode:
 - The `Coverage:` line reads `PARTIAL` with a description of what was not updated
 - Pipeline agents that subsequently read the map can see the coverage warning in the header
 - NO developer interaction is required — the pipeline runs to completion (agents use the partial map with caveat)
+- A non-blocking suggestion is shown to the developer: "Code map coverage is partial due to a scanner failure. Consider running `/df-onboard` to regenerate a complete map."
 
 ## Failure Mode (if applicable)
 The inverse failure: if the implementation aborts the pipeline when any scanner fails, developers are blocked every time a scanner times out. The partial-result approach is the correct design.
