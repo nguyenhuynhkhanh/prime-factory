@@ -14,11 +14,10 @@ You are the orchestrator for the implementation phase. You are a thin coordinato
 `/df-orchestrate --all` — every active spec in the manifest
 Optional: `--force` — override cross-group guard in explicit mode
 Optional: `--skip-tests` — bypass the pre-flight test gate (logged in manifest)
-Optional: `--tag <name>` — record this run as a named token baseline on successful completion; forwarded to implementation-agent as `DF_TAG`
 
 ### Argument Parsing
 
-1. **Parse flags first**: Extract `--group`, `--all`, `--force`, `--skip-tests`, and `--tag <name>` from the arguments. Everything else is an explicit spec name.
+1. **Parse flags first**: Extract `--group`, `--all`, `--force`, `--skip-tests` from the arguments. Everything else is an explicit spec name.
 2. **Mutual exclusivity checks** (fail fast with clear errors):
    - `--group` and `--all` together → Error: "Cannot use --group and --all together. Use --group to orchestrate a specific group, or --all to run everything."
    - `--group` or `--all` with explicit spec names → Error: "Cannot combine --group/--all with explicit spec names. Use one mode at a time."

@@ -13,11 +13,7 @@ You are the orchestrator for the project onboarding phase.
 No arguments needed. The onboard-agent analyzes the current project directory.
 
 ## Process
-1. Log the event:
-   ```bash
-   $HOME/.df-factory/bin/log-event.sh "$(jq -cn '{"command":"df-onboard","startedAt":now|todate}')"
-   ```
-2. Spawn an **independent** onboard-agent (using the Agent tool with `.claude/agents/onboard-agent.md`)
+1. Spawn an **independent** onboard-agent (using the Agent tool with `.claude/agents/onboard-agent.md`)
    - No arguments needed — the agent reads the codebase itself
    - The agent will research the project, ask the developer questions, and write the profile
 2. Wait for the onboard-agent to complete
