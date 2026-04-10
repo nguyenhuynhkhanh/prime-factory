@@ -1,14 +1,18 @@
 ---
 name: df-intake
-description: "Start Dark Factory feature spec creation. Spawns 3 independent spec-agents with different perspectives, synthesizes into one spec. For bugs, use /df-debug instead."
+description: "Start Dark Factory feature spec creation. Spawns 1 or 3 spec-agents based on scope, synthesizes into one spec. For bugs, use /df-debug instead."
 ---
 
-# Dark Factory — Feature Intake (Three-Perspective Spec)
+# Dark Factory — Feature Intake (Adaptive Spec Investigation)
 
-You are the orchestrator for the feature spec creation phase. To produce a well-rounded spec, you run **3 parallel spec investigations** from different perspectives, then synthesize their findings into one unified spec.
+You are the orchestrator for the feature spec creation phase. To produce a well-rounded spec, you run spec investigations from 1 or 3 perspectives depending on feature scope, then synthesize findings into one unified spec.
 
 ## Trigger
-`/df-intake {raw description}`
+```
+/df-intake {raw description}
+/df-intake --leads=1 {description}
+/df-intake --leads=3 {description}
+```
 
 ## Bug Detection
 Before spawning agents, check if the developer's input describes a **bug** rather than a feature:
@@ -21,14 +25,112 @@ If the input looks like a bug report:
 
 ## Process
 
-### Step 0: Capture start time
+### Pre-Phase: Code Map Refresh
 
-At the very start, capture the intake start time:
-```bash
-DF_INTAKE_START=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+Before any other processing, ensure the code map is current:
+
+1. Attempt to read `dark-factory/code-map.md` header. If the file does not exist, go to step 4.
+2. Extract the `Git hash:` line value (trim whitespace). Validate it matches `/^[0-9a-f]{40}$/`. Run `git rev-parse HEAD`. If `git rev-parse HEAD` fails (no git repo, detached HEAD with no commits), log "Code map refresh skipped: git error" and proceed without a map.
+3. **Hash matches exactly**: proceed immediately to Step 0. No codemap-agent invocation. Total overhead: 2 operations.
+4. **Hash differs, invalid hash, or no map**: compute changed files via `git diff --name-only {stored_hash} HEAD` (or empty list if no stored hash). Invoke codemap-agent with `mode: "refresh"` (or `"full"` if no map exists), `stored_hash`, and `changed_files`.
+5. **Greenfield repo** (no source files detected by codemap-agent): codemap-agent writes "No code map — no source code yet" and returns. Proceed without a map.
+6. After codemap-agent completes: log a non-blocking suggestion to the developer: "Code map auto-generated. For a complete, reviewed map run `/df-onboard`."
+7. Proceed to Step 0.
+
+### Step 0: Scope Evaluation (inline — no agent spawn)
+
+Before spawning any leads, evaluate the feature scope. This runs as YOUR reasoning, not an agent call. Emit the result block so the developer can interrupt if the evaluation is wrong.
+
+**Parse --leads flag first:**
+- If `--leads=1` and `--leads=3` are both present: emit error "Cannot specify both --leads=1 and --leads=3." and STOP.
+- If `--leads=0`, `--leads=2`, or any other non-1/non-3 integer: emit error "Valid values are --leads=1 or --leads=3." and STOP.
+- If `--leads=N` where N is not an integer: emit error "Valid values are --leads=1 or --leads=3." and STOP.
+- Record the override value (1 or 3) if present, or null if no flag was supplied.
+
+**Read context files:**
+1. Read `dark-factory/code-map.md` — it is always present and current. Use it to understand module structure, blast radius, entry points, and hotspots. Do NOT use Grep or Glob to discover which modules exist or how they connect — that is what the map is for. DO use Read/Grep for precise implementation details on specific files the map directs you to. For scope evaluation, focus on:
+   - **Shared Dependency Hotspots**: modules listed here have high blast radius
+   - **Module Dependency Graph**: count modules named or implied by the description
+2. Read `dark-factory/project-profile.md` if it exists. Use the Architecture section to understand module boundaries.
+
+**Apply the five 1-lead criteria (evaluate ALL five — exhaustive, not short-circuit):**
+
+| # | Criterion | 1-lead value |
+|---|-----------|-------------|
+| C1 | Files implied by description + code-map blast radius | ≤ 2 files (if code-map absent: unknown → FAILS → 3 leads) |
+| C2 | Concern type | Single (no mix of user-facing + data model + operational in same description) |
+| C3 | Cross-cutting keywords absent | None of: "all agents", "every", "pipeline", "system-wide", "cross-cutting", "orchestrate", "global" (case-insensitive) |
+| C4 | Ambiguity markers absent | None of: "or", "not sure if", "either/or", "could also", "depends on how" (even "or" in normal phrases counts) |
+| C5 | Code-map blast radius | ≤ 1 module (if code-map absent: unknown → FAILS → 3 leads) |
+
+**Decision:**
+- ALL five true → 1 lead
+- ANY one false → 3 leads
+- Signals conflict → 3 leads (conservative bias)
+
+**Special cases:**
+- Description is empty or whitespace-only → 3 leads ("empty description — defaulting to 3 leads")
+- Description is a single word → 3 leads (insufficient signal)
+- code-map.md missing → C1 and C5 both fail → 3 leads (note "code-map.md not found — defaulting to conservative 3-lead")
+- project-profile.md missing → proceed without architecture context, note the gap
+
+**Emit the scope evaluation block (BEFORE any agent spawn):**
+
+```
+Scope evaluation:
+- Files implied: {N} ({source})
+- Concern type: {single|mixed} — {reason}
+- Cross-cutting keywords: {none|found: "{word}"}
+- Ambiguity markers: {none|found: "{phrase}"}
+- Code-map blast radius: {N modules|unknown — code-map.md not found}
+→ {Algorithm result: 1 lead|Algorithm result: 3 leads}. {reason if not all criteria met, or "All criteria satisfied." if 1 lead}
+{Override: --leads=N applied. Spawning N leads.|[omit if no override]}
 ```
 
-### Step 1: Spawn 3 spec leads in parallel
+**Record selected lead count:**
+- If override present: use override value
+- Otherwise: use algorithm result
+
+---
+
+### Step 1: Spawn spec leads
+
+#### If 1 lead selected
+
+Spawn **ONE spec-agent** (using the Agent tool with subagent_type `spec-agent`, `isolation: "worktree"`). This single lead covers all three original perspectives in a full-spectrum investigation.
+
+**Full-spectrum prompt:**
+
+> You are the sole spec lead for this feature. Cover all three perspectives: user/product, architecture, and reliability.
+>
+> Feature description: {raw input}
+>
+> Read `dark-factory/code-map.md` — it is always present and current. Use it to understand module structure, blast radius, entry points, and hotspots. Do NOT use Grep or Glob to discover which modules exist or how they connect — that is what the map is for. DO use Read/Grep for precise implementation details on specific files the map directs you to.
+>
+> Research the codebase, then output your findings as a structured report with ALL of these sections:
+>
+> **Users & Use Cases** — who uses this and how
+> **Proposed Scope** — what's in/out for v1, with rationale
+> **User-Facing Requirements** — functional requirements from the user's perspective
+> **Acceptance Criteria** — how to verify this works for users
+> **UX Edge Cases** — unexpected user behaviors to handle
+> **Affected Systems** — which parts of the codebase this touches
+> **Architecture Approach** — how to structure this within existing patterns
+> **Data Model** — schema changes, new entities, relationships
+> **API Design** — endpoints, contracts, compatibility
+> **Integration Points** — how this connects to existing features
+> **Technical Risks** — performance, scalability, migration concerns
+> **Failure Modes** — what can go wrong and how to handle it
+> **Concurrency & Race Conditions** — multi-user and timing issues
+> **Security Considerations** — auth, input validation, data exposure
+> **Data Integrity** — consistency guarantees needed
+> **Backward Compatibility** — what existing behavior could break
+> **Edge Cases** — boundary values, empty states, max limits
+> **Questions for Developer** — anything unclear that needs confirmation
+>
+> Do NOT write any spec or scenario files — just report your findings.
+
+#### If 3 leads selected
 
 Take the developer's raw input and spawn **3 independent spec-agents simultaneously** (using the Agent tool with subagent_type `spec-agent`, `isolation: "worktree"`). Each gets the SAME feature description but a DIFFERENT perspective. Worktree isolation ensures each lead reads a consistent snapshot of the codebase without interference.
 
@@ -40,7 +142,7 @@ Take the developer's raw input and spawn **3 independent spec-agents simultaneou
 >
 > Feature description: {raw input}
 >
-> Also read `dark-factory/code-map.md` if it exists — use the **Shared Dependency Hotspots** section to understand which areas of the codebase are heavily connected and may affect scope estimation.
+> Read `dark-factory/code-map.md` — it is always present and current. Use it to understand module structure, blast radius, entry points, and hotspots. Do NOT use Grep or Glob to discover which modules exist or how they connect — that is what the map is for. DO use Read/Grep for precise implementation details on specific files the map directs you to.
 >
 > Research the codebase, then output your findings as a structured report with these sections:
 > - **Users & Use Cases**: who uses this and how
@@ -58,7 +160,7 @@ Take the developer's raw input and spawn **3 independent spec-agents simultaneou
 >
 > Feature description: {raw input}
 >
-> Also read `dark-factory/code-map.md` if it exists — use the **Module Dependency Graph** and **Entry Point Traces** sections to understand how modules connect and where this feature fits architecturally.
+> Read `dark-factory/code-map.md` — it is always present and current. Use it to understand module structure, blast radius, entry points, and hotspots. Do NOT use Grep or Glob to discover which modules exist or how they connect — that is what the map is for. DO use Read/Grep for precise implementation details on specific files the map directs you to.
 >
 > Research the codebase, then output your findings as a structured report with these sections:
 > - **Affected Systems**: which parts of the codebase this touches
@@ -77,7 +179,7 @@ Take the developer's raw input and spawn **3 independent spec-agents simultaneou
 >
 > Feature description: {raw input}
 >
-> Also read `dark-factory/code-map.md` if it exists — use the **Circular Dependencies** and **Cross-Cutting Concerns** sections to identify reliability risks and shared patterns that could be affected.
+> Read `dark-factory/code-map.md` — it is always present and current. Use it to understand module structure, blast radius, entry points, and hotspots. Do NOT use Grep or Glob to discover which modules exist or how they connect — that is what the map is for. DO use Read/Grep for precise implementation details on specific files the map directs you to.
 >
 > Research the codebase, then output your findings as a structured report with these sections:
 > - **Failure Modes**: what can go wrong and how to handle it
@@ -91,7 +193,17 @@ Take the developer's raw input and spawn **3 independent spec-agents simultaneou
 >
 > Do NOT write any spec or scenario files — just report your findings.
 
+---
+
 ### Step 2: Synthesize findings
+
+#### If 1 lead was used
+
+Skip synthesis — present the single lead's report directly to the developer. There are no disagreements to resolve, no perspectives to merge.
+
+Proceed directly to Step 3.
+
+#### If 3 leads were used
 
 After all 3 leads complete, YOU (the orchestrator) synthesize:
 
@@ -103,7 +215,19 @@ After all 3 leads complete, YOU (the orchestrator) synthesize:
    - Requirements that cover user needs, technical design, AND reliability
    - Edge cases from all three angles
 
+---
+
 ### Step 3: Present to developer
+
+#### If 1 lead was used
+
+Present the investigation findings directly:
+- Say: "Here is what the spec lead found..." or "The investigation found..."
+- Do NOT say: "Lead A found...", "all leads agreed...", "there were disagreements between leads...", or any phrasing that implies multiple leads ran.
+- Present the open questions from the single lead's report
+- **Wait for developer to answer questions and confirm scope**
+
+#### If 3 leads were used
 
 Present a unified summary:
 - What each lead found (brief)
@@ -111,6 +235,8 @@ Present a unified summary:
 - All open questions (deduplicated, grouped by theme)
 - Any disagreements between leads with tradeoff analysis
 - **Wait for developer to answer questions and confirm scope**
+
+---
 
 ### Step 4: Spec Decomposition Analysis (CRITICAL)
 
@@ -173,9 +299,9 @@ Wait for the developer to confirm the decomposition (or choose single spec).
 
 Spawn ONE spec-agent to write the spec and scenarios:
 
-> Write the feature spec and scenarios based on the following confirmed findings from 3 independent leads.
+> Write the feature spec and scenarios based on the following confirmed findings from the spec investigation.
 >
-> {synthesized findings from all 3 leads}
+> {synthesized findings}
 > {developer's answers to questions}
 > {developer's confirmed scope}
 >
@@ -196,7 +322,7 @@ Spawn ONE spec-agent PER sub-spec **in parallel** (all in a single message, each
 For each sub-spec:
 > Write a focused feature spec and scenarios for the **{sub-spec-name}** portion of the larger {name} feature.
 >
-> {synthesized findings from all 3 leads — filtered to this sub-spec's scope}
+> {synthesized findings from spec investigation — filtered to this sub-spec's scope}
 > {developer's answers to questions}
 > {this sub-spec's confirmed scope and boundaries}
 >
@@ -227,26 +353,13 @@ Update `dark-factory/manifest.json` for EACH spec (single or multiple):
     "created": "{ISO timestamp}",
     "rounds": 0,
     "group": "{parent-feature-name or null}",
-    "dependencies": ["{dep-spec-name}", "..."],
-    "sessionId": "{name}"
+    "dependencies": ["{dep-spec-name}", "..."]
   }
   ```
 - **MANDATORY**: Every manifest entry MUST include both `group` and `dependencies` fields:
   - `"group"`: For decomposed specs, all sub-specs share the same `"group"` value (the parent feature name). For single/standalone specs, set to `null`. NEVER omit this field.
   - `"dependencies"`: Lists sub-spec names that must complete before this one. For independent specs (no dependencies), set to `[]` (empty array). NEVER omit this field.
 - Write the updated manifest back
-
-### Step 6.5: Log the intake event
-
-After the manifest is written, fire one log event **per spec created** (loop if decomposed):
-```bash
-$HOME/.df-factory/bin/log-event.sh "$(jq -cn \
-  --arg fn "{spec name}" \
-  --arg pt "{developer's raw input verbatim}" \
-  --arg started "$DF_INTAKE_START" \
-  '{"command":"df-intake","featureName":$fn,"sessionId":$fn,"startedAt":$started,"promptText":$pt}')"
-```
-**CRITICAL**: `promptText` must be the developer's **original input verbatim** — never any generated spec or synthesized content.
 
 ### Step 7: Present scenarios for review
 
@@ -281,7 +394,9 @@ After the spec(s) and scenarios are written, **show both public and holdout scen
 
 ## Important
 - **NEVER implement code directly.** This skill produces specs and scenarios ONLY. No code changes, no "quick fixes", no "let me just do this small thing." Every task goes through the full pipeline.
-- All 3 leads MUST be spawned in PARALLEL (single message, 3 Agent tool calls)
+- Scope evaluation (Step 0) runs BEFORE any lead spawns — always emit the block first
+- When 1 lead is selected, spawn exactly ONE spec-agent with the full-spectrum prompt
+- When 3 leads are selected, ALL 3 MUST be spawned in PARALLEL (single message, 3 Agent tool calls)
 - Each lead is FRESH and INDEPENDENT — no shared state
 - Leads only REPORT findings — they do NOT write files
 - Only the final spec-writing agent writes files

@@ -5,7 +5,7 @@
 ## Dark Factory Commands
 
 - `/df-onboard` — Map the project architecture, conventions, and quality bar
-- `/df-intake {description}` — Start feature spec creation (3 parallel leads)
+- `/df-intake {description}` — Start feature spec creation (1 or 3 spec-agents based on scope)
 - `/df-debug {description}` — Start bug investigation (3 parallel investigators)
 - `/df-orchestrate {name} [name2...] | --group {name} | --all [--force]` — Start implementation with dependency-aware parallel worktrees
 - `/df-cleanup` — Recovery/maintenance for stuck features
@@ -13,7 +13,7 @@
 - `/df-scenario` — Show scenario templates
 
 ## Feature Pipeline
-1. Spec phase (`/df-intake`): 3 spec-agents → synthesized spec → smart decomposition into smaller specs
+1. Spec phase (`/df-intake`): 1 or 3 spec-agents based on scope → synthesized spec → smart decomposition into smaller specs
 2. Architect review (tiered by scope)
 3. Implementation in parallel worktrees (up to 4 code-agents per spec)
 4. Holdout validation → promote tests → cleanup

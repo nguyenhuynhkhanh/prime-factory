@@ -52,7 +52,7 @@ When in doubt, ask: "Would you like me to run this through the Dark Factory pipe
 ## Available Commands
 - **`/df {description}`** — **Just describe what you need.** Auto-detects bug vs feature and routes to the right pipeline. Asks you to confirm if ambiguous.
 - `/df-onboard` — Map the project. Produces `dark-factory/project-profile.md` with architecture, conventions, quality bar. **Run this first on any existing project.**
-- `/df-intake {description}` — Start **feature** spec creation. Spawns 3 parallel spec-agents (user/product, architecture, reliability perspectives), synthesizes into one spec.
+- `/df-intake {description}` — Start **feature** spec creation. Spawns 1 or 3 spec-agents based on scope (user/product, architecture, reliability perspectives), synthesizes into one spec.
 - `/df-debug {description}` — Start **bug** investigation. Spawns 3 parallel debug-agents investigating from different angles (code path, history, patterns), synthesizes findings, then writes the report.
 - `/df-orchestrate {name} [name2...] | --group {name} | --all [--force]` — Start implementation. Supports explicit spec names, `--group` for all specs in a group, or `--all` for every active spec. Each spec runs in its own git worktree. Multiple specs implement in parallel. Auto-scales code-agents per spec (up to 4). Auto-promotes holdout tests and cleans up on success.
 - `/df-cleanup` — Recovery/maintenance. Runs health check on promoted tests (detects missing, skipped, failing, or stale tests), retries stuck promotions, completes archival, lists stale features. Use `--rebuild` to reconstruct the promoted test registry from annotation headers.
