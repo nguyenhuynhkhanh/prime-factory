@@ -10,18 +10,6 @@
       "group": null,
       "dependencies": []
     },
-    "adaptive-lead-count": {
-      "type": "feature",
-      "status": "promoted",
-      "specPath": "dark-factory/specs/features/adaptive-lead-count.spec.md",
-      "created": "2026-04-09T00:00:00Z",
-      "passedAt": "2026-04-09T12:00:00Z",
-      "promotedAt": "2026-04-09T12:00:00Z",
-      "promotedTestPath": "tests/dark-factory-setup.test.js",
-      "rounds": 1,
-      "group": null,
-      "dependencies": []
-    },
     "serena-integration": {
       "type": "feature",
       "status": "active",
