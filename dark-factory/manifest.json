@@ -1,17 +1,4 @@
 {
   "version": 1,
-  "features": {
-    "serena-integration": {
-      "type": "feature",
-      "status": "passed",
-      "specPath": "dark-factory/specs/features/serena-integration.spec.md",
-      "created": "2026-04-10T00:00:00Z",
-      "rounds": 1,
-      "group": null,
-      "dependencies": ["codemap-pipeline"],
-      "passedAt": "2026-04-09T00:00:00Z",
-      "estimatedFiles": 6,
-      "actualFiles": 9
-    }
-  }
+  "features": {}
 }
