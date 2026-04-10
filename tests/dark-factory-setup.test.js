@@ -2767,3 +2767,355 @@ describe("codemap-pipeline — plugin mirrors match source", () => {
 });
 // DF-PROMOTED-END: codemap-pipeline
 
+// ===========================================================================
+// Promoted from Dark Factory holdout: serena-integration
+// Root cause: agents use Grep+Read+Edit for all code discovery and mutation — O(file size) token cost per edit. Serena MCP provides symbol-level operations reducing this to O(symbol size).
+// Guards: .claude/agents/code-agent.md, .claude/agents/debug-agent.md, .claude/agents/onboard-agent.md, .claude/skills/df-orchestrate/SKILL.md, plugins/dark-factory/agents/code-agent.md, plugins/dark-factory/agents/debug-agent.md, plugins/dark-factory/agents/onboard-agent.md, plugins/dark-factory/skills/df-orchestrate/SKILL.md
+// DF-PROMOTED-START: serena-integration
+
+describe("serena-integration — 3-layer search policy in agents", () => {
+  it("P-01: code-agent contains 3-layer search and edit policy section", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("3-Layer Search and Edit Policy") ||
+        content.includes("3-layer search policy") ||
+        content.includes("3-Layer Search"),
+      "code-agent must contain 3-layer search policy section"
+    );
+    assert.ok(
+      content.includes("Layer 1") && content.includes("Layer 2") && content.includes("Layer 3"),
+      "code-agent 3-layer policy must define all three layers"
+    );
+  });
+
+  it("P-01: code-agent Layer 1 references code-map.md for orientation", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("Layer 1") && content.includes("code-map.md"),
+      "code-agent Layer 1 must reference code-map.md for structural orientation"
+    );
+  });
+
+  it("P-01: code-agent Layer 2 references Serena semantic tools", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("Layer 2") && content.includes("Serena"),
+      "code-agent Layer 2 must reference Serena semantic tools"
+    );
+  });
+
+  it("P-01: code-agent Layer 3 is Read/Grep/Edit fallback", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("Layer 3") && content.includes("fallback"),
+      "code-agent Layer 3 must be Read/Grep/Edit fallback"
+    );
+  });
+
+  it("P-01: debug-agent contains 3-layer search policy (discovery only)", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("3-Layer Search Policy") ||
+        content.includes("3-layer search policy") ||
+        content.includes("3-Layer Search"),
+      "debug-agent must contain 3-layer search policy section"
+    );
+    assert.ok(
+      content.includes("Discovery Only") || content.includes("discovery only") || content.includes("read-only investigator"),
+      "debug-agent 3-layer policy must state discovery-only restriction"
+    );
+  });
+
+  it("P-01: debug-agent explicitly excludes mutation tools from its policy", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("replace_symbol_body") || content.includes("insert_after_symbol"),
+      "debug-agent must mention mutation tool names to explicitly exclude them"
+    );
+    assert.ok(
+      content.includes("NEVER use Serena mutation tools") ||
+        content.includes("never use") ||
+        content.includes("NEVER") && content.includes("mutation"),
+      "debug-agent must explicitly state it never uses Serena mutation tools"
+    );
+  });
+});
+
+describe("serena-integration — agent frontmatter tool allowlists", () => {
+  it("P-01: code-agent frontmatter includes all five Serena tools", () => {
+    const content = readAgent("code-agent");
+    const fm = parseFrontmatter(content);
+    assert.ok(
+      fm.tools.includes("mcp__serena__find_symbol"),
+      "code-agent frontmatter must include mcp__serena__find_symbol"
+    );
+    assert.ok(
+      fm.tools.includes("mcp__serena__symbol_overview"),
+      "code-agent frontmatter must include mcp__serena__symbol_overview"
+    );
+    assert.ok(
+      fm.tools.includes("mcp__serena__find_referencing_symbols"),
+      "code-agent frontmatter must include mcp__serena__find_referencing_symbols"
+    );
+    assert.ok(
+      fm.tools.includes("mcp__serena__replace_symbol_body"),
+      "code-agent frontmatter must include mcp__serena__replace_symbol_body"
+    );
+    assert.ok(
+      fm.tools.includes("mcp__serena__insert_after_symbol"),
+      "code-agent frontmatter must include mcp__serena__insert_after_symbol"
+    );
+  });
+
+  it("P-01: code-agent frontmatter does NOT include mcp__serena__execute_shell_command", () => {
+    const content = readAgent("code-agent");
+    const fm = parseFrontmatter(content);
+    assert.ok(
+      !fm.tools.includes("mcp__serena__execute_shell_command"),
+      "code-agent frontmatter must NOT include mcp__serena__execute_shell_command"
+    );
+  });
+
+  it("P-01: debug-agent frontmatter includes exactly three Serena discovery tools", () => {
+    const content = readAgent("debug-agent");
+    const fm = parseFrontmatter(content);
+    assert.ok(
+      fm.tools.includes("mcp__serena__find_symbol"),
+      "debug-agent frontmatter must include mcp__serena__find_symbol"
+    );
+    assert.ok(
+      fm.tools.includes("mcp__serena__symbol_overview"),
+      "debug-agent frontmatter must include mcp__serena__symbol_overview"
+    );
+    assert.ok(
+      fm.tools.includes("mcp__serena__find_referencing_symbols"),
+      "debug-agent frontmatter must include mcp__serena__find_referencing_symbols"
+    );
+  });
+
+  it("P-01: debug-agent frontmatter does NOT include mutation tools", () => {
+    const content = readAgent("debug-agent");
+    const fm = parseFrontmatter(content);
+    assert.ok(
+      !fm.tools.includes("mcp__serena__replace_symbol_body"),
+      "debug-agent frontmatter must NOT include mcp__serena__replace_symbol_body"
+    );
+    assert.ok(
+      !fm.tools.includes("mcp__serena__insert_after_symbol"),
+      "debug-agent frontmatter must NOT include mcp__serena__insert_after_symbol"
+    );
+  });
+});
+
+describe("serena-integration — warmup probe and graceful degradation", () => {
+  it("P-02: code-agent contains warmup probe instruction", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("warmup probe") || content.includes("Warmup probe"),
+      "code-agent must describe the warmup probe"
+    );
+    assert.ok(
+      content.includes("first Serena tool call") || content.includes("FIRST Serena tool call"),
+      "code-agent warmup probe must specify it is the first Serena call in the session"
+    );
+  });
+
+  it("P-02: code-agent warmup probe uses find_symbol on entry point from code-map.md", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("find_symbol") && content.includes("entry point"),
+      "code-agent warmup probe must use find_symbol on a known entry point"
+    );
+  });
+
+  it("P-02: code-agent warmup probe is binary decision — no retries", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("no retries") || content.includes("One probe, binary decision"),
+      "code-agent warmup probe must be a one-time binary decision with no retries"
+    );
+  });
+
+  it("P-02: code-agent checks project profile before warmup probe", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("project-profile.md") && content.includes("not detected"),
+      "code-agent must check project profile Serena detection status before warmup probe"
+    );
+  });
+
+  it("P-02: code-agent graceful degradation is silent — no errors to developer", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("Graceful degradation") || content.includes("graceful degradation"),
+      "code-agent must describe graceful degradation to Layer 3"
+    );
+    assert.ok(
+      content.includes("No errors") || content.includes("no errors") ||
+        content.includes("transparently"),
+      "code-agent graceful degradation must be transparent — no errors or warnings to developer"
+    );
+  });
+});
+
+describe("serena-integration — SERENA_MODE and post-edit verification", () => {
+  it("P-04: code-agent documents SERENA_MODE=full and SERENA_MODE=read-only branching", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("SERENA_MODE=full"),
+      "code-agent must document SERENA_MODE=full behavior"
+    );
+    assert.ok(
+      content.includes("SERENA_MODE=read-only"),
+      "code-agent must document SERENA_MODE=read-only behavior"
+    );
+  });
+
+  it("P-04: code-agent SERENA_MODE=read-only disables replace_symbol_body and insert_after_symbol", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("SERENA_MODE=read-only") &&
+        (content.includes("replace_symbol_body") || content.includes("mutation tools")),
+      "code-agent must state mutation tools are disabled in read-only mode"
+    );
+  });
+
+  it("P-01: code-agent contains mandatory post-edit verification instruction", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("Post-edit verification") || content.includes("post-edit verification"),
+      "code-agent must describe post-edit verification step"
+    );
+    assert.ok(
+      content.includes("replace_symbol_body") && content.includes("verify"),
+      "code-agent post-edit verification must apply after replace_symbol_body calls"
+    );
+  });
+});
+
+describe("serena-integration — df-orchestrate worktree scoping", () => {
+  it("P-03: df-orchestrate writes .serena/project.yml before spawning agents", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes(".serena/project.yml"),
+      "df-orchestrate must reference .serena/project.yml"
+    );
+    assert.ok(
+      content.includes("before spawning") || content.includes("Before spawning") ||
+        content.includes("BEFORE spawning"),
+      "df-orchestrate must write .serena/project.yml before spawning any agent"
+    );
+  });
+
+  it("P-03: df-orchestrate uses absolute path for project_root in .serena/project.yml", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("project_root") && content.includes("absolute"),
+      "df-orchestrate must use absolute path for project_root in .serena/project.yml"
+    );
+  });
+
+  it("P-03: df-orchestrate deletes .serena/project.yml after ExitWorktree", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes(".serena/project.yml") &&
+        (content.includes("delete") || content.includes("Delete")),
+      "df-orchestrate must delete .serena/project.yml after ExitWorktree"
+    );
+  });
+
+  it("P-04: df-orchestrate passes SERENA_MODE in agent prompt context", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("SERENA_MODE"),
+      "df-orchestrate must pass SERENA_MODE in agent prompt context"
+    );
+    assert.ok(
+      content.includes("prompt context") || content.includes("agent prompt"),
+      "df-orchestrate must pass SERENA_MODE as prompt context, not OS env var"
+    );
+  });
+
+  it("P-04: df-orchestrate uses SERENA_MODE=full for single-spec and read-only for multi-spec", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("SERENA_MODE=full") || content.includes("Serena mode: full"),
+      "df-orchestrate must set SERENA_MODE=full for single-worktree runs"
+    );
+    assert.ok(
+      content.includes("SERENA_MODE=read-only") || content.includes("Serena mode: read-only") ||
+        content.includes("read-only"),
+      "df-orchestrate must set SERENA_MODE=read-only for multi-spec parallel runs"
+    );
+  });
+});
+
+describe("serena-integration — onboard-agent Serena detection", () => {
+  it("P-01: onboard-agent Phase 2 includes Serena detection step", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("Serena MCP") || content.includes("mcp__serena"),
+      "onboard-agent Phase 2 must include Serena MCP detection step"
+    );
+  });
+
+  it("P-01: onboard-agent writes Serena detection result to project profile", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("semantic queries enabled") ||
+        content.includes("agents will use Read/Grep"),
+      "onboard-agent must write Serena detection result to project profile Tech Stack section"
+    );
+  });
+});
+
+describe("serena-integration — plugin mirrors match source", () => {
+  it("plugins code-agent.md matches source after serena-integration", () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, ".claude", "agents", "code-agent.md"),
+      "utf8"
+    );
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "code-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin code-agent.md must match source after serena-integration");
+  });
+
+  it("plugins debug-agent.md matches source after serena-integration", () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, ".claude", "agents", "debug-agent.md"),
+      "utf8"
+    );
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "debug-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin debug-agent.md must match source after serena-integration");
+  });
+
+  it("plugins onboard-agent.md matches source after serena-integration", () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, ".claude", "agents", "onboard-agent.md"),
+      "utf8"
+    );
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "onboard-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin onboard-agent.md must match source after serena-integration");
+  });
+
+  it("plugins df-orchestrate SKILL.md matches source after serena-integration", () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, ".claude", "skills", "df-orchestrate", "SKILL.md"),
+      "utf8"
+    );
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "skills", "df-orchestrate", "SKILL.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin df-orchestrate SKILL.md must match source after serena-integration");
+  });
+});
+// DF-PROMOTED-END: serena-integration

@@ -54,6 +54,12 @@ Determine what kind of project you're looking at:
    - CI/CD: check .github/workflows, .gitlab-ci.yml, Jenkinsfile, etc.
    - Docker: Dockerfile, docker-compose.yml
 
+5. **Detect Serena MCP availability**:
+   - Check whether Serena MCP tools (`mcp__serena__find_symbol`) are available in the MCP tool list for this session.
+   - If Serena tools are available: record `| Serena MCP | detected — semantic queries enabled |` in the Tech Stack table of the project profile.
+   - If Serena tools are NOT available: record `| Serena MCP | not detected — agents will use Read/Grep |` in the Tech Stack table.
+   - This detection result determines whether code-agent and debug-agent attempt Serena calls in future pipeline runs.
+
 ### Phase 3: Architecture & Patterns
 
 5. **Map the architecture**:

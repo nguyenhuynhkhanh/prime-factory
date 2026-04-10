@@ -139,11 +139,37 @@ Before any implementation begins (before Architect Review in the implementation-
 
 Each spec runs in its own git worktree. Worktree is created BEFORE implementation and merged back AFTER.
 
+### Serena Worktree Setup
+
+Before spawning any agent in a worktree, df-orchestrate MUST:
+1. Write `.serena/project.yml` to the worktree root directory with the content:
+   ```yaml
+   project_root: /absolute/path/to/worktree
+   ```
+   The `project_root` value MUST be an absolute path. A relative path would resolve relative to Serena's server process working directory, which is not the worktree.
+2. If the `.serena/` directory does not exist, create it first.
+3. If the write fails (permissions, missing parent dir), log the error and proceed without the scope file. In this case, pass an explicit note in the agent prompt context: "Serena scope file not written — use Read/Grep for all operations."
+4. Also ensure `.serena/` is listed in the project's `.gitignore` to prevent accidental commits.
+
+After ExitWorktree completes, delete `.serena/project.yml` from the worktree. The file must not be merged back to the main branch.
+
+### Serena Mode Detection
+
+Detect whether this run is single-worktree or multi-spec parallel, and set `SERENA_MODE` accordingly:
+- **Single-worktree mode** (one spec being implemented): `SERENA_MODE=full` — all Serena tools available including mutation tools.
+- **Multi-spec parallel mode** (multiple code-agents implementing specs simultaneously in a wave): `SERENA_MODE=read-only` — discovery tools only; mutation tools disabled. This prevents race conditions where multiple agents simultaneously issue mutations through a single Serena server process.
+
+Pass `SERENA_MODE` as an explicit line in the agent prompt context (e.g., "Serena mode: full" or "Serena mode: read-only"). Claude Code agents do not read OS environment variables; context must be passed in the prompt.
+
+If `SERENA_MODE` is absent from agent context (e.g., an older df-orchestrate invocation), agents default to `read-only` behavior.
+
 ### Single spec: `/df-orchestrate my-feature`
 1. Enter worktree (EnterWorktree tool)
-2. Spawn **implementation-agent** (`.claude/agents/implementation-agent.md`) with: spec name, spec path, mode, branch name, skip-tests flag
-3. Implementation-agent handles: architect review, code agents, holdout validation, promotion, cleanup
-4. Exit worktree (ExitWorktree) — merges back to original branch
+2. Write `.serena/project.yml` to the worktree root (absolute path, see Serena Worktree Setup above)
+3. Spawn **implementation-agent** (`.claude/agents/implementation-agent.md`) with: spec name, spec path, mode, branch name, skip-tests flag, and "Serena mode: full" in prompt context
+4. Implementation-agent handles: architect review, code agents, holdout validation, promotion, cleanup
+5. Exit worktree (ExitWorktree) — merges back to original branch
+6. Delete `.serena/project.yml` from the worktree after ExitWorktree completes
 
 ### Multiple specs: `/df-orchestrate spec-a spec-b spec-c`
 
@@ -173,8 +199,14 @@ For each wave, spawn an **independent** agent (`run_in_background: true`) that r
 - The list of spec names for that wave
 - The current branch name
 - The mode (feature or bugfix) for each spec
+- Serena mode: `read-only` for all specs in a multi-spec wave (multiple simultaneous worktrees)
 
-Each wave agent spawns **implementation-agents** (`.claude/agents/implementation-agent.md`) for each spec in its wave, each in its own worktree with `isolation: "worktree"`. Each implementation-agent handles the full per-spec lifecycle:
+Each wave agent:
+1. Writes `.serena/project.yml` to each worktree root with the worktree's absolute path (before spawning implementation-agents)
+2. Spawns **implementation-agents** (`.claude/agents/implementation-agent.md`) for each spec in its wave, each in its own worktree with `isolation: "worktree"`, passing "Serena mode: read-only" in the prompt context
+3. After ExitWorktree for each spec, deletes `.serena/project.yml` from the worktree
+
+Each implementation-agent handles the full per-spec lifecycle:
 - Architect review (spawning `.claude/agents/architect-agent.md` — 3 domain agents in parallel)
 - Code agents (spawning code-agents with spec + public scenarios + architect findings)
 - Holdout validation (spawning test-agents)
