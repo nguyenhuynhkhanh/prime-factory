@@ -2312,18 +2312,99 @@ describe("Plugin mirrors for codemap-agent", () => {
 });
 
 // ===========================================================================
-// Token cap tests for implementation-agent and orchestrate
+// Org-model: template references and shared context rules
+// ===========================================================================
+
+describe("Org-model — template references", () => {
+  it("onboard-agent references project-profile-template.md instead of embedding", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(
+      content.includes("dark-factory/templates/project-profile-template.md"),
+      "onboard-agent should reference external template file"
+    );
+    // Should NOT contain the full inline template
+    assert.ok(
+      !content.includes("## Tech Stack\n| Layer | Technology |"),
+      "onboard-agent should not embed the full profile template inline"
+    );
+  });
+
+  it("all 3 template files exist", () => {
+    const templates = [
+      "spec-template.md",
+      "debug-report-template.md",
+      "project-profile-template.md",
+    ];
+    for (const tpl of templates) {
+      const tplPath = path.join(DF_DIR, "templates", tpl);
+      assert.ok(
+        fs.existsSync(tplPath),
+        `Template file ${tpl} should exist in dark-factory/templates/`
+      );
+    }
+  });
+});
+
+describe("Org-model — shared context rules", () => {
+  it("dark-factory-context.md exists in .claude/rules/", () => {
+    const rulePath = path.join(ROOT, ".claude", "rules", "dark-factory-context.md");
+    assert.ok(
+      fs.existsSync(rulePath),
+      "dark-factory-context.md should exist in .claude/rules/"
+    );
+  });
+
+  it("dark-factory-context.md references project-profile and code-map", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, ".claude", "rules", "dark-factory-context.md"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("project-profile.md"),
+      "Shared context should reference project-profile.md"
+    );
+    assert.ok(
+      content.includes("code-map.md"),
+      "Shared context should reference code-map.md"
+    );
+  });
+
+  it("plugin mirror exists for dark-factory-context.md", () => {
+    const pluginPath = path.join(ROOT, "plugins", "dark-factory", "rules", "dark-factory-context.md");
+    assert.ok(
+      fs.existsSync(pluginPath),
+      "dark-factory-context.md should be mirrored in plugins/"
+    );
+  });
+});
+
+// ===========================================================================
+// Token cap tests for all agents and orchestrate
 // ===========================================================================
 
 describe("Token cap enforcement", () => {
-  it("implementation-agent is under 4,000 tokens", () => {
-    const content = readAgent("implementation-agent");
-    const tokens = Math.ceil(Buffer.byteLength(content, "utf8") / 4);
-    assert.ok(
-      tokens <= 4000,
-      `implementation-agent is ${tokens} tokens, cap is 4,000`
-    );
-  });
+  const agentCaps = {
+    "onboard-agent": 5500,
+    "spec-agent": 5500,
+    "debug-agent": 3500,
+    "architect-agent": 4500,
+    "code-agent": 3000,
+    "test-agent": 2500,
+    "promote-agent": 2500,
+    "codemap-agent": 3500,
+    "implementation-agent": 4000,
+  };
+
+  for (const [agent, cap] of Object.entries(agentCaps)) {
+    it(`${agent} is under ${cap} tokens`, () => {
+      const content = readAgent(agent);
+      const tokens = Math.ceil(Buffer.byteLength(content, "utf8") / 4);
+      assert.ok(
+        tokens <= cap,
+        `${agent} is ${tokens} tokens, cap is ${cap}`
+      );
+    });
+  }
 
   it("df-orchestrate is under 5,000 tokens", () => {
     const content = readSkill("df-orchestrate");

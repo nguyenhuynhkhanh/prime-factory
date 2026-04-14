@@ -18,10 +18,25 @@ This project uses the Dark Factory pattern for feature development and bug fixes
 - Is about Dark Factory itself ("show me the manifest", "what's the status of X")
 - Is a general conversation, greeting, or config request
 - Is explicitly using another `/df-*` command already
+- Is a **trivial task** (see below) — implement directly instead
 
-**But if the developer explicitly types `/df {description}`, ALWAYS run it through the pipeline.** No exceptions — even for small changes. The pipeline handles scope sizing internally.
+**Trivial tasks — implement directly, no pipeline:**
+A task is trivial when ALL of these are true: (1) the scope is a single file or a small, obvious set of files, (2) there is no logic change (no new behavior, no branching, no API contract changes), and (3) the correctness is self-evident without test coverage. Examples:
+- Updating docs or README (rewording, adding sections, fixing typos)
+- Adding or updating a comment or log line
+- Changing a config value or env variable name
+- Renaming a file, variable, or constant with no semantic change
+- Reformatting or linting fixes
 
-**CRITICAL: NEVER implement code directly when `/df` is invoked.** The ONLY valid response to `/df` is routing to `/df-intake` (features) or `/df-debug` (bugs). You must NOT skip the pipeline, write code directly, or decide a task is "too small" for Dark Factory. Every `/df` invocation goes through spec → scenarios → architect review → implementation → holdout validation.
+For trivial tasks: just do it. No spec, no agents, no pipeline.
+
+**For everything else — real bugs and real features — route through `/df`.**
+
+**But if the developer explicitly types `/df {description}`, check if it is a trivial task first:**
+- If trivial: implement directly and tell the developer why you skipped the pipeline.
+- If not trivial: route through `/df-intake` (feature) or `/df-debug` (bug). No exceptions.
+
+**CRITICAL: NEVER implement code directly for non-trivial tasks when `/df` is invoked.** For non-trivial work, the ONLY valid response to `/df` is routing to `/df-intake` (features) or `/df-debug` (bugs). Every non-trivial `/df` invocation goes through spec → scenarios → architect review → implementation → holdout validation.
 
 **Conversations that evolve into implementation:**
 Developers often start with a question or exploration ("how does auth work?", "why is this slow?"), then through discussion arrive at a concrete solution or decision to build something. **Watch for the transition moment** — when the conversation shifts from understanding to action:
@@ -37,7 +52,7 @@ When in doubt, ask: "Would you like me to run this through the Dark Factory pipe
 ## Available Commands
 - **`/df {description}`** — **Just describe what you need.** Auto-detects bug vs feature and routes to the right pipeline. Asks you to confirm if ambiguous.
 - `/df-onboard` — Map the project. Produces `dark-factory/project-profile.md` with architecture, conventions, quality bar. **Run this first on any existing project.**
-- `/df-intake {description}` — Start **feature** spec creation. Spawns 3 parallel spec-agents (user/product, architecture, reliability perspectives), synthesizes into one spec.
+- `/df-intake {description}` — Start **feature** spec creation. Spawns 1 or 3 spec-agents based on scope (user/product, architecture, reliability perspectives), synthesizes into one spec.
 - `/df-debug {description}` — Start **bug** investigation. Spawns 3 parallel debug-agents investigating from different angles (code path, history, patterns), synthesizes findings, then writes the report.
 - `/df-orchestrate {name} [name2...] | --group {name} | --all [--force]` — Start implementation. Supports explicit spec names, `--group` for all specs in a group, or `--all` for every active spec. Each spec runs in its own git worktree. Multiple specs implement in parallel. Auto-scales code-agents per spec (up to 4). Auto-promotes holdout tests and cleans up on success.
 - `/df-cleanup` — Recovery/maintenance. Runs health check on promoted tests (detects missing, skipped, failing, or stale tests), retries stuck promotions, completes archival, lists stale features. Use `--rebuild` to reconstruct the promoted test registry from annotation headers.
