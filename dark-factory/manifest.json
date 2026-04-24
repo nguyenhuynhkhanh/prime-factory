@@ -64,18 +64,6 @@
       "group": "project-memory",
       "dependencies": ["project-memory-foundation", "project-memory-consumers", "project-memory-onboard"]
     },
-    "token-opt-slim-context": {
-      "type": "feature",
-      "status": "promoted",
-      "specPath": "dark-factory/specs/features/token-opt-slim-context.spec.md",
-      "created": "2026-04-24T00:00:00Z",
-      "rounds": 1,
-      "group": "token-optimization",
-      "dependencies": [],
-      "passedAt": "2026-04-24T00:00:00Z",
-      "promotedAt": "2026-04-24T00:00:00Z",
-      "promotedTestPath": "tests/dark-factory-setup.test.js"
-    },
     "token-opt-architect-review": {
       "type": "feature",
       "status": "active",

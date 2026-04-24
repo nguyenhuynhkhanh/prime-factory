@@ -1,0 +1,131 @@
+graph TD
+    subgraph Skills["Skills (Entry Points)"]
+        df["df/SKILL.md<br/>(router)"]
+        intake["df-intake/SKILL.md"]
+        debug["df-debug/SKILL.md"]
+        orchestrate["df-orchestrate/SKILL.md<br/>--group / --all / --skip-tests"]
+        onboard["df-onboard/SKILL.md"]
+        cleanup["df-cleanup/SKILL.md"]
+    end
+
+    subgraph Agents["Agents"]
+        spec["spec-agent"]
+        dbg["debug-agent"]
+        architect["architect-agent<br/>(3 parallel domains)"]
+        code["code-agent<br/>(1-4 in worktrees)"]
+        test["test-agent<br/>(emits flakyE2E)"]
+        promote["promote-agent"]
+        impl["implementation-agent<br/>(orchestrator)"]
+        codemap["codemap-agent"]
+        onboardA["onboard-agent<br/>(Phase 2.5 + 7.5)"]
+    end
+
+    subgraph SharedData["Shared Data (Hotspots)"]
+        profile["project-profile.md<br/>fan-in: 10"]:::hotspot
+        map["code-map.md<br/>fan-in: 9"]:::hotspot
+        manifest["manifest.json<br/>fan-in: 6"]:::hotspot
+        promoted["promoted-tests.json<br/>fan-in: 3"]
+        tmpl["project-profile-template.md<br/>(UI/E2E rows)"]
+    end
+
+    subgraph Hooks["Git Hooks (Phase 7.5)"]
+        husky[".husky/pre-commit"]
+        lefthook["lefthook.yml"]
+        sgh["package.json<br/>simple-git-hooks"]
+        rawhook[".git/hooks/pre-commit"]
+    end
+
+    subgraph CLI["CLI"]
+        cli["bin/cli.js"]
+        plugin["plugins/dark-factory/"]
+    end
+
+    subgraph Tests["Tests"]
+        setup["dark-factory-setup.test.js<br/>(3635 lines)"]
+        contracts["dark-factory-contracts.test.js"]
+    end
+
+    %% Skill routing
+    df --> intake
+    df --> debug
+
+    %% Skill -> Agent spawning
+    intake --> codemap
+    intake --> spec
+    debug --> codemap
+    debug --> dbg
+    orchestrate --> codemap
+    orchestrate --> impl
+    onboard --> onboardA
+    cleanup --> promote
+    cleanup --> promoted
+
+    %% Agent -> Agent spawning
+    impl --> architect
+    impl --> code
+    impl --> test
+    impl --> promote
+    impl -->|"flaky-E2E<br/>(bugfix mode)"| spec
+    impl -->|"blockers"| spec
+    impl -->|"blockers"| dbg
+    architect --> spec
+    architect --> dbg
+    onboardA --> codemap
+
+    %% Agent -> Shared Data reads
+    spec --> profile
+    spec --> map
+    dbg --> profile
+    dbg --> map
+    architect --> profile
+    architect --> map
+    code --> profile
+    code --> map
+    test --> profile
+    test --> map
+    promote --> profile
+    promote --> map
+    promote --> promoted
+    impl --> manifest
+    intake --> manifest
+    debug --> manifest
+    orchestrate --> manifest
+    cleanup --> manifest
+    onboardA -.-> profile
+    onboardA --> tmpl
+    codemap -.-> map
+
+    %% Onboard -> Hooks (Phase 7.5)
+    onboardA -.->|"if Husky"| husky
+    onboardA -.->|"if Lefthook"| lefthook
+    onboardA -.->|"if simple-git-hooks"| sgh
+    onboardA -.->|"fallback"| rawhook
+
+    %% CLI
+    cli --> plugin
+
+    %% Tests read everything
+    setup --> spec
+    setup --> dbg
+    setup --> architect
+    setup --> code
+    setup --> test
+    setup --> promote
+    setup --> impl
+    setup --> codemap
+    setup --> onboardA
+    setup --> tmpl
+    setup --> promoted
+    contracts --> plugin
+
+    %% Styles
+    classDef hotspot fill:#ff6b6b,stroke:#c92a2a,color:#fff,stroke-width:2px
+    classDef agent fill:#4dabf7,stroke:#1971c2,color:#fff
+    classDef skill fill:#69db7c,stroke:#2b8a3e,color:#fff
+    classDef test fill:#ffd43b,stroke:#e67700,color:#000
+    classDef hook fill:#b197fc,stroke:#5f3dc4,color:#fff
+
+    class spec,dbg,architect,code,test,promote,impl,codemap,onboardA agent
+    class df,intake,debug,orchestrate,onboard,cleanup skill
+    class setup,contracts test
+    class husky,lefthook,sgh,rawhook hook

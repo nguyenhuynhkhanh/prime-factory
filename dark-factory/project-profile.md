@@ -151,3 +151,5 @@ There is no "running application." The framework operates entirely through Claud
 - **Running contract tests only**: `node --test tests/dark-factory-contracts.test.js`
 - **Common failure patterns**: Frontmatter name mismatch (agent filename vs frontmatter `name` field), missing barrier phrases in agent content, plugin mirror out of sync with source files
 - **Fragile areas**: Plugin mirror consistency (forgetting to update both sides), promoted test section markers (must match exactly), the dual-write pattern for any agent/skill change
+
+> See also: [Code Map](code-map.md) — module dependencies, call chains, hotspots, and cross-cutting concerns.
