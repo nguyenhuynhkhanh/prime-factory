@@ -28,15 +28,6 @@
       "group": "playwright-e2e",
       "dependencies": ["playwright-onboard", "playwright-test-hardening"]
     },
-    "project-memory-foundation": {
-      "type": "feature",
-      "status": "active",
-      "specPath": "dark-factory/specs/features/project-memory-foundation.spec.md",
-      "created": "2026-04-21T00:00:00Z",
-      "rounds": 0,
-      "group": "project-memory",
-      "dependencies": []
-    },
     "project-memory-onboard": {
       "type": "feature",
       "status": "active",
