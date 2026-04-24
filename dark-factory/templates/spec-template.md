@@ -69,6 +69,17 @@ If this is a sub-spec of a decomposed feature:
 - **Scope size**: small (1-2 files) | medium (3-5 files) | large (6-10 files) | x-large (10+ files)
 - **Suggested parallel tracks**: how many code-agents and what each implements. ZERO file overlap between tracks.
 
+## Architect Review Tier
+- **Tier**: {1 | 2 | 3 | Unset — architect self-assesses}
+- **Reason**: {primary classification signal that drove this tier}
+- **Agents**: {1 combined | 3 domain agents}
+- **Rounds**: {1 | 2 | 3+}
+
+Classification signals:
+- Tier 1: ≤ 2 files, no migration section, no security/auth domain, no cross-cutting keywords
+- Tier 2: 3–4 files, OR some cross-cutting concerns, not Tier 3 triggers
+- Tier 3: 5+ files, OR populated migration section, OR cross-cutting keywords ("all agents", "pipeline", "system-wide"), OR shared templates/test contracts, OR security/auth domain
+
 ## Implementation Notes
 Patterns to follow from the existing codebase. Specific files/modules to extend.
 NOT a design doc — just enough guidance for the code-agent to stay consistent.

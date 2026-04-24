@@ -142,6 +142,18 @@ Once scope is agreed, pressure-test it:
 
 Only now do you write. The spec should be complete enough that an independent code-agent with zero context can implement it correctly.
 
+**4a. Complexity Classification (DO NOT SKIP)**
+
+Before writing, assess the spec's architect review tier using the signal table below. Propose the tier to the developer with a brief rationale and ask for confirmation. If the developer defers ("let architect decide"), record "Unset — architect self-assesses."
+
+| Signal | Tier |
+|--------|------|
+| ≤ 2 files touched, no migration section, no security/auth domain, no cross-cutting keywords | Tier 1 |
+| 3–4 files touched, OR some cross-cutting concerns but not Tier 3 triggers | Tier 2 |
+| 5+ files touched, OR migration section populated, OR cross-cutting keywords present ("all agents", "pipeline", "system-wide"), OR touches shared templates or test contracts, OR security/auth domain | Tier 3 |
+
+Write the confirmed tier into the `Architect Review Tier` section of the spec (see template for format).
+
 4. **Write the spec** to: `dark-factory/specs/features/{name}.spec.md`
 
 Read the spec output template from `dark-factory/templates/spec-template.md` and use it as the structure for the spec you write.

@@ -251,11 +251,27 @@ describe("Architect review gate", () => {
     );
   });
 
-  it("architect-agent runs minimum 3 rounds", () => {
+  it("architect-agent uses tiered language (Tier 1, Tier 2, Tier 3)", () => {
     const content = readAgent("architect-agent");
     assert.ok(
-      content.includes("minimum 3") || content.includes("at least 3"),
-      "architect-agent should specify minimum 3 rounds"
+      content.includes("Tier 1") && content.includes("Tier 2") && content.includes("Tier 3"),
+      "architect-agent should specify all three tiers with round budgets"
+    );
+  });
+
+  it("architect-agent Tier 3 specifies minimum 3 rounds (safety floor)", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("Tier 3") && (content.includes("3+ rounds") || content.includes("3 rounds minimum") || content.includes("minimum 3")),
+      "architect-agent Tier 3 should still specify minimum 3 rounds"
+    );
+  });
+
+  it("architect-agent Tier 1 specifies exactly 1 round", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("Tier 1") && content.includes("1 round"),
+      "architect-agent Tier 1 should specify exactly 1 round budget"
     );
   });
 
@@ -2387,7 +2403,7 @@ describe("Token cap enforcement", () => {
     "onboard-agent": 5500,
     "spec-agent": 5500,
     "debug-agent": 3500,
-    "architect-agent": 4500,
+    "architect-agent": 5000,
     "code-agent": 3000,
     "test-agent": 3500,
     "promote-agent": 2500,
@@ -3911,3 +3927,216 @@ describe("Regression: Out-of-scope files NOT modified — token-opt-slim-context
   });
 });
 // DF-PROMOTED-END: token-opt-slim-context
+
+// ===========================================================================
+// Promoted from Dark Factory holdout: token-opt-architect-review
+// Root cause: architect-agent review pipeline burned 9 sessions (3 agents × 3 rounds) for all specs regardless of complexity, with no tier-conditional context loading or round summarization
+// Guards: .claude/agents/architect-agent.md, .claude/agents/implementation-agent.md, .claude/agents/spec-agent.md, dark-factory/templates/spec-template.md, plugins/dark-factory/agents/architect-agent.md, plugins/dark-factory/agents/implementation-agent.md, plugins/dark-factory/agents/spec-agent.md, plugins/dark-factory/templates/spec-template.md, tests/dark-factory-setup.test.js
+// DF-PROMOTED-START: token-opt-architect-review
+// ===========================================================================
+
+describe("token-opt-architect-review — tier-aware spawn (H-02: missing tier defaults to Tier 3)", () => {
+  it("implementation-agent treats missing Architect Review Tier field as Tier 3", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes("Tier 3") && (content.includes("missing") || content.includes("default")),
+      "implementation-agent must default to Tier 3 when Architect Review Tier field is missing"
+    );
+  });
+
+  it("implementation-agent treats unrecognized tier values as Tier 3", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes("unrecognized") || (content.includes("missing") && content.includes("Tier 3")),
+      "implementation-agent must treat unrecognized tier values as Tier 3 (strictest default)"
+    );
+  });
+
+  it("implementation-agent treats 'Unset — architect self-assesses' as Tier 3 for spawn purposes", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes("Unset") || (content.includes("self-assesses") || content.includes("self-assess")),
+      "implementation-agent must handle 'Unset — architect self-assesses' tier value"
+    );
+  });
+});
+
+describe("token-opt-architect-review — self-escalation protocol (H-01: Tier 1 escalates on blocker)", () => {
+  it("architect-agent documents self-escalation protocol", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("self-escalat") || content.includes("Self-escalat"),
+      "architect-agent must document self-escalation protocol"
+    );
+  });
+
+  it("architect-agent specifies escalation reason must be recorded in review output", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("Escalated from Tier"),
+      "architect-agent must specify the 'Escalated from Tier {current} to Tier {new}: {reason}' format"
+    );
+  });
+
+  it("implementation-agent records tier escalation in manifest", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes("tierEscalation"),
+      "implementation-agent must record tier escalation in manifest as tierEscalation field"
+    );
+  });
+});
+
+describe("token-opt-architect-review — slim file fallback (H-03: missing slim files)", () => {
+  it("architect-agent specifies silent fallback for missing slim files", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("silently fall back") || content.includes("silent") && content.includes("fall back"),
+      "architect-agent must specify silent fallback from slim to full files"
+    );
+  });
+
+  it("architect-agent specifies 'Slim file not found, reading full file' internal log phrase", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("Slim file not found, reading full file"),
+      "architect-agent must specify the internal log phrase for slim file fallback"
+    );
+  });
+
+  it("architect-agent Tier 3 reads full files directly (no slim attempt)", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("Tier 3") && content.includes("full files"),
+      "architect-agent must specify Tier 3 reads full files directly"
+    );
+  });
+});
+
+describe("token-opt-architect-review — round summary grace (H-04: missing round N-1 summary)", () => {
+  it("architect-agent specifies graceful fallback when prior round summary is missing", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("graceful fallback") || content.includes("graceful") && content.includes("missing"),
+      "architect-agent must specify graceful fallback when round N-1 summary file is missing"
+    );
+  });
+
+  it("architect-agent specifies 'never fail' for missing summary files", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("never fail"),
+      "architect-agent must specify that missing summary files never cause failure"
+    );
+  });
+});
+
+describe("token-opt-architect-review — strictest-wins tier disagreement (H-05: domain architects disagree)", () => {
+  it("architect-agent documents strictest-wins rule for self-assessed tiers", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("strictest-wins") || content.includes("Strictest-wins") || content.includes("highest assessed"),
+      "architect-agent must document strictest-wins rule for self-assessed tier disagreements"
+    );
+  });
+
+  it("implementation-agent documents strictest-wins for domain review synthesis", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes("Strictest-wins") || content.includes("strictest-wins"),
+      "implementation-agent must document strictest-wins in review synthesis"
+    );
+  });
+});
+
+describe("token-opt-architect-review — round summary budget (H-06: summary over 400 words)", () => {
+  it("architect-agent specifies 400-word budget for round summaries", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("400 words") || content.includes("400-word"),
+      "architect-agent must specify 400-word budget for round summary files"
+    );
+  });
+
+  it("architect-agent specifies truncation trailing note format", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("[Truncated to fit budget") || content.includes("Truncated to fit"),
+      "architect-agent must specify the truncation trailing note format for overlong summaries"
+    );
+  });
+});
+
+describe("token-opt-architect-review — plugin mirrors match source", () => {
+  it("plugins architect-agent.md matches source", () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, ".claude", "agents", "architect-agent.md"),
+      "utf8"
+    );
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "architect-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin architect-agent.md should match source");
+  });
+
+  it("plugins spec-agent.md matches source", () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, ".claude", "agents", "spec-agent.md"),
+      "utf8"
+    );
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "spec-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin spec-agent.md should match source");
+  });
+
+  it("plugins spec-template.md matches source", () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, "dark-factory", "templates", "spec-template.md"),
+      "utf8"
+    );
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "templates", "spec-template.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin spec-template.md should match source");
+  });
+});
+
+describe("token-opt-architect-review — spec-agent complexity classification", () => {
+  it("spec-agent contains Complexity Classification step in Phase 4", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(
+      content.includes("Complexity Classification"),
+      "spec-agent must contain Complexity Classification step in Phase 4"
+    );
+  });
+
+  it("spec-agent classification includes all Tier 1/2/3 signals from the table", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(
+      content.includes("Tier 1") && content.includes("Tier 2") && content.includes("Tier 3"),
+      "spec-agent must include all three tier classifications with their signals"
+    );
+  });
+
+  it("spec-template.md includes Architect Review Tier section", () => {
+    const tplPath = path.join(ROOT, "dark-factory", "templates", "spec-template.md");
+    const content = fs.readFileSync(tplPath, "utf8");
+    assert.ok(
+      content.includes("Architect Review Tier"),
+      "spec-template.md must include Architect Review Tier section"
+    );
+    assert.ok(
+      content.includes("Tier 1") && content.includes("Tier 2") && content.includes("Tier 3"),
+      "spec-template.md Architect Review Tier section must list all three tiers"
+    );
+    assert.ok(
+      content.includes("Unset — architect self-assesses"),
+      "spec-template.md must include 'Unset — architect self-assesses' as an allowed value"
+    );
+  });
+});
+// DF-PROMOTED-END: token-opt-architect-review

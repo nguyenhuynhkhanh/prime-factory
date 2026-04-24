@@ -35,31 +35,42 @@ Check if `dark-factory/results/{name}/` has previous results:
 ## Step 0: Architect Review (MANDATORY — both modes)
 
 **Step 0a: Check for existing review**
-- Check if `{name}.review.md` exists with APPROVED or APPROVED WITH NOTES: skip review, extract findings (Step 0d), proceed.
+- Read the spec's `Architect Review Tier` field (see Step 0c for tier logic). If the field is missing or unrecognized, default to Tier 3.
+- For Tier 1 specs: check only for `{name}.review.md` (no domain files expected).
+- For Tier 2/3 specs: check if `{name}.review.md` exists with APPROVED or APPROVED WITH NOTES — skip review, extract findings (Step 0d), proceed.
 - If BLOCKED or missing: check cached domain reviews (Step 0b).
+- After receiving the architect review output, check for "Escalated from Tier" in the review. If found, record in manifest: `"tierEscalation": { "from": N, "to": M, "reason": "..." }`.
 
 **Step 0b: Check cached domain review files**
-- Look for `{name}.review-security.md`, `{name}.review-architecture.md`, `{name}.review-api.md` in the spec directory.
-- All three exist but synthesized missing: re-synthesize from cached files (go to Step 0c synthesis).
-- Some missing: re-spawn only missing domain architect-agents, reuse existing ones.
-- None exist: full parallel review.
+- **Tier 1**: if `{name}.review.md` exists and is cached, go to Step 0c synthesis.
+- **Tier 2/3**: Look for `{name}.review-security.md`, `{name}.review-architecture.md`, `{name}.review-api.md` in the spec directory.
+  - All three exist but synthesized missing: re-synthesize from cached files (go to Step 0c synthesis).
+  - Some missing: re-spawn only missing domain architect-agents, reuse existing ones.
+  - None exist: full parallel review.
 
-**Step 0c: Parallel domain review**
-- Spawn 3 **independent** architect-agents in parallel with `.claude/agents/architect-agent.md`, each with a domain parameter:
+**Step 0c: Tier-aware architect spawn**
+
+Read the spec's `Architect Review Tier` field before spawning. Tier is a floor — if field is missing, unrecognized, or "Unset — architect self-assesses": default to Tier 3.
+
+**Tier 1:** Spawn 1 combined architect-agent (NO domain parameter) with `.claude/agents/architect-agent.md`. Pass the tier value ("Tier 1") as a spawn parameter. The architect performs a unified review covering all three domains in a single session and produces a single `{name}.review.md`.
+
+**Tier 2/3:** Spawn 3 **independent** architect-agents in parallel with `.claude/agents/architect-agent.md`, each with a domain parameter:
   1. **Security & Data Integrity**
   2. **Architecture & Performance**
   3. **API Design & Backward Compatibility**
-- Each receives: spec file path, feature name, feature/bugfix mode, assigned domain parameter.
-- Wait for all three.
-- Synthesize into unified review:
-  - **Strictest-wins**: any BLOCKED = overall BLOCKED; otherwise any APPROVED WITH NOTES = overall APPROVED WITH NOTES; otherwise APPROVED.
-  - **Contradiction detection**: contradictory recommendations across domains = escalate to developer via AskUserQuestion.
-  - **Deduplicate overlapping findings**: merge semantically similar findings, attribute all source domains, use highest severity.
-  - Collect findings into "Key Decisions Made" and "Remaining Notes" sections.
-  - Write synthesized `{name}.review.md`.
-- If any domain BLOCKED: collect all blockers, spawn spec-agent (features) or debug-agent (bugs) with all findings to update spec. Re-spawn only blocked/concerned domains. Max 3 total passes.
-- If overall BLOCKED after all passes: report to developer, do NOT proceed.
-- If APPROVED or APPROVED WITH NOTES: proceed to Step 0d.
+
+Each receives: spec file path, feature name, feature/bugfix mode, assigned domain parameter, and the tier value as a spawn parameter. Wait for all three.
+
+Synthesize into unified review:
+- **Strictest-wins**: any BLOCKED = overall BLOCKED; otherwise any APPROVED WITH NOTES = overall APPROVED WITH NOTES; otherwise APPROVED.
+- **Contradiction detection**: contradictory recommendations across domains = escalate to developer via AskUserQuestion.
+- **Deduplicate overlapping findings**: merge semantically similar findings, attribute all source domains, use highest severity.
+- Collect findings into "Key Decisions Made" and "Remaining Notes" sections.
+- Write synthesized `{name}.review.md`.
+
+If any domain BLOCKED: collect all blockers, spawn spec-agent (features) or debug-agent (bugs) with all findings to update spec. Re-spawn only blocked/concerned domains. Max 3 total passes.
+If overall BLOCKED after all passes: report to developer, do NOT proceed.
+If APPROVED or APPROVED WITH NOTES: proceed to Step 0d.
 
 **Step 0d: Extract and forward findings to code-agents**
 - Read `{name}.review.md`. Extract ONLY "Key Decisions Made" and "Remaining Notes" sections.
