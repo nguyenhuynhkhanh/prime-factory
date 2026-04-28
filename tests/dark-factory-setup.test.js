@@ -4532,3 +4532,540 @@ describe("project-memory-foundation — gitignore check", () => {
 });
 
 // DF-PROMOTED-END: project-memory-foundation
+
+// ===========================================================================
+// project-memory-consumers — consumer agent index-first selective loading
+// ===========================================================================
+// DF-PROMOTED-START: project-memory-consumers
+
+// ---------------------------------------------------------------------------
+// AC-1, AC-2, AC-3: spec-agent Phase 1 index-first memory load + drafting guidance
+// ---------------------------------------------------------------------------
+describe("project-memory-consumers — spec-agent Phase 1 index-first memory load (AC-1)", () => {
+  it("spec-agent references dark-factory/memory/index.md as first memory read in Phase 1", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(
+      content.includes("dark-factory/memory/index.md"),
+      "spec-agent must reference dark-factory/memory/index.md in Phase 1 load"
+    );
+  });
+
+  it("spec-agent describes shard selection logic: identify domains from index, load only matching shards", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(
+      content.includes("invariants-security.md") || content.includes("invariants-{domain}"),
+      "spec-agent must describe loading domain shard files in Phase 1"
+    );
+    assert.ok(
+      content.includes("domain") && (content.includes("shard") || content.includes("shards")),
+      "spec-agent must describe domain-based shard selection"
+    );
+  });
+
+  it("spec-agent specifies ledger.md is always loaded in full", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(
+      content.includes("ledger.md"),
+      "spec-agent must specify loading dark-factory/memory/ledger.md"
+    );
+    assert.ok(
+      content.includes("ledger.md") && (content.includes("always") || content.includes("in full") || content.includes("Always load")),
+      "spec-agent must state that ledger.md is always loaded in full"
+    );
+  });
+
+  it("spec-agent includes graceful-degradation: index missing → load all shards", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(
+      content.includes("Memory index not found — loading all shards for broad coverage"),
+      "spec-agent must include exact graceful-degradation log message for missing index"
+    );
+  });
+
+  it("spec-agent includes graceful-degradation: specific shard missing → treat as empty domain", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(
+      content.includes("Shard") && content.includes("not found — treating as empty domain"),
+      "spec-agent must include graceful-degradation language for missing specific shard"
+    );
+  });
+
+  it("spec-agent does NOT reference old monolithic invariants.md (without domain suffix)", () => {
+    const content = readAgent("spec-agent");
+    // Check that the old monolithic path does not appear in Phase 1 load instructions
+    // We allow 'invariants-security.md' etc. but not bare 'invariants.md'
+    assert.ok(
+      !content.includes("memory/invariants.md"),
+      "spec-agent must NOT reference dark-factory/memory/invariants.md (old monolithic path)"
+    );
+  });
+
+  it("spec-agent does NOT reference old monolithic decisions.md (without domain suffix)", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(
+      !content.includes("memory/decisions.md"),
+      "spec-agent must NOT reference dark-factory/memory/decisions.md (old monolithic path)"
+    );
+  });
+
+  it("spec-agent includes graceful-degradation: registry missing → proceed with empty set", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(
+      content.includes("Memory registry not found") || content.includes("registry not found"),
+      "spec-agent must handle missing memory registry (entire directory absent)"
+    );
+  });
+});
+
+describe("project-memory-consumers — spec-agent memory sections drafting guidance (AC-2, AC-3)", () => {
+  it("spec-agent instructs agent to produce ## Invariants section in spec", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(
+      content.includes("## Invariants"),
+      "spec-agent must instruct production of ## Invariants section"
+    );
+  });
+
+  it("spec-agent instructs agent to produce ## Decisions section in spec", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(
+      content.includes("## Decisions"),
+      "spec-agent must instruct production of ## Decisions section"
+    );
+  });
+
+  it("spec-agent mentions Preserves, References, Introduces, Modifies, Supersedes subsections for Invariants", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(content.includes("Preserves"), "spec-agent must reference Preserves subsection");
+    assert.ok(content.includes("References"), "spec-agent must reference References subsection");
+    assert.ok(content.includes("Introduces"), "spec-agent must reference Introduces subsection");
+    assert.ok(content.includes("Modifies"), "spec-agent must reference Modifies subsection");
+    assert.ok(content.includes("Supersedes"), "spec-agent must reference Supersedes subsection");
+  });
+
+  it("spec-agent specifies INV-TBD-* / DEC-TBD-* placeholder ID convention (AC-3)", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(
+      content.includes("INV-TBD") || content.includes("INV-TBD-a"),
+      "spec-agent must specify INV-TBD-* placeholder ID convention for new candidates"
+    );
+    assert.ok(
+      content.includes("DEC-TBD") || content.includes("DEC-TBD-a"),
+      "spec-agent must specify DEC-TBD-* placeholder ID convention for decisions"
+    );
+  });
+
+  it("spec-agent states that spec-agent NEVER writes to dark-factory/memory/*", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(
+      content.includes("NEVER writes to") || content.includes("never writes to") ||
+      (content.includes("only promote-agent writes") || content.includes("Only promote-agent writes")),
+      "spec-agent must state it never writes to the memory registry"
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-4, AC-5: architect-agent per-domain probe
+// ---------------------------------------------------------------------------
+describe("project-memory-consumers — architect-agent per-domain memory probe (AC-4)", () => {
+  it("architect-agent references dark-factory/memory/index.md as first memory read", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("dark-factory/memory/index.md"),
+      "architect-agent must reference dark-factory/memory/index.md as the first memory read"
+    );
+  });
+
+  it("architect-agent specifies shard-selective loading: load ONLY domain-matching shard files", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("invariants-security.md") && content.includes("decisions-security.md"),
+      "architect-agent must specify security shard files for the security reviewer"
+    );
+    assert.ok(
+      content.includes("invariants-architecture.md") && content.includes("decisions-architecture.md"),
+      "architect-agent must specify architecture shard files for the architecture reviewer"
+    );
+    assert.ok(
+      content.includes("invariants-api.md") && content.includes("decisions-api.md"),
+      "architect-agent must specify api shard files for the api reviewer"
+    );
+  });
+
+  it("architect-agent explicitly prohibits loading other-domain shards", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("Do NOT load shards belonging to other domains") ||
+      content.includes("do not load shards belonging to other domains") ||
+      (content.includes("other domains") && content.includes("NOT")),
+      "architect-agent must explicitly prohibit loading other-domain shards"
+    );
+  });
+
+  it("architect-agent specifies the default-to-security rule for unclassified entries", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("default") && content.includes("security"),
+      "architect-agent must specify the default-to-security rule for entries without a domain field"
+    );
+  });
+
+  it("architect-agent specifies ### Memory Findings emission format with five categories", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("### Memory Findings"),
+      "architect-agent must specify the ### Memory Findings block format"
+    );
+    assert.ok(
+      content.includes("Preserved:"),
+      "architect-agent Memory Findings must include Preserved category"
+    );
+    assert.ok(
+      content.includes("Potentially violated (BLOCKER):"),
+      "architect-agent Memory Findings must include Potentially violated (BLOCKER) category"
+    );
+    assert.ok(
+      content.includes("New candidates declared:"),
+      "architect-agent Memory Findings must include New candidates declared category"
+    );
+    assert.ok(
+      content.includes("Orphaned (SUGGESTION only):"),
+      "architect-agent Memory Findings must include Orphaned (SUGGESTION only) category"
+    );
+  });
+
+  it("architect-agent specifies BLOCKER rules for invariant violations (FR-8)", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("BLOCKER") && content.includes("violated") && content.includes("Modifies"),
+      "architect-agent must specify BLOCKER for invariant violations without declaration"
+    );
+    assert.ok(
+      content.includes("missing required schema field") || content.includes("missing a required schema field") ||
+      content.includes("missing required field"),
+      "architect-agent must specify BLOCKER for candidate entries missing required fields"
+    );
+  });
+
+  it("architect-agent specifies SUGGESTION-only rule for orphaned entries (FR-9)", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("Orphaned") && (content.includes("SUGGESTION") || content.includes("SUGGESTION only")),
+      "architect-agent must specify orphaned entries are SUGGESTION only, never BLOCKER"
+    );
+    assert.ok(
+      content.includes("NEVER") || (content.includes("not") && content.includes("BLOCKER")),
+      "architect-agent must state orphaned entries are never a BLOCKER"
+    );
+  });
+});
+
+describe("project-memory-consumers — architect-agent migration compatibility + registry missing (AC-5)", () => {
+  it("architect-agent specifies legacy-spec behavior: missing memory sections → SUGGESTION not BLOCKER", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("legacy") || content.includes("Spec uses legacy template"),
+      "architect-agent must describe migration-compatibility behavior for specs without memory sections"
+    );
+    assert.ok(
+      content.includes("SUGGESTION") && (content.includes("legacy") || content.includes("absent")),
+      "architect-agent must emit SUGGESTION (not BLOCKER) for specs without memory sections"
+    );
+  });
+
+  it("architect-agent specifies registry-missing behavior: probe skipped + noted in review", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("Memory probe skipped — registry missing"),
+      "architect-agent must emit 'Memory probe skipped — registry missing.' when registry is absent"
+    );
+  });
+
+  it("architect-agent specifies no BLOCKER may be issued on memory grounds when registry is absent", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("Do NOT issue any BLOCKER on memory grounds") ||
+      content.includes("no BLOCKER on memory grounds") ||
+      (content.includes("registry missing") && content.includes("BLOCKER")),
+      "architect-agent must state no BLOCKER on memory grounds when registry is absent"
+    );
+  });
+
+  it("architect-agent does NOT reference old monolithic invariants.md (without domain suffix)", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      !content.includes("memory/invariants.md"),
+      "architect-agent must NOT reference dark-factory/memory/invariants.md (old monolithic path)"
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-6, AC-7: code-agent Phase 1 index-first memory load + constraint-awareness rule
+// ---------------------------------------------------------------------------
+describe("project-memory-consumers — code-agent Phase 1 index-first memory load (AC-6)", () => {
+  it("code-agent references dark-factory/memory/index.md as first memory read in Phase 1", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("dark-factory/memory/index.md"),
+      "code-agent must reference dark-factory/memory/index.md in Phase 1 / General Patterns"
+    );
+  });
+
+  it("code-agent describes shard selection based on scope.modules overlap with modified files", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("scope.modules") || content.includes("scope overlap"),
+      "code-agent must describe shard selection based on scope.modules overlap with files being modified"
+    );
+  });
+
+  it("code-agent includes graceful-degradation: index missing → warn + load all shards", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("Memory index not found — loading all shards for broad coverage"),
+      "code-agent must include exact graceful-degradation log message for missing index"
+    );
+  });
+
+  it("code-agent includes graceful-degradation: specific shard missing → warn + treat as empty", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("Shard") && content.includes("not found — treating as empty domain"),
+      "code-agent must include graceful-degradation language for missing specific shard"
+    );
+  });
+
+  it("code-agent does NOT reference old monolithic invariants.md (without domain suffix)", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      !content.includes("memory/invariants.md"),
+      "code-agent must NOT reference dark-factory/memory/invariants.md (old monolithic path)"
+    );
+  });
+
+  it("code-agent does NOT reference old monolithic decisions.md (without domain suffix)", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      !content.includes("memory/decisions.md"),
+      "code-agent must NOT reference dark-factory/memory/decisions.md (old monolithic path)"
+    );
+  });
+});
+
+describe("project-memory-consumers — code-agent constraint-awareness rule (AC-7)", () => {
+  it("code-agent treats scope-overlapping memory entries as HARD CONSTRAINTS on implementation", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("HARD CONSTRAINT") || content.includes("hard constraint"),
+      "code-agent must state that scope-overlapping memory entries are HARD CONSTRAINTs"
+    );
+  });
+
+  it("code-agent states spec declaration (Modifies/Supersedes) is the authoritative override", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("Modifies") && content.includes("Supersedes"),
+      "code-agent must reference Modifies/Supersedes as the authoritative override for constraint violation"
+    );
+  });
+
+  it("code-agent contains explicit information-barrier statement: memory is NOT a signal about test coverage", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("does NOT enumerate what is tested") ||
+      content.includes("does not enumerate what is tested") ||
+      (content.includes("memory") && content.includes("NOT") && content.includes("test coverage")),
+      "code-agent must explicitly state memory does NOT enumerate what is tested"
+    );
+  });
+
+  it("code-agent explicitly names enforced_by as a forbidden field for test inference", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("enforced_by") && (content.includes("forbidden") || content.includes("off-limits") || content.includes("holdout leak")),
+      "code-agent must explicitly prohibit using enforced_by to infer test coverage"
+    );
+  });
+
+  it("code-agent explicitly names guards field as opaque (information barrier)", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("guards") && content.includes("opaque"),
+      "code-agent must explicitly state that the guards field is opaque and must not be used for test inference"
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-8, AC-9: debug-agent Phase 2 index-first load + Phase 3 invariant cross-reference
+// ---------------------------------------------------------------------------
+describe("project-memory-consumers — debug-agent Phase 2 index-first memory load (AC-8)", () => {
+  it("debug-agent references dark-factory/memory/index.md as first memory read in Phase 2", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("dark-factory/memory/index.md"),
+      "debug-agent must reference dark-factory/memory/index.md in Phase 2"
+    );
+  });
+
+  it("debug-agent describes domain-targeted shard selection using index tags", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("domain") && (content.includes("shard") || content.includes("shards")),
+      "debug-agent must describe domain-targeted shard selection from index"
+    );
+  });
+
+  it("debug-agent includes graceful-degradation: index missing → load all shards", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("Memory index not found — loading all shards for broad coverage"),
+      "debug-agent must include exact graceful-degradation log message for missing index"
+    );
+  });
+
+  it("debug-agent includes graceful-degradation: specific shard missing → treat as empty domain", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("Shard") && content.includes("not found — treating as empty domain"),
+      "debug-agent must include graceful-degradation language for missing specific shard"
+    );
+  });
+
+  it("debug-agent does NOT reference old monolithic invariants.md (without domain suffix)", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      !content.includes("memory/invariants.md"),
+      "debug-agent must NOT reference dark-factory/memory/invariants.md (old monolithic path)"
+    );
+  });
+
+  it("debug-agent does NOT reference old monolithic decisions.md (without domain suffix)", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      !content.includes("memory/decisions.md"),
+      "debug-agent must NOT reference dark-factory/memory/decisions.md (old monolithic path)"
+    );
+  });
+});
+
+describe("project-memory-consumers — debug-agent Phase 3 invariant cross-reference (AC-9)", () => {
+  it("debug-agent Phase 3 instructs cross-referencing root cause against known invariants", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("invariant violation") || content.includes("invariant cross-reference") ||
+      content.includes("Cross-reference the root cause against known invariants"),
+      "debug-agent Phase 3 must instruct cross-referencing root cause against known invariants"
+    );
+  });
+
+  it("debug-agent specifies the one-line invariant note format in root cause section", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("This bug is an invariant violation") || content.includes("invariant violation: INV-"),
+      "debug-agent must specify the one-line invariant violation note format for the root cause section"
+    );
+  });
+
+  it("debug-agent states the cross-reference is advisory and does not change report template structure", () => {
+    const content = readAgent("debug-agent");
+    assert.ok(
+      content.includes("advisory") || content.includes("does not change the") ||
+      (content.includes("report template structure") && content.includes("unchanged")),
+      "debug-agent must state the invariant cross-reference is advisory and report structure unchanged"
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-10: spec-template.md ## Invariants and ## Decisions sections
+// ---------------------------------------------------------------------------
+describe("project-memory-consumers — spec-template.md Invariants and Decisions sections (AC-10)", () => {
+  it("spec-template.md contains ## Invariants section", () => {
+    const tplPath = path.join(ROOT, "dark-factory", "templates", "spec-template.md");
+    const content = fs.readFileSync(tplPath, "utf8");
+    assert.ok(
+      content.includes("## Invariants"),
+      "spec-template.md must contain ## Invariants section"
+    );
+  });
+
+  it("spec-template.md Invariants section contains all five subsections", () => {
+    const tplPath = path.join(ROOT, "dark-factory", "templates", "spec-template.md");
+    const content = fs.readFileSync(tplPath, "utf8");
+    assert.ok(content.includes("### Preserves"), "spec-template.md must contain ### Preserves subsection");
+    assert.ok(content.includes("### References"), "spec-template.md must contain ### References subsection");
+    assert.ok(content.includes("### Introduces"), "spec-template.md must contain ### Introduces subsection");
+    assert.ok(content.includes("### Modifies"), "spec-template.md must contain ### Modifies subsection");
+    assert.ok(content.includes("### Supersedes"), "spec-template.md must contain ### Supersedes subsection");
+  });
+
+  it("spec-template.md contains ## Decisions section", () => {
+    const tplPath = path.join(ROOT, "dark-factory", "templates", "spec-template.md");
+    const content = fs.readFileSync(tplPath, "utf8");
+    assert.ok(
+      content.includes("## Decisions"),
+      "spec-template.md must contain ## Decisions section"
+    );
+  });
+
+  it("spec-template.md Decisions section contains References, Introduces, Supersedes subsections", () => {
+    const tplPath = path.join(ROOT, "dark-factory", "templates", "spec-template.md");
+    const content = fs.readFileSync(tplPath, "utf8");
+    // Decisions has References, Introduces, Supersedes (not Preserves/Modifies)
+    // We need ## Decisions to appear before ### References in the Decisions context
+    const decisionsIdx = content.indexOf("## Decisions");
+    assert.ok(decisionsIdx !== -1, "## Decisions section must exist");
+    const afterDecisions = content.slice(decisionsIdx);
+    assert.ok(afterDecisions.includes("### References"), "spec-template.md Decisions must contain ### References subsection");
+    assert.ok(afterDecisions.includes("### Introduces"), "spec-template.md Decisions must contain ### Introduces subsection");
+    assert.ok(afterDecisions.includes("### Supersedes"), "spec-template.md Decisions must contain ### Supersedes subsection");
+  });
+
+  it("spec-template.md includes INV-TBD example placeholder with required fields", () => {
+    const tplPath = path.join(ROOT, "dark-factory", "templates", "spec-template.md");
+    const content = fs.readFileSync(tplPath, "utf8");
+    assert.ok(
+      content.includes("INV-TBD") || content.includes("INV-TBD-a"),
+      "spec-template.md must include INV-TBD placeholder example"
+    );
+  });
+
+  it("spec-template.md includes 'None — ...' empty-case prose for empty subsections", () => {
+    const tplPath = path.join(ROOT, "dark-factory", "templates", "spec-template.md");
+    const content = fs.readFileSync(tplPath, "utf8");
+    assert.ok(
+      content.includes("None —") || content.includes("*None —"),
+      "spec-template.md must include 'None — ...' empty-case prose for empty subsections"
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-12: Negative assertions — old monolithic paths must not appear in any consumer
+// ---------------------------------------------------------------------------
+describe("project-memory-consumers — no old monolithic memory paths in any consumer (AC-12)", () => {
+  const consumers = ["spec-agent", "architect-agent", "code-agent", "debug-agent"];
+
+  for (const agentName of consumers) {
+    it(`${agentName} does not reference memory/invariants.md (old monolithic path)`, () => {
+      const content = readAgent(agentName);
+      assert.ok(
+        !content.includes("memory/invariants.md"),
+        `${agentName} must NOT contain reference to old monolithic memory/invariants.md`
+      );
+    });
+
+    it(`${agentName} does not reference memory/decisions.md (old monolithic path)`, () => {
+      const content = readAgent(agentName);
+      assert.ok(
+        !content.includes("memory/decisions.md"),
+        `${agentName} must NOT contain reference to old monolithic memory/decisions.md`
+      );
+    });
+  }
+});
+
+// DF-PROMOTED-END: project-memory-consumers

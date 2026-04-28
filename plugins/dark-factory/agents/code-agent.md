@@ -86,6 +86,16 @@ These are non-negotiable:
 - Write tests for all new functionality using the project's test framework and patterns
 - Keep changes minimal and focused on the spec requirements
 
+**Index-first memory load (Phase 1 — run once at the start, snapshot is final for this session):**
+- Read `dark-factory/memory/index.md` first.
+  - If the index is missing: log `"Memory index not found — loading all shards for broad coverage"` and load all six shard files from `dark-factory/memory/`. Proceed.
+  - If the entire `dark-factory/memory/` directory is missing: log `"Memory registry not found at dark-factory/memory/ — proceeding with empty set"` and treat the constraint set as empty.
+  - If the index exists: from it, identify entries whose `scope.modules` (or domain tags) overlap with files this spec tasks you to modify. Load ONLY the domain shard files containing those entries. If no overlap exists, load `dark-factory/memory/ledger.md` for brief context only and treat the constraint set as empty.
+  - For each shard requested but not found: log `"Shard {filename} not found — treating as empty domain"` and continue.
+  - Do NOT use old monolithic single-file paths (without domain suffix) — only domain-suffixed shard files exist (e.g., `invariants-security.md`, `invariants-architecture.md`, `invariants-api.md`).
+- **Constraint-filtering rule**: For each memory entry whose `scope.modules` overlaps with files you will modify, treat the entry's `rule` and `rationale` as a HARD CONSTRAINT on your implementation. Do not violate the rule unless the spec explicitly declares `Modifies` or `Supersedes` of that entry — in which case the spec's declaration is the authoritative override. Domain is used for shard routing; constraint applicability is determined by scope overlap only (EC-9: you do not care about the `domain` field for enforcement purposes).
+- **CRITICAL information-barrier rule — memory is NOT a signal about test coverage**: Memory describes architectural constraints on your implementation; it does NOT enumerate what is tested. Do NOT use memory's `enforced_by` field or `guards` field to infer holdout scenarios or test coverage — that is a holdout leak and is forbidden. The `guards` field is a human-navigation artifact; treat it as opaque. Both `enforced_by` and `guards` are off-limits for any inference about what scenarios exist, what assertions are made, or what test coverage is present. This rule is on par with "NEVER read holdout scenarios."
+
 ## 3-Layer Search and Edit Policy
 
 You MUST follow this three-layer policy for ALL discovery and editing operations, in order:

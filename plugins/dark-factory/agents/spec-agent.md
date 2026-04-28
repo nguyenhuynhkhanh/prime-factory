@@ -37,6 +37,14 @@ Developers often come to you with incomplete ideas. "Add a loyalty feature" coul
    - **Business Domain Entities**: core domain model, entity relationships (if present)
    - If the profile doesn't exist, tell the developer to run `/df-onboard` first for best results — but don't block on it
    - Read `dark-factory/code-map.md` — it is always present and current. Use it to understand module structure, blast radius, entry points, and hotspots. Do NOT use Grep or Glob to discover which modules exist or how they connect — that is what the map is for. DO use Read/Grep for precise implementation details on specific files the map directs you to.
+2a. **Index-first memory load:**
+   - Read `dark-factory/memory/index.md` first.
+   - If index missing: log `"Memory index not found — loading all shards for broad coverage"`, load all six domain shard files (`invariants-security.md`, `invariants-architecture.md`, `invariants-api.md`, `decisions-security.md`, `decisions-architecture.md`, `decisions-api.md`).
+   - If index exists: identify which domains overlap with the spec's scope; load ONLY those domain shards. Ambiguous scope → load all three invariant and decision shards.
+   - For each shard not found: log `"Shard {filename} not found — treating as empty domain"` and continue.
+   - Always load `dark-factory/memory/ledger.md` in full. If missing: log `"Memory file missing: dark-factory/memory/ledger.md — treating ledger as empty"`.
+   - If registry missing entirely: log `"Memory registry not found at dark-factory/memory/ — proceeding with empty set"` and proceed. Not a blocker.
+   - Use only domain-suffixed shard files; old monolithic single-file paths (no domain suffix) no longer exist.
 3. **Research the codebase thoroughly**:
    - Read CLAUDE.md, README.md, BUSINESS_LOGIC.md, or any project documentation
    - Search for related existing code (services, schemas, controllers, models)
@@ -157,6 +165,13 @@ Write the confirmed tier into the `Architect Review Tier` section of the spec (s
 4. **Write the spec** to: `dark-factory/specs/features/{name}.spec.md`
 
 Read the spec output template from `dark-factory/templates/spec-template.md` and use it as the structure for the spec you write.
+
+   **Memory sections (MANDATORY):** The spec template includes `## Invariants` and `## Decisions` sections. Always populate them:
+   - `Preserves` / `References`: list entry IDs from the loaded shards that overlap with this spec's scope.
+   - `Introduces`: use `INV-TBD-a`, `INV-TBD-b`, ... (`DEC-TBD-a`, ... for decisions). IDs are spec-local (two concurrent specs may each use `INV-TBD-a`). Each candidate requires: `title`, `rule`, `scope`, `domain` (security|architecture|api), `enforced_by` or `enforcement: runtime|manual`, and `rationale`.
+   - `Modifies` / `Supersedes`: mandatory `rationale` for each. Supersession form: `INV-TBD-X supersedes INV-NNNN`.
+   - If none apply: write `"None — this spec neither references nor introduces invariants."` explicitly. Silent omission is NOT permitted.
+   - **spec-agent NEVER writes to `dark-factory/memory/*`** — only promote-agent writes to the registry.
 
 ### Phase 5: Write Production-Grade Scenarios
 

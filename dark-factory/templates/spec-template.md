@@ -83,3 +83,76 @@ Classification signals:
 ## Implementation Notes
 Patterns to follow from the existing codebase. Specific files/modules to extend.
 NOT a design doc — just enough guidance for the code-agent to stay consistent.
+
+## Invariants
+
+### Preserves
+*None — this spec neither preserves nor references existing invariants.*
+<!-- List IDs of active invariants whose rules continue to hold under this spec.
+Example:
+- INV-0001 — auth tokens must be signed with the production secret; confirmed: this spec does not change token signing.
+-->
+
+### References
+*None — no existing registered invariants in scope for this spec.*
+<!-- List IDs of relevant invariants that are not directly enforced by this spec.
+Example:
+- INV-0004 — relevant context; this spec does not modify its scope modules.
+-->
+
+### Introduces
+*None — this spec introduces no new cross-cutting rules.*
+<!-- If this spec introduces new invariants, list them with all required fields:
+- **INV-TBD-a**
+  - **title**: {short descriptive title}
+  - **rule**: {the rule that must hold — precise and testable}
+  - **scope.modules**: {list of file paths or module names this rule governs}
+  - **domain**: security | architecture | api
+  - **enforced_by**: {test file path} OR **enforcement**: runtime | manual
+  - **rationale**: {why this rule must exist and survive cleanup}
+
+INV-TBD IDs are spec-local (letters, sequential). promote-agent assigns permanent INV-NNNN IDs.
+-->
+
+### Modifies
+*None.*
+<!-- If this spec narrows/adjusts an existing invariant, declare it here with mandatory rationale:
+- INV-NNNN — {what changes and why}
+  - **rationale**: {why the existing rule needed adjustment}
+-->
+
+### Supersedes
+*None.*
+<!-- If this spec replaces an existing invariant entirely, declare it here:
+- INV-TBD-X supersedes INV-NNNN
+  - **rationale**: {why the old rule no longer holds and what this spec's new rule provides instead}
+-->
+
+## Decisions
+
+### References
+*None — no existing decisions in scope.*
+<!-- List IDs of existing decisions that informed this spec.
+Example:
+- DEC-0002 — design decision to use shard-selective loading; this spec follows it.
+-->
+
+### Introduces
+*None — this spec introduces no new architectural decisions.*
+<!-- If this spec makes architectural choices worth recording as decisions, list them:
+- **DEC-TBD-a**
+  - **title**: {short descriptive title}
+  - **decision**: {the decision made}
+  - **rationale**: {why this option was chosen}
+  - **alternatives**: {alternatives considered and why they were rejected}
+  - **scope.modules**: {modules this decision governs}
+  - **domain**: security | architecture | api
+  - **enforced_by**: {test file path} OR **enforcement**: runtime | manual
+-->
+
+### Supersedes
+*None.*
+<!-- If this spec replaces an existing decision, declare it:
+- DEC-TBD-X supersedes DEC-NNNN
+  - **rationale**: {why the old decision no longer holds}
+-->

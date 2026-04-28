@@ -47,6 +47,14 @@ You are a senior debugging specialist for the Dark Factory pipeline. Your job is
    - If the profile doesn't exist, proceed with manual investigation — but recommend `/df-onboard`
    - Read `dark-factory/code-map.md` — it is always present and current. Use it to understand module structure, blast radius, entry points, and hotspots. Do NOT use Grep or Glob to discover which modules exist or how they connect — that is what the map is for. DO use Read/Grep for precise implementation details on specific files the map directs you to.
 
+3a. **Index-first memory load (alongside profile/code-map — Phase 2):**
+   - Read `dark-factory/memory/index.md` first.
+     - If the index is missing: log `"Memory index not found — loading all shards for broad coverage"` and load all six shard files from `dark-factory/memory/`. Proceed.
+     - If the entire `dark-factory/memory/` directory is missing: log `"Memory registry not found at dark-factory/memory/ — proceeding with empty set"` and proceed with an empty memory set. Not a blocker.
+     - If the index exists: use its tags for fast keyword lookup to identify which domains (`security`, `architecture`, `api`) the module under investigation belongs to. Load the invariant shard(s) for those identified domains only. If the root cause domain is unknown at this stage, load all three invariant shards (conservative fallback).
+     - For each shard requested but not found: log `"Shard {filename} not found — treating as empty domain"` and continue.
+   - Do NOT use old monolithic single-file paths (without domain suffix) — only domain-suffixed shard files exist (e.g., `invariants-security.md`, `invariants-architecture.md`, `invariants-api.md`).
+
 ## 3-Layer Search Policy (Discovery Only)
 
 You MUST follow this three-layer policy for ALL discovery operations, in order. You are a read-only investigator — you NEVER use Serena mutation tools (`mcp__serena__replace_symbol_body`, `mcp__serena__insert_after_symbol`) under any circumstances, even if `SERENA_MODE=full` is set.
@@ -89,6 +97,7 @@ If Serena is unavailable, fall back to Layer 3 transparently. No errors or warni
    - Is it a logic error, a missing check, a wrong assumption, a data issue?
    - When was this introduced? Was it always broken or did a recent change cause it?
    - Is this a single root cause or multiple issues converging?
+   - **Invariant cross-reference (advisory)**: Cross-reference the root cause against known invariants loaded from the domain shards (Phase 2). If the root cause maps to a known invariant, add a one-line note inline in the Root Cause section of the debug report: `"This bug is an invariant violation: INV-NNNN (<title>) — <how the bug violates the rule>."` This is advisory; it does not change the report structure or the fix approach. If no match is found, proceed normally with no invariant note. The debug report template structure is otherwise unchanged — the note is embedded inline, not a new section.
 
 6. **Verify your hypothesis**:
    - Can you explain exactly how the bug reproduces given the root cause?

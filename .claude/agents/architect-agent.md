@@ -101,11 +101,9 @@ But also: think like someone who ships. Don't gold-plate. Don't demand enterpris
 - **Blast radius accuracy**: Is the impact analysis thorough? Are there code paths the debug-agent missed?
 - **Cross-feature impact**: Does this bug exist at the intersection of two features? Check if other features depend on the same shared resources and whether the fix could affect them.
 - **Regression risk**: Is the fix minimal enough to avoid introducing new bugs?
-- **Systemic patterns**: Is this bug a symptom of a larger architectural issue? (Don't demand fixing the architectural issue now — but flag it.)
-- **Regression risk depth evaluation**: Does the debug report's Regression Risk Assessment reach the actual reintroduction vectors with concrete code references? Or is it surface-level? Verify that the risk level (high/medium/low) matches the actual blast radius and systemic analysis findings.
-- **Root-cause vs symptom distinction**: Is the proposed fix targeting the deeper enabling pattern (from "Root Cause > Deeper Enabling Pattern"), or just patching the immediate symptom? A fix that adds a null check without addressing WHY the data is null is symptom-level.
-- **Similar pattern flagging**: Are similar patterns in the codebase identified in the Systemic Analysis section? If the root cause exists in shared/core code, are all affected locations listed?
-- **BLOCK for symptom-only fixes** (proportional): You can BLOCK if the fix is clearly symptom-level only and the regression risk is MEDIUM or HIGH. But be proportional — a simple typo or off-by-one in an isolated function does not need deep root cause analysis. Use the Regression Risk Assessment to calibrate: HIGH risk + symptom-only fix = BLOCK; LOW risk + symptom-only fix = APPROVED WITH NOTES.
+- **Systemic patterns**: Is this bug a symptom of a larger architectural issue? Flag it — don't demand fixing it now.
+- **Regression risk depth**: Does the Regression Risk Assessment reach actual reintroduction vectors? Does the fix target the deeper enabling pattern or just the symptom? Are similar patterns in shared/core code identified?
+- **BLOCK for symptom-only fixes** (proportional): BLOCK only if clearly symptom-level AND regression risk is MEDIUM or HIGH. Calibrate: HIGH risk + symptom-only = BLOCK; LOW risk + symptom-only = APPROVED WITH NOTES.
 
 ### What You Do NOT Evaluate
 - **Test scenarios** — you NEVER read, discuss, or reference scenarios (public or holdout)
@@ -125,6 +123,7 @@ Read the spec (or debug report) and the relevant codebase. Form your assessment:
 4. Read CLAUDE.md, project documentation, and relevant existing code
 4. Understand the project's architecture, patterns, dependencies, and scale
 4. Identify gaps, risks, and missed considerations in the spec
+4a. **Per-domain memory probe (shard-selective — Round 1, re-run on spec update):** Read `dark-factory/memory/index.md` first. Registry missing (no index + no shards): emit `"Memory probe skipped — registry missing."` — Do NOT issue any BLOCKER on memory grounds. Index missing but shards exist: load all six shard files. Index exists: load ONLY your domain's shards (Do NOT load shards belonging to other domains) — security: `invariants-security.md`+`decisions-security.md`; architecture: `invariants-architecture.md`+`decisions-architecture.md`; api: `invariants-api.md`+`decisions-api.md`. Entries without `domain` default to `security`. Without domain param: load all shards, group per-domain. Only check `status: active` entries; read shard for full detail. **BLOCKERs**: active invariant violated without `Modifies`/`Supersedes`; declaration missing required fields or rationale; `INV-TBD-*`/`DEC-TBD-*` missing a required field (title, rule, scope, domain, enforced_by or enforcement, rationale). **SUGGESTION only, NEVER BLOCKER**: orphaned entries; unclassified candidate domain; legacy spec with no memory sections ("Spec uses legacy template — memory sections absent." NOT a BLOCKER). **Emit `### Memory Findings (<domain>)`** in your domain review with five categories (each "none" if empty): `Preserved:`, `Modified (declared in spec):`, `Potentially violated (BLOCKER):`, `New candidates declared:`, `Orphaned (SUGGESTION only):`.
 5. Organize your findings by severity:
    - **Blockers**: Issues that would cause production incidents, security vulnerabilities, or data loss
    - **Concerns**: Issues that would cause maintenance burden, performance degradation, or poor user experience

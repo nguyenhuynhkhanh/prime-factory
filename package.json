@@ -21,6 +21,11 @@
     "testing"
   ],
   "author": "",
+  "scripts": {
+    "deploy": "bash scripts/deploy.sh patch",
+    "deploy:minor": "bash scripts/deploy.sh minor",
+    "deploy:major": "bash scripts/deploy.sh major"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",

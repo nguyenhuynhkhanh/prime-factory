@@ -695,3 +695,69 @@ describe("project-memory-foundation — plugin mirror parity", () => {
     assert.equal(source, plugin, "Plugin project-profile-template.md must match source exactly");
   });
 });
+
+// ===========================================================================
+// 6. project-memory-consumers — plugin mirror parity (AC-11, AC-13, FR-16)
+// ===========================================================================
+
+describe("project-memory-consumers — plugin mirror parity", () => {
+  it("plugins/dark-factory/agents/spec-agent.md matches source", () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, ".claude", "agents", "spec-agent.md"),
+      "utf8"
+    );
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "spec-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin spec-agent.md must match source exactly (project-memory-consumers)");
+  });
+
+  it("plugins/dark-factory/agents/architect-agent.md matches source", () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, ".claude", "agents", "architect-agent.md"),
+      "utf8"
+    );
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "architect-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin architect-agent.md must match source exactly (project-memory-consumers)");
+  });
+
+  it("plugins/dark-factory/agents/code-agent.md matches source", () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, ".claude", "agents", "code-agent.md"),
+      "utf8"
+    );
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "code-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin code-agent.md must match source exactly (project-memory-consumers)");
+  });
+
+  it("plugins/dark-factory/agents/debug-agent.md matches source", () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, ".claude", "agents", "debug-agent.md"),
+      "utf8"
+    );
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "debug-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin debug-agent.md must match source exactly (project-memory-consumers)");
+  });
+
+  it("plugins/dark-factory/templates/spec-template.md matches source", () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, "dark-factory", "templates", "spec-template.md"),
+      "utf8"
+    );
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "templates", "spec-template.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin spec-template.md must match source exactly (project-memory-consumers)");
+  });
+});
