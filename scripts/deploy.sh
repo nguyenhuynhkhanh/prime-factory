@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Dark Factory Deploy Script
-# Usage: ./scripts/deploy.sh [patch|minor|major|<x.y.z>]
+# Usage: ./scripts/deploy.sh [patch|minor|major|<x.y.z>] [otp-code]
 # Default bump type: patch
 #
 # What this does:
@@ -12,6 +12,7 @@
 set -euo pipefail
 
 BUMP="${1:-patch}"
+OTP="${2:-}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 GREEN='\033[0;32m'
@@ -78,13 +79,25 @@ info "Committed + tagged v$NEW_VERSION"
 step "Pushing to git remotes"
 git push origin main --tags
 info "Pushed to origin (dark-factory GitHub)"
-git push prime-factory main --tags
-info "Pushed to prime-factory"
+# prime-factory has a different codebase (Next.js) — push tags only, not the branch
+git push prime-factory "refs/tags/v$NEW_VERSION"
+info "Pushed tag v$NEW_VERSION to prime-factory"
 
 # --- Publish to npm ---
 step "Publishing to npm"
-npm publish --access public
+OTP_FLAG=""
+if [[ -n "$OTP" ]]; then
+  OTP_FLAG="--otp=$OTP"
+fi
+npm publish --access public $OTP_FLAG
 info "Published dark-factory@$NEW_VERSION to npm"
+
+# --- Create GitHub release ---
+step "Creating GitHub release"
+PREV_TAG=$(git tag --sort=-v:refname | grep -v "v$NEW_VERSION" | head -1)
+CHANGELOG=$(git log "${PREV_TAG}..v${NEW_VERSION}" --oneline --no-merges | grep -v "^.*chore: release" || true)
+gh release create "v$NEW_VERSION" --title "v$NEW_VERSION" --notes "$(printf 'Changes since %s:\n\n%s' "$PREV_TAG" "$CHANGELOG")"
+info "GitHub release created"
 
 echo -e "\n${GREEN}✓ Released dark-factory v$NEW_VERSION${NC}"
 echo -e "  npm:         https://www.npmjs.com/package/dark-factory"
