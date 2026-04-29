@@ -128,6 +128,22 @@
       "holdoutScenarioCount": 18,
       "annotationFormat": "header-comment",
       "sectionMarkers": true
+    },
+    {
+      "feature": "ao-org-context",
+      "type": "feature",
+      "files": [
+        {
+          "path": "tests/dark-factory-setup.test.js",
+          "colocated": true,
+          "startMarker": "// DF-PROMOTED-START: ao-org-context",
+          "endMarker": "// DF-PROMOTED-END: ao-org-context"
+        }
+      ],
+      "promotedAt": "2026-04-29T00:00:00Z",
+      "holdoutScenarioCount": 10,
+      "annotationFormat": "header-comment",
+      "sectionMarkers": true
     }
   ]
 }

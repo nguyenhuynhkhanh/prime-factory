@@ -5722,3 +5722,198 @@ describe("ao-design-intent — H-18: Superseded DI entries not checked by archit
 });
 
 // DF-PROMOTED-END: ao-design-intent
+
+// ===========================================================================
+// Promoted from Dark Factory holdout: ao-org-context
+// Feature: Add Org Context section to project profile — org vocabulary, compliance, PR reviewer routing
+// Guards: dark-factory/templates/project-profile-template.md, dark-factory/templates/project-profile-slim-template.md, .claude/agents/onboard-agent.md, .claude/agents/spec-agent.md, plugins/dark-factory/
+// DF-PROMOTED-START: ao-org-context
+// ===========================================================================
+
+describe("ao-org-context — P-01: project-profile-template.md contains Org Context section with all 5 fields", () => {
+  it("template has ## Org Context heading", () => {
+    const template = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
+    assert.ok(template.includes("## Org Context"), "project-profile-template.md must contain ## Org Context section");
+  });
+
+  it("template Org Context has Core values/priorities field", () => {
+    const template = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
+    assert.ok(template.includes("Core values/priorities"), "Org Context must include Core values/priorities field");
+  });
+
+  it("template Org Context has Domain vocabulary field", () => {
+    const template = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
+    assert.ok(template.includes("Domain vocabulary"), "Org Context must include Domain vocabulary field");
+  });
+
+  it("template Org Context has Team structure field", () => {
+    const template = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
+    assert.ok(template.includes("Team structure"), "Org Context must include Team structure field");
+  });
+
+  it("template Org Context has Open constraints field", () => {
+    const template = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
+    assert.ok(template.includes("Open constraints"), "Org Context must include Open constraints field");
+  });
+
+  it("template Org Context has PR reviewer handles field", () => {
+    const template = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
+    assert.ok(template.includes("PR reviewer handles"), "Org Context must include PR reviewer handles field");
+  });
+
+  it("Org Context section appears after Developer Notes", () => {
+    const template = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
+    const devNotesPos = template.indexOf("## Developer Notes");
+    const orgCtxPos = template.indexOf("## Org Context");
+    assert.ok(devNotesPos > -1 && orgCtxPos > -1, "Both Developer Notes and Org Context must exist");
+    assert.ok(orgCtxPos > devNotesPos, "Org Context must appear after Developer Notes");
+  });
+});
+
+describe("ao-org-context — P-02: Org Context section warns against committing secrets", () => {
+  it("template Org Context section warns against secrets being committed to git", () => {
+    const template = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
+    const orgCtxIdx = template.indexOf("## Org Context");
+    assert.ok(orgCtxIdx !== -1, "## Org Context must exist");
+    const afterOrgCtx = template.slice(orgCtxIdx);
+    assert.ok(
+      afterOrgCtx.includes("committed to git") || afterOrgCtx.includes("not store secrets"),
+      "Org Context section must warn against committing secrets to git"
+    );
+  });
+});
+
+describe("ao-org-context — P-03: slim profile template excludes Org Context and notes its exclusion", () => {
+  it("slim template does NOT contain ## Org Context heading", () => {
+    const slim = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-slim-template.md"), "utf8");
+    assert.ok(!slim.includes("## Org Context"), "Slim template must NOT contain ## Org Context section");
+  });
+
+  it("slim template notes that Org Context is excluded / available in full profile", () => {
+    const slim = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-slim-template.md"), "utf8");
+    assert.ok(
+      slim.includes("Org Context") && (slim.includes("not included") || slim.includes("excluded") || slim.includes("full profile")),
+      "Slim template must note that Org Context is excluded and available in full profile"
+    );
+  });
+});
+
+describe("ao-org-context — P-04: onboard-agent Phase 6 includes org context question", () => {
+  it("onboard-agent includes org context capture in Phase 6", () => {
+    const onboard = readAgent("onboard-agent");
+    assert.ok(
+      onboard.includes("Org Context") || onboard.includes("org context") || onboard.includes("org-level"),
+      "onboard-agent must include org context question in Phase 6"
+    );
+  });
+
+  it("onboard-agent org context question mentions at least one example domain", () => {
+    const onboard = readAgent("onboard-agent");
+    assert.ok(
+      onboard.includes("compliance") || onboard.includes("vocabulary") || onboard.includes("team structure"),
+      "onboard-agent org context question must mention at least one example domain"
+    );
+  });
+});
+
+describe("ao-org-context — P-05: onboard-agent preserve-on-rerun behavior for Org Context", () => {
+  it("onboard-agent specifies preserve-on-rerun for existing Org Context", () => {
+    const onboard = readAgent("onboard-agent");
+    assert.ok(
+      onboard.includes("Org Context already exists") || onboard.includes("update it") || onboard.includes("preserve"),
+      "onboard-agent must specify preserve-on-rerun behavior for Org Context"
+    );
+  });
+});
+
+describe("ao-org-context — P-06: spec-agent reads Org Context and applies domain vocabulary", () => {
+  it("spec-agent references Org Context section from profile", () => {
+    const spec = readAgent("spec-agent");
+    assert.ok(
+      spec.includes("Org Context") || spec.includes("org context"),
+      "spec-agent must reference Org Context section"
+    );
+  });
+
+  it("spec-agent instructs vocabulary application", () => {
+    const spec = readAgent("spec-agent");
+    assert.ok(
+      spec.includes("domain vocabulary") || spec.includes("Domain vocabulary") || spec.includes("vocabulary"),
+      "spec-agent must instruct vocabulary application from Org Context"
+    );
+  });
+
+  it("spec-agent makes Org Context reading conditional on presence", () => {
+    const spec = readAgent("spec-agent");
+    assert.ok(
+      spec.includes("if present") || spec.includes("when present") || spec.includes("absent") || spec.includes("optional"),
+      "spec-agent must state that Org Context reading is conditional on presence"
+    );
+  });
+});
+
+describe("ao-org-context — P-07: spec-agent includes compliance constraints in spec sections", () => {
+  it("spec-agent mentions compliance or open constraints application", () => {
+    const spec = readAgent("spec-agent");
+    assert.ok(
+      spec.includes("Open constraints") || spec.includes("compliance") || spec.includes("constraints"),
+      "spec-agent must mention compliance/constraint application from Org Context"
+    );
+  });
+
+  it("spec-agent names at least one target section for compliance injection", () => {
+    const spec = readAgent("spec-agent");
+    assert.ok(
+      spec.includes("Migration") || spec.includes("Business Rules") || spec.includes("Error Handling"),
+      "spec-agent must name at least one target spec section for compliance injection"
+    );
+  });
+});
+
+describe("ao-org-context — P-08: spec-agent references PR reviewer handles", () => {
+  it("spec-agent instructs PR reviewer handle reference from Org Context", () => {
+    const spec = readAgent("spec-agent");
+    assert.ok(
+      spec.includes("PR reviewer") || spec.includes("reviewer handles") || spec.includes("PR routing"),
+      "spec-agent must reference PR reviewer handles from Org Context"
+    );
+  });
+});
+
+describe("ao-org-context — P-09: plugin mirrors match source files for all four changed files", () => {
+  it("plugins project-profile-template.md matches source", () => {
+    const source = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
+    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "templates", "project-profile-template.md"), "utf8");
+    assert.equal(source, plugin, "Plugin project-profile-template.md must be byte-for-byte identical to source");
+  });
+
+  it("plugins project-profile-slim-template.md matches source", () => {
+    const source = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-slim-template.md"), "utf8");
+    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "templates", "project-profile-slim-template.md"), "utf8");
+    assert.equal(source, plugin, "Plugin project-profile-slim-template.md must be byte-for-byte identical to source");
+  });
+
+  it("plugins onboard-agent.md matches source", () => {
+    const source = fs.readFileSync(path.join(ROOT, ".claude", "agents", "onboard-agent.md"), "utf8");
+    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "agents", "onboard-agent.md"), "utf8");
+    assert.equal(source, plugin, "Plugin onboard-agent.md must be byte-for-byte identical to source after ao-org-context");
+  });
+
+  it("plugins spec-agent.md matches source", () => {
+    const source = fs.readFileSync(path.join(ROOT, ".claude", "agents", "spec-agent.md"), "utf8");
+    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "agents", "spec-agent.md"), "utf8");
+    assert.equal(source, plugin, "Plugin spec-agent.md must be byte-for-byte identical to source after ao-org-context");
+  });
+});
+
+describe("ao-org-context — P-10: absent Org Context causes no degraded behavior", () => {
+  it("spec-agent handles absent Org Context gracefully (conditional language)", () => {
+    const spec = readAgent("spec-agent");
+    assert.ok(
+      spec.includes("if present") || spec.includes("when present") || spec.includes("absent") || spec.includes("optional"),
+      "spec-agent must state that Org Context reading is conditional — absent section is not an error"
+    );
+  });
+});
+
+// DF-PROMOTED-END: ao-org-context

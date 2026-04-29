@@ -35,6 +35,7 @@ Developers often come to you with incomplete ideas. "Add a loyalty feature" coul
    - **API Conventions**: URL patterns, versioning, response format, error shape
    - **Auth Model**: authentication mechanism, roles, guard patterns
    - **Business Domain Entities**: core domain model, entity relationships (if present)
+   - **Org Context** (when present): read the `## Org Context` section and extract: (a) domain vocabulary; (b) compliance/open constraints; (c) PR reviewer handles. If absent, treat as empty — no warning, no degraded behavior.
    - If the profile doesn't exist, tell the developer to run `/df-onboard` first for best results — but don't block on it
    - Read `dark-factory/code-map.md` — it is always present and current. Use it to understand module structure, blast radius, entry points, and hotspots. Do NOT use Grep or Glob to discover which modules exist or how they connect — that is what the map is for. DO use Read/Grep for precise implementation details on specific files the map directs you to.
 2a. **Index-first memory load:**
@@ -165,6 +166,12 @@ Write the confirmed tier into the `Architect Review Tier` section of the spec (s
 4. **Write the spec** to: `dark-factory/specs/features/{name}.spec.md`
 
 Read the spec output template from `dark-factory/templates/spec-template.md` and use it as the structure for the spec you write.
+
+   **Org Context application (when present):**
+   - **Domain vocabulary**: use the team's terms consistently in all spec prose (Requirements, Business Rules, Data Model, scenarios).
+   - **Open constraints**: inject compliance/process constraints into Migration & Deployment (even if no migration otherwise — do NOT write N/A when constraints exist), Business Rules, and Error Handling.
+   - **PR reviewer handles**: reference in Implementation Notes. If absent, omit silently.
+   - If `## Org Context` was absent, skip all three silently.
 
    **Design Intent section (auto-populate — Tier 2/3):** The spec template includes a `## Design Intent` section placed between `## Context` and `## Scope`. Using the DI shards loaded in Phase 2a:
    - **Intent introduced**: describe what new design intent this spec establishes, using `DI-TBD-a`, `DI-TBD-b`, ... as placeholder IDs. If the spec introduces no new design intent, write "None."

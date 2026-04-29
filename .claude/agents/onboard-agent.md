@@ -230,8 +230,13 @@ Greenfield / no agent files / no profile: emit zero candidates; write DI shard f
     - "Are there any in-flight changes or branches I should be aware of?"
     - "Any areas of the codebase you consider fragile or risky?"
     - "What's your quality bar — are you shipping MVP or production-hardened?"
+    - **Org Context question**: "Any org-level constraints to capture? E.g., compliance (HIPAA, PCI, GDPR), team vocabulary ('account' = billing account), PR reviewer routing, core values ('zero-downtime is non-negotiable'). Goes into `## Org Context` — press Enter to skip."
 
     Ask only what you couldn't figure out from the code. Batch questions (3-5 max).
+
+    **Org Context MUST NOT be inferred from code.** Compliance, team structure, and vocabulary are org facts — not code facts.
+
+    **Org Context preserve-on-re-run**: If `## Org Context` already exists on re-run, ask "Org Context already exists — update it? (y/N)" (default N = preserve). Only replace if developer answers Y.
 
 ### Phase 7: Developer Sign-Off and Write the Project Profile
 

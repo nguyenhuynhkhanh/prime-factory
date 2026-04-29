@@ -86,3 +86,4 @@ Extraction rule: Copy the **Common Gotchas** section verbatim from the full prof
 - The slim file is a **derived, non-authoritative** artifact. Any consumer that needs a field not present in the slim file must read the full `project-profile.md`.
 - The slim file is committed to git alongside the full profile. It is a permanent artifact, not an ephemeral cache.
 - No developer confirmation is required for the slim file — the full profile confirmation covers both.
+- **Org Context is not included in the slim profile.** The Org Context section from the full profile is intentionally excluded here — it is consumed only by spec-agent during spec authoring, not by architect-agents during review. If you need org context, read the full `project-profile.md`.

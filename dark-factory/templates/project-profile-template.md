@@ -137,3 +137,13 @@ Developers: review sections carefully based on which agents you expect to run. E
 
 ## Developer Notes
 {Anything the developer told you that isn't derivable from code}
+
+## Org Context
+> Optional. Capture organizational knowledge that helps agents write better specs.
+> Do not store secrets, SLA penalty amounts, or NDA-covered information here — this file is committed to git.
+
+- **Core values/priorities**: {What this team optimizes for — e.g., "security first", "zero-downtime is non-negotiable", "developer experience over performance"}
+- **Domain vocabulary**: {Project-specific jargon agents should use consistently — e.g., "account = billing account, not user account; member = authenticated user with active subscription"}
+- **Team structure**: {Who owns what, PR reviewer routing — e.g., "@backend-team reviews all API changes; default reviewer: @handle"}
+- **Open constraints**: {Legal/compliance/SLA commitments affecting spec decisions — e.g., "PII must not leave EU region", "all DB migrations require DBA review", "HIPAA BAA in effect"}
+- **PR reviewer handles**: {GitHub handles for auto-PR reviewer assignment — e.g., "@alice @bob for backend; @carol for frontend"}
