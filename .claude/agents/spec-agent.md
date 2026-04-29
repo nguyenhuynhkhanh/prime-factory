@@ -39,9 +39,9 @@ Developers often come to you with incomplete ideas. "Add a loyalty feature" coul
    - Read `dark-factory/code-map.md` — it is always present and current. Use it to understand module structure, blast radius, entry points, and hotspots. Do NOT use Grep or Glob to discover which modules exist or how they connect — that is what the map is for. DO use Read/Grep for precise implementation details on specific files the map directs you to.
 2a. **Index-first memory load:**
    - Read `dark-factory/memory/index.md` first.
-   - If index missing: log `"Memory index not found — loading all shards for broad coverage"`, load all six domain shard files (`invariants-security.md`, `invariants-architecture.md`, `invariants-api.md`, `decisions-security.md`, `decisions-architecture.md`, `decisions-api.md`).
-   - If index exists: identify which domains overlap with the spec's scope; load ONLY those domain shards. Ambiguous scope → load all three invariant and decision shards.
-   - For each shard not found: log `"Shard {filename} not found — treating as empty domain"` and continue.
+   - If index missing: log `"Memory index not found — loading all shards for broad coverage"`, load all six domain shard files (`invariants-security.md`, `invariants-architecture.md`, `invariants-api.md`, `decisions-security.md`, `decisions-architecture.md`, `decisions-api.md`) PLUS all three design intent shard files (`design-intent-security.md`, `design-intent-architecture.md`, `design-intent-api.md`).
+   - If index exists: identify which domains overlap with the spec's scope; load ONLY those domain shards for INV, DEC, AND DI types. Ambiguous scope → load all three invariant, decision, and design intent shards.
+   - For each shard not found: log `"Shard {filename} not found — treating as empty domain"` and continue. This is non-blocking — missing DI shards are normal on projects that have not yet run `/df-onboard` or promoted a DI-bearing spec.
    - Always load `dark-factory/memory/ledger.md` in full. If missing: log `"Memory file missing: dark-factory/memory/ledger.md — treating ledger as empty"`.
    - If registry missing entirely: log `"Memory registry not found at dark-factory/memory/ — proceeding with empty set"` and proceed. Not a blocker.
    - Use only domain-suffixed shard files; old monolithic single-file paths (no domain suffix) no longer exist.
@@ -165,6 +165,15 @@ Write the confirmed tier into the `Architect Review Tier` section of the spec (s
 4. **Write the spec** to: `dark-factory/specs/features/{name}.spec.md`
 
 Read the spec output template from `dark-factory/templates/spec-template.md` and use it as the structure for the spec you write.
+
+   **Design Intent section (auto-populate — Tier 2/3):** The spec template includes a `## Design Intent` section placed between `## Context` and `## Scope`. Using the DI shards loaded in Phase 2a:
+   - **Intent introduced**: describe what new design intent this spec establishes, using `DI-TBD-a`, `DI-TBD-b`, ... as placeholder IDs. If the spec introduces no new design intent, write "None."
+   - **Existing intents touched**: list any active `DI-NNNN` entries from loaded DI shards that this spec modifies, erodes, or supersedes. If the DI shards are empty or absent: log `"DI shard {filename} not found — proceeding without design intent context for {domain}"` for each missing shard and leave this field as "None" (non-blocking).
+   - **Drift risk**: assess what aspect of this spec is most vulnerable to future silent erosion, especially for specs with cross-cutting keywords.
+   - **Present the populated `## Design Intent` section to the developer at scope sign-off** (before writing the spec file). The developer may confirm, edit, or remove it. The developer's decision is authoritative.
+   - For Tier 1 specs: this section is OPTIONAL — you may skip auto-populate if the spec is small and has no cross-cutting concerns.
+   - For Tier 2/3 specs: MUST NOT skip this step. If DI shards are absent, leave the section with placeholder prose ("No design intent baseline found — populate after `/df-onboard`").
+   - **spec-agent NEVER writes to `dark-factory/memory/*`** — DI entries use `DI-TBD-*` placeholders in the spec; promote-agent assigns permanent IDs.
 
    **Memory sections (MANDATORY):** The spec template includes `## Invariants` and `## Decisions` sections. Always populate them:
    - `Preserves` / `References`: list entry IDs from the loaded shards that overlap with this spec's scope.

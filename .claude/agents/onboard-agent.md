@@ -168,11 +168,29 @@ Greenfield / no profile / no Architecture section: zero candidates; write decisi
 
 Source: `dark-factory/promoted-tests.json` (`{ version, promotedTests: [...] }`). If absent/empty: seed ledger empty with header comment. If malformed: write empty ledger with `[LEDGER CORRUPTED]` comment; record in sign-off summary.
 
-For each entry: `FEAT-CANDIDATE-N` with `name`, `summary` (or `null`), `promotedAt` (or `null`), `promotedTests`, `gitSha`, `introducedInvariants: []`, `introducedDecisions: []`
+For each entry: `FEAT-CANDIDATE-N` with `name`, `summary` (or `null`), `promotedAt` (or `null`), `promotedTests`, `gitSha`, `introducedInvariants: []`, `introducedDecisions: []`, `introducedDesignIntents: []`
 
 Git log (read-only — NEVER `git add/commit/reset/push`): `git log --all --grep='^Cleanup <name>' --format='%H|%cI' -n 5` (bounded; fail-soft). No match → `gitSha: null`, tag `[UNKNOWN SHA]`. Multiple matches → use most recent; note ambiguity.
 
 Sort ascending by `promotedAt`; missing `promotedAt` sorted last, tagged `[UNKNOWN DATE]`.
+
+#### 3.7d Design Intent Extraction
+
+**Precondition**: Requires `dark-factory/templates/project-memory-template.md` to be present (for DI schema). If absent, skip and emit zero candidates.
+
+Scan (same depth as 3.7a — no LLM inference from code bodies):
+
+**Source 1 — Agent/skill markdown MUST/NEVER/ALWAYS rules**: Read the agent markdown files in `.claude/agents/` and `.claude/skills/`. Look for `MUST`, `NEVER`, `ALWAYS` rules that represent pipeline sequencing constraints, information barriers, or tiering invariants. These are DI candidates because they answer "why must this survive" — not just "what must hold" (INV). Missing `sourceRef` → silently drop (same policy as 3.7a). Dark Factory itself is its own source: confidence `medium`.
+
+**Source 2 — Architecture section rationale**: Read `dark-factory/project-profile.md` Architecture section (same source as 3.7b). Look for rationale behind architectural patterns — explanations of why something is structured the way it is. These are DI candidates describing survival criteria. No profile section → zero candidates from this source.
+
+Candidate shape: `id` (`DI-CANDIDATE-N`), `title`, `intent` (the survival criterion), `drift_risk` (most vulnerable aspect), `protection` (how it is currently protected), `scope` (modules), `domain` (`security|architecture|api`), `rationale`, `confidence` (`high|medium|low`), `sourceRef` (file:line — required; no sourceRef → silently drop).
+
+Confidence: `high` = explicit named barrier (e.g., "NEVER read holdout scenarios"); `medium` = MUST/ALWAYS rule in agent markdown; `low` = architectural rationale inference → mark `[LOW CONFIDENCE]`. **Low-confidence candidates default to rejected**; developer must opt in explicitly.
+
+Conservative bias: explicit barrier (e.g., information barrier, single-writer rule) → DI candidate. Generic "do not do X" → NOT a DI candidate (too broad). A `NEVER` rule with a stated reason → strong DI candidate.
+
+Greenfield / no agent files / no profile: emit zero candidates; write DI shard files empty with header comment.
 
 ### Phase 4: Quality Bar
 
@@ -238,7 +256,7 @@ NEVER write to `dark-factory/memory/` without explicit developer sign-off. If Ph
 
 **Incremental refresh** (if `dark-factory/memory/` already exists): diff mode only — propose new candidates; flag entries whose `sourceRef` no longer resolves as **potentially stale** (propose status flip to `retired`, never delete); preserve unchanged entries silently; regenerate index from scratch after sign-off. If legacy monolithic `invariants.md` or `decisions.md` exist: warn, skip shard routing, recommend re-bootstrap.
 
-Three batches (present in order; no silent bulk writes):
+Four batches (present in order; no silent bulk writes):
 
 **Batch 1 — Invariants** (per-entry: accept / edit / reject; bulk: "accept all non-low-confidence" / "reject all"): show `title`, `rule`, `domain`, `confidence`, `sourceRef`, proposed `tags` (free-form lowercase keywords, max 5; show `tags: (none)` if none). Tag actions: accept / edit / clear. `[LOW CONFIDENCE]` defaults to **rejected**; developer must opt in. Domain edits reroute entry to updated shard at write time; tags retained.
 
@@ -246,17 +264,19 @@ Three batches (present in order; no silent bulk writes):
 
 **Batch 3 — Ledger** (read-only confirmation): developer may flag missing entries.
 
-After sign-off, write accepted entries. Shard routing: `security` → `invariants-security.md`/`decisions-security.md`; `architecture` → `invariants-architecture.md`/`decisions-architecture.md`; `api` → `invariants-api.md`/`decisions-api.md`; unknown → architecture shard + `[UNCLASSIFIED DOMAIN]`. FEAT entries → `ledger.md` only.
+**Batch 4 — Design Intents** (per-entry: accept / edit / reject; bulk: "accept all non-low-confidence" / "reject all"): show `title`, `intent`, `drift_risk`, `domain`, `confidence`, `sourceRef`, proposed `tags`. Tag actions: accept / edit / clear. `[LOW CONFIDENCE]` defaults to **rejected**; developer must opt in. Domain edits reroute entry to updated DI shard at write time. If Phase 3.7d produced zero candidates: display "No design intent candidates found" and let the developer proceed without writing any DI entries. Invalid domain (e.g., `performance`) → reroute to architecture shard + `[UNCLASSIFIED DOMAIN]` tag; note the rerouting in sign-off summary.
 
-IDs global across all shards: scan max existing `INV-NNNN`/`DEC-NNNN`/`FEAT-NNNN`, assign `{N+1:04d}` in acceptance order. Shard frontmatter: `generatedBy: onboard-agent`, `lastUpdated`, `gitHash`. No TEMPLATE placeholder entries. Tags to shard: `tags: [kw1, kw2]` or `tags: []`; in index row: `[tags:kw1,kw2]` or `[tags:]`.
+After sign-off, write accepted entries. Shard routing for INV/DEC: `security` → `invariants-security.md`/`decisions-security.md`; `architecture` → `invariants-architecture.md`/`decisions-architecture.md`; `api` → `invariants-api.md`/`decisions-api.md`; unknown → architecture shard + `[UNCLASSIFIED DOMAIN]`. FEAT entries → `ledger.md` only. DI shard routing: `security` → `design-intent-security.md`; `architecture` → `design-intent-architecture.md`; `api` → `design-intent-api.md`; unknown → `design-intent-architecture.md` + `[UNCLASSIFIED DOMAIN]`.
 
-Generate `index.md` last (after all shard writes complete; if any shard failed, skip index): scan all shards + `ledger.md`; write one row per entry in ID-ascending order — `## {ID} [type:{type}] [domain:{domain}] [tags:{comma-joined-or-empty}] [status:active] [shard:{filename}]` + one-line description. Frontmatter: `version: 1`, `lastUpdated`, `generatedBy: onboard-agent`, `gitHash`, `entryCount`, `shardCount`. Greenfield: write `## Memory Index` heading with zero entry rows.
+IDs global across all shards: scan max existing `INV-NNNN`/`DEC-NNNN`/`DI-NNNN`/`FEAT-NNNN`, assign `{N+1:04d}` in acceptance order. Shard frontmatter: `generatedBy: onboard-agent`, `lastUpdated`, `gitHash`. No TEMPLATE placeholder entries. Tags to shard: `tags: [kw1, kw2]` or `tags: []`; in index row: `[tags:kw1,kw2]` or `[tags:]`.
+
+Generate `index.md` last (after all shard writes complete; if any shard failed, skip index): scan all shards + `ledger.md`; write one row per entry in ID-ascending order — `## {ID} [type:{type}] [domain:{domain}] [tags:{comma-joined-or-empty}] [status:active] [shard:{filename}]` + one-line description. Use `[type:design-intent]` for DI entries. Frontmatter: `version: 1`, `lastUpdated`, `generatedBy: onboard-agent`, `gitHash`, `entryCount`, `shardCount`. Greenfield: write `## Memory Index` heading with zero entry rows.
 
 ## Bootstrap Write Exception
 
 Onboard-agent is the only agent besides promote-agent authorized to write to `dark-factory/memory/`. Narrowly scoped to onboard time (no specs in flight → single-writer preserved). On re-run, MUST NOT overwrite existing entries — propose diffs only.
 
-Covers: `invariants-security.md`, `invariants-architecture.md`, `invariants-api.md`, `decisions-security.md`, `decisions-architecture.md`, `decisions-api.md`, `ledger.md`, `index.md`.
+Covers: `invariants-security.md`, `invariants-architecture.md`, `invariants-api.md`, `decisions-security.md`, `decisions-architecture.md`, `decisions-api.md`, `design-intent-security.md`, `design-intent-architecture.md`, `design-intent-api.md`, `ledger.md`, `index.md`.
 
 ## Phase 7.2: Generate Slim Profile
 
@@ -290,6 +310,6 @@ Create or update `.claude/settings.json` to auto-approve `Read, Glob, Grep, Bash
 - NEVER modify test files
 - NEVER write to `dark-factory/specs/*`, `dark-factory/scenarios/*`, or `dark-factory/promoted-tests.json`
 - NEVER include actual secret values in the profile; reference env var NAMES only
-- ONLY write to: `dark-factory/project-profile.md`, `dark-factory/project-profile-slim.md`, `.claude/settings.json`, git hook files; and with developer sign-off (Phase 3.7/7 only): `dark-factory/memory/invariants-security.md`, `dark-factory/memory/invariants-architecture.md`, `dark-factory/memory/invariants-api.md`, `dark-factory/memory/decisions-security.md`, `dark-factory/memory/decisions-architecture.md`, `dark-factory/memory/decisions-api.md`, `dark-factory/memory/ledger.md`, `dark-factory/memory/index.md`
+- ONLY write to: `dark-factory/project-profile.md`, `dark-factory/project-profile-slim.md`, `.claude/settings.json`, git hook files; and with developer sign-off (Phase 3.7/7 only): `dark-factory/memory/invariants-security.md`, `dark-factory/memory/invariants-architecture.md`, `dark-factory/memory/invariants-api.md`, `dark-factory/memory/decisions-security.md`, `dark-factory/memory/decisions-architecture.md`, `dark-factory/memory/decisions-api.md`, `dark-factory/memory/design-intent-security.md`, `dark-factory/memory/design-intent-architecture.md`, `dark-factory/memory/design-intent-api.md`, `dark-factory/memory/ledger.md`, `dark-factory/memory/index.md`
 - If greenfield, document that honestly. If messy, document reality without judgment.
 - Ask the developer before assuming intent

@@ -8,7 +8,7 @@
 
 ## Overview
 
-The `dark-factory/memory/` directory contains eight files that together form the Project Memory layer:
+The `dark-factory/memory/` directory contains eleven files that together form the Project Memory layer:
 
 | File | Purpose | Write cadence |
 |------|---------|--------------|
@@ -19,9 +19,12 @@ The `dark-factory/memory/` directory contains eight files that together form the
 | `decisions-security.md` | Security domain decisions | Appended by promote-agent at promotion or onboard-agent at onboarding |
 | `decisions-architecture.md` | Architecture domain decisions | Appended by promote-agent at promotion or onboard-agent at onboarding |
 | `decisions-api.md` | API domain decisions | Appended by promote-agent at promotion or onboard-agent at onboarding |
+| `design-intent-security.md` | Security domain design intents | Appended by promote-agent at promotion or onboard-agent at onboarding |
+| `design-intent-architecture.md` | Architecture domain design intents | Appended by promote-agent at promotion or onboard-agent at onboarding |
+| `design-intent-api.md` | API domain design intents | Appended by promote-agent at promotion or onboard-agent at onboarding |
 | `ledger.md` | Append-only record of every promoted feature/bugfix | Appended once per promotion, never edited |
 
-**ID assignment**: permanent zero-padded 4-digit sequential IDs (`INV-0001`, `DEC-0001`, `FEAT-0001`) are assigned exclusively by promote-agent at promotion time. IDs are **never reused** — even superseded or deprecated entries keep their ID forever. Until promotion, specs carry placeholder IDs (`INV-TBD-*`, `DEC-TBD-*`).
+**ID assignment**: permanent zero-padded 4-digit sequential IDs (`INV-0001`, `DEC-0001`, `DI-0001`, `FEAT-0001`) are assigned exclusively by promote-agent at promotion time. IDs are **never reused** — even superseded or deprecated entries keep their ID forever. Until promotion, specs carry placeholder IDs (`INV-TBD-*`, `DEC-TBD-*`, `DI-TBD-*`). DI IDs are assigned from a global sequential counter shared across all three `design-intent-{domain}.md` shard files.
 
 **Single-writer protocol**: only promote-agent writes to these files after the foundation phase. Parallel code-agents running in worktrees must not write to memory files directly.
 
@@ -71,8 +74,8 @@ Each real entry is represented as a single heading row:
 
 | Component | Values | Notes |
 |-----------|--------|-------|
-| `{ID}` | `INV-\d{4}`, `DEC-\d{4}`, `FEAT-\d{4}` | Permanent ID only. No TEMPLATE or TBD entries. |
-| `[type:{type}]` | `invariant`, `decision`, `feature` | Required. |
+| `{ID}` | `INV-\d{4}`, `DEC-\d{4}`, `DI-\d{4}`, `FEAT-\d{4}` | Permanent ID only. No TEMPLATE or TBD entries. |
+| `[type:{type}]` | `invariant`, `decision`, `design-intent`, `feature` | Required. `design-intent` is used for DI-NNNN entries. |
 | `[domain:{domain}]` | `security`, `architecture`, `api`, `—` | Use `—` (em-dash) for FEAT entries. |
 | `[tags:{csv}]` | comma-separated lowercase keywords | Optional; use `[tags:]` for empty. |
 | `[status:{status}]` | `active`, `superseded`, `deprecated`, `—` | Use `—` for FEAT entries. |
@@ -92,6 +95,9 @@ Every spec must declare the invariants it touches
 
 ## DEC-0001 [type:decision] [domain:architecture] [tags:schema,single-writer] [status:active] [shard:decisions-architecture.md]
 Memory files are single-writer, written only by promote-agent at promotion time
+
+## DI-0001 [type:design-intent] [domain:architecture] [tags:information-barrier,pipeline] [status:active] [shard:design-intent-architecture.md]
+Code-agent MUST NOT read holdout scenarios — information barrier protects test validity
 
 ## FEAT-0001 [type:feature] [domain:—] [tags:] [status:—] [shard:ledger.md]
 project-memory-foundation
@@ -262,6 +268,90 @@ Same four base fields as all memory files. Shard files do NOT include `entryCoun
 
 ---
 
+## File Schema: design-intent shard files
+
+### Shard frontmatter (design-intent-security.md, design-intent-architecture.md, design-intent-api.md)
+
+Same four base fields as all memory files. Shard files do NOT include `entryCount` or `shardCount`.
+
+### Design intent entry format
+
+```
+## DI-NNNN: <title>
+
+- **id**: DI-NNNN
+- **title**: <short descriptive title>
+- **intent**: <the survival criterion — what pattern must survive and why it is fragile>
+- **drift_risk**: <what aspect is most vulnerable to silent erosion by future AI edits>
+- **protection**: <how it is protected: naming convention | test | invariant entry | architectural encapsulation>
+- **scope.modules**: [<list of file paths or module names>]
+- **domain**: security | architecture | api
+- **status**: active | superseded | deprecated
+- **supersededBy**: <DI-ID or "">
+- **introducedBy**: <spec name>
+- **introducedAt**: <ISO date>
+- **rationale**: <why this design intent must be recorded>
+- **shard**: design-intent-{domain}.md
+- **enforced_by**: <path to test file>   # OR use enforcement below
+- **enforcement**: runtime | manual      # escape hatch when no test exists
+- **tags**: [<up to 5 lowercase keywords>]
+- **guards**: [<file:line>, ...]
+- **referencedBy**: [<list of spec names>]
+```
+
+**Enforcement requirement**: every DI entry MUST carry either an `enforced_by` path OR an explicit `enforcement: runtime|manual` field. Same policy as invariant entries.
+
+**`guards` field and information barrier**: The `guards` field in a DI entry MUST NOT be used by code-agent to infer test coverage or holdout scenario content. DI entries are for authoring-time and review-time use only — not implementation-time constraint enforcement.
+
+### Design intent entry field definitions
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `id` | string | yes | Format `DI-NNNN`. Assigned by promote-agent from a global sequential counter. |
+| `title` | string | yes | Short, noun-phrase title matching the heading. |
+| `intent` | markdown string | yes | The survival criterion — what pattern must survive and why it is fragile. |
+| `drift_risk` | markdown string | yes | What aspect is most vulnerable to silent erosion by future AI edits. |
+| `protection` | markdown string | yes | How it is protected: naming convention, test, invariant entry, or architectural encapsulation. |
+| `scope.modules` | list of strings | yes | File paths or module names. Use `[]` if global. |
+| `domain` | enum | yes | One of: `security`, `architecture`, `api`. Must match the shard file. |
+| `status` | enum | yes | One of: `active`, `superseded`, `deprecated`. |
+| `supersededBy` | string | yes | DI-ID of superseding entry, or `""`. |
+| `introducedBy` | string | yes | Spec name. |
+| `introducedAt` | ISO date | yes | When this design intent was first recorded. |
+| `rationale` | markdown string | yes | Why this design intent must be recorded. |
+| `shard` | string | yes | The shard filename (e.g., `design-intent-architecture.md`). Computed by writers. |
+| `enforced_by` | string | conditional | Path to test file. Required unless `enforcement` is set. |
+| `enforcement` | enum | conditional | One of: `runtime`, `manual`. Required unless `enforced_by` is set. |
+| `tags` | list of strings | no | Up to 5 lowercase keywords. |
+| `guards` | list of strings | no | List of `file:line` references. opaque to code-agent (information barrier) — same policy as INV entry guards. |
+| `referencedBy` | list of strings | no | Spec names that reference this design intent. |
+
+### Complete example design intent entry
+
+```
+## DI-0001: Code-agent information barrier — holdout scenarios must never be read by code-agent
+
+- **id**: DI-0001
+- **title**: Code-agent information barrier — holdout scenarios must never be read by code-agent
+- **intent**: The Dark Factory pipeline derives validation power from the code-agent never seeing holdout scenarios. If this barrier is eroded — by any agent, orchestrator change, or tool expansion — the holdout tests stop providing independent validation. The intent is that code-agent implements only from the spec and public scenarios, never from the test oracle.
+- **drift_risk**: Future expansions of code-agent tools or orchestrator context passing could silently include holdout paths. The barrier is only as strong as the tool access list and the orchestrator's context-passing discipline.
+- **protection**: The `NEVER read dark-factory/scenarios/holdout/` rule is stated explicitly in code-agent's constraint block. INV-NNNN enforces this via test assertion on the agent's constraint language. The implementation-agent's spawn protocol never passes holdout paths to code-agent.
+- **scope.modules**: [.claude/agents/code-agent.md, .claude/agents/implementation-agent.md, dark-factory/scenarios/holdout/]
+- **domain**: architecture
+- **status**: active
+- **supersededBy**: ""
+- **introducedBy**: ao-design-intent
+- **introducedAt**: 2026-04-29
+- **rationale**: Without this recorded intent, future changes to the orchestration pipeline might relax the information barrier under the assumption that "code-agent just needs more context." This design intent makes explicit that the barrier is deliberate and load-bearing — not an oversight.
+- **shard**: design-intent-architecture.md
+- **enforced_by**: tests/dark-factory-setup.test.js
+- **tags**: [information-barrier, code-agent, holdout, pipeline]
+- **guards**: [.claude/agents/code-agent.md:1]
+- **referencedBy**: [ao-design-intent]
+```
+
+---
+
 ## File Schema: ledger.md (append-only)
 
 The ledger is **append-only**. Entries written by promote-agent are never edited. Frontmatter (`lastUpdated`, `gitHash`) is updated each time a new entry is appended.
@@ -281,6 +371,7 @@ Same four base fields as all memory files. `ledger.md` does NOT include `entryCo
 - **promotedAt**: <ISO datetime>
 - **introducedInvariants**: [INV-NNNN, ...]
 - **introducedDecisions**: [DEC-NNNN, ...]
+- **introducedDesignIntents**: [DI-NNNN, ...]
 - **promotedTests**: [<test file path>, ...]
 - **gitSha**: <cleanup commit SHA>
 ```
@@ -295,6 +386,7 @@ Same four base fields as all memory files. `ledger.md` does NOT include `entryCo
 | `promotedAt` | ISO datetime | yes | When promote-agent ran for this feature. |
 | `introducedInvariants` | list of strings | yes | INV-IDs of invariants first declared by this feature. Use `[]` if none. |
 | `introducedDecisions` | list of strings | yes | DEC-IDs of decisions first recorded by this feature. Use `[]` if none. |
+| `introducedDesignIntents` | list of strings | yes | DI-IDs of design intents first declared by this feature. Use `[]` if none. Omit field entirely for promotions before this field was introduced — treated as `[]`. |
 | `promotedTests` | list of strings | yes | Paths to test files promoted to the permanent suite. Use `[]` if none. |
 | `gitSha` | string | yes | SHA of the cleanup commit that archived this feature's artifacts. |
 
@@ -309,6 +401,7 @@ Same four base fields as all memory files. `ledger.md` does NOT include `entryCo
 - **promotedAt**: 2026-04-24T12:00:00Z
 - **introducedInvariants**: [INV-0001]
 - **introducedDecisions**: [DEC-0001, DEC-0002, DEC-0003, DEC-0004, DEC-0005, DEC-0006]
+- **introducedDesignIntents**: []
 - **promotedTests**: [tests/dark-factory-setup.test.js]
 - **gitSha**: abc1234def5678
 ```

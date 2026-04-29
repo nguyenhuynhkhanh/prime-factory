@@ -3,6 +3,18 @@
 ## Context
 Why is this needed? What problem does it solve? What is the business value?
 
+## Design Intent
+
+> **Tier conditionality**: OPTIONAL for Tier 1 specs. SUGGESTED (non-blocking) for Tier 2/3 specs. Architect emits a SUGGESTION (never CONCERN or BLOCKER) if this section is absent on a Tier 3 spec. Architect emits a CONCERN (not BLOCKER) if `Drift risk` is empty on a spec with cross-cutting keywords ("all agents", "pipeline", "system-wide").
+>
+> *(Spec-agent auto-populates this section during Phase 4 using data from loaded DI/INV/DEC memory shards, then presents it to the developer at scope sign-off for confirmation, editing, or removal. If no DI shards exist yet, leave the placeholder text below.)*
+
+**Intent introduced**: What new design intent does this spec establish? Describe the survival criterion — what pattern must survive and why it is fragile. Use `DI-TBD-a`, `DI-TBD-b`, ... as placeholder IDs for new intents (promote-agent assigns permanent `DI-NNNN` IDs at promotion). If this spec introduces no new design intent, write "None."
+
+**Existing intents touched**: List any active `DI-NNNN` entries from the loaded memory shards that this spec modifies, erodes, or deliberately supersedes. If none, write "None."
+
+**Drift risk**: What aspect of this spec is most vulnerable to silent erosion by future AI edits? If this spec has cross-cutting keywords ("all agents", "pipeline", "system-wide"), this field MUST be populated to avoid an architect CONCERN. If there is no meaningful drift risk, explain why briefly.
+
 ## Scope
 ### In Scope (this spec)
 - Concrete list of what will be built
