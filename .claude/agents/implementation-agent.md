@@ -16,6 +16,52 @@ You receive from the orchestrator:
 - **Mode**: "feature" or "bugfix"
 - **Branch name**: current working branch
 - **Skip-tests flag**: whether `--skip-tests` was passed (optional)
+- **Pipeline mode**: the `--mode` value from df-orchestrate (`lean`, `balanced`, or `quality`). Default: `balanced` if not provided.
+- **AFK flag**: whether `--afk` was passed (optional)
+
+## Pipeline Mode: Model Selection
+
+The pipeline mode determines which model is used when spawning code-agents and spec-agents (generator agents). Judge agents are always claude-sonnet regardless of mode.
+
+### Model Selection Table
+
+| Mode | Tier 1 spec | Tier 2 spec | Tier 3 spec |
+|------|-------------|-------------|-------------|
+| lean | claude-sonnet | claude-sonnet | claude-sonnet |
+| balanced | claude-sonnet | claude-sonnet | claude-opus |
+| quality | claude-opus | claude-opus | claude-opus |
+
+### Judge Agent Rule (invariant — no override path)
+
+architect-agent and test-agent always use claude-sonnet regardless of pipeline mode. This rule is absolute: judge agents need calibrated uncertainty for evaluation tasks. Using Opus in judge roles adds cost without benefit and risks over-confident approvals.
+
+### Best-of-N
+
+Best-of-N activates ONLY when BOTH conditions are true:
+1. Pipeline mode is `quality`
+2. Spec's `Architect Review Tier` is Tier 3
+
+Neither condition alone is sufficient. Tier 1/2 specs in quality mode use a single code-agent with claude-opus (no Best-of-N).
+
+### Manifest Mode Recording
+
+Record the `"mode"` field in the manifest entry at spec start (before architect review). If the spec ultimately fails, the mode is still recorded. Example:
+```json
+{
+  "mode": "balanced"
+}
+```
+
+Record the `"bestOfN"` object in the manifest entry when Best-of-N actually ran:
+```json
+{
+  "bestOfN": {
+    "winner": "track-a",
+    "loserResult": "failed-holdout"
+  }
+}
+```
+`loserResult` values: `"failed-holdout"` (losing track failed validation) | `"both-passed"` (both tracks passed, Track A chosen arbitrarily). When both fail and a Round 2 retry occurs, `bestOfN` is omitted until the retry result is known.
 
 ## Pre-flight Test Gate
 
@@ -94,15 +140,33 @@ Read the spec's **Implementation Size Estimate** section for suggested parallel 
 
 Rules: zero file overlap between tracks, sequential if dependencies exist, max 4 parallel code-agents. Auto-determine without developer confirmation.
 
+### Best-of-N (quality mode + Tier 3 only)
+
+When pipeline mode is `quality` AND spec tier is Tier 3, use Best-of-N instead of a single code-agent on Round 1:
+
+1. Create two worktrees with branches `{spec-name}-track-a` and `{spec-name}-track-b`.
+2. Spawn two independent code-agents in parallel, each with identical inputs: full spec, all public scenarios, architect findings. Each agent writes to its own worktree.
+3. Run holdout validation independently per track (spawn test-agent for each).
+4. Promotion logic:
+   - **Track A passes, Track B fails**: Promote Track A. Log Track B result in manifest as `"loserResult": "failed-holdout"`. Leave Track B worktree for developer inspection.
+   - **Track B passes, Track A fails**: Promote Track B. Record `"winner": "track-b"` in manifest.
+   - **Both pass**: Promote Track A (deterministic). Record `"loserResult": "both-passed"` in manifest.
+   - **Both fail**: Merge both failure summaries into combined diagnosis. Enter Round 2 as a single code-agent with the combined diagnosis. This counts as 1 round against the 3-round max (not 2).
+5. Track A merge conflict → hard stop for this spec. Report with file details. Continue independent specs. Abandon Track B.
+6. If both-fail diagnosis is empty or malformed → fall back to running Round 2 with original spec inputs. Log: "Best-of-N diagnosis unavailable — running Round 2 with original spec."
+
+Round counting: A Best-of-N attempt (two tracks) counts as exactly 1 round against the 3-round max, regardless of how many tracks ran.
+
 ### Round N (max 3 rounds):
 
 **Step 1: Code Agents** (skip in test-only mode)
 - Read spec file and all public scenario files.
 - If fix mode: include sanitized failure summary from previous round.
+- Apply model selection from the Model Selection Table based on pipeline mode and spec tier.
 
-**Single track:** Spawn ONE code-agent with full spec and public scenarios in feature mode.
+**Single track:** Spawn ONE code-agent with full spec and public scenarios in feature mode, using the resolved model.
 
-**Multiple tracks:** Spawn code-agents in parallel with `isolation: "worktree"`, each with: full spec, all public scenarios, explicit track assignment, explicit file boundaries. Merge worktree branches back sequentially; report merge conflicts to developer.
+**Multiple tracks:** Spawn code-agents in parallel with `isolation: "worktree"`, each with: full spec, all public scenarios, explicit track assignment, explicit file boundaries, resolved model. Merge worktree branches back sequentially; report merge conflicts to developer.
 
 **Step 2: Test Agent**
 - Spawn test-agent with: the feature name (test-agent reads holdout scenarios itself), the spec file path.
@@ -164,10 +228,12 @@ After implementation (before holdout validation):
 - If promoted tests fail: keep status `"passed"`, report failure, STOP.
 
 **Step 5: Cleanup**
+- If `--afk` flag is set: capture spec `## Context` and `## Acceptance Criteria` sections BEFORE the spec file is deleted in cleanup. Read and cache spec sections first, then delete. This ordering is mandatory — cleanup deletes the spec file, so AFK spec content must be captured before cleanup proceeds. If content capture fails, log a warning and store a minimal body: "{name} — Content not available — spec was deleted before capture."
 - Commit spec/scenario files if uncommitted: "Archive {name}: spec + scenarios (promoted to permanent tests)"
 - Delete: spec file, review files, `dark-factory/scenarios/public/{name}/`, `dark-factory/scenarios/holdout/{name}/`, `dark-factory/results/{name}/`.
 - Remove entry from `dark-factory/manifest.json`.
 - Commit deletion: `git add -A dark-factory/ && git commit -m "Cleanup {name}: artifacts deleted, tests promoted"`
+- If `--afk` flag is set: pass the cached spec content to df-orchestrate for draft PR creation (see df-orchestrate's AFK PR Creation section).
 
 ## Information Barrier Rules
 

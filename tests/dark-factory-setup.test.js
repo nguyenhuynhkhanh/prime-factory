@@ -2400,10 +2400,10 @@ describe("Org-model — shared context rules", () => {
 
 describe("Token cap enforcement", () => {
   const agentCaps = {
-    "onboard-agent": 6500,  // raised from 5500: Phase 3.7d Design Intent extraction + Batch 4 sign-off (ao-design-intent)
-    "spec-agent": 5800,     // raised from 5500: Phase 2a DI shard load + Phase 4 DI auto-populate (ao-design-intent)
+    "onboard-agent": 5500,
+    "spec-agent": 5500,
     "debug-agent": 3500,
-    "architect-agent": 5500, // raised from 5000: Intent & Drift Check subsections (ao-design-intent)
+    "architect-agent": 5000,
     "code-agent": 3000,
     "test-agent": 3500,
     "promote-agent": 2500,
@@ -5070,850 +5070,247 @@ describe("project-memory-consumers — no old monolithic memory paths in any con
 
 // DF-PROMOTED-END: project-memory-consumers
 
-// DF-PROMOTED-START: ao-design-intent
+// DF-PROMOTED-START: ao-pipeline-mode
+// Source: dark-factory/scenarios/holdout/ao-pipeline-mode/
+// ao-pipeline-mode: --mode flag, model selection table, Best-of-N, --afk, manifest schema
 
-// ===========================================================================
-// ao-design-intent: Design Intent memory type — schema, agents, enforcement
-// ===========================================================================
-
-// ---------------------------------------------------------------------------
-// AC-1 through AC-4: project-memory-template.md DI schema (FR-1, FR-2, FR-3)
-// ---------------------------------------------------------------------------
-describe("ao-design-intent — project-memory-template.md DI schema (AC-1, AC-2, AC-3, AC-4)", () => {
-  const tplPath = path.join(ROOT, "dark-factory", "templates", "project-memory-template.md");
-
-  it("project-memory-template.md contains ## File Schema: design-intent shard files section (AC-1)", () => {
-    const content = fs.readFileSync(tplPath, "utf8");
+describe("ao-pipeline-mode — P-01/P-02/P-03: --mode flag values documented in df-orchestrate", () => {
+  it("df-orchestrate SKILL.md should document --mode lean flag in Trigger section", () => {
+    const content = readSkill("df-orchestrate");
     assert.ok(
-      content.includes("## File Schema: design-intent shard files"),
-      "project-memory-template.md must contain '## File Schema: design-intent shard files' section"
+      content.includes("--mode") && content.includes("lean"),
+      "df-orchestrate SKILL.md should document --mode flag with lean as a valid value"
     );
   });
-
-  it("project-memory-template.md DI entry format contains all required fields (AC-1, FR-3)", () => {
-    const content = fs.readFileSync(tplPath, "utf8");
-    const diIdx = content.indexOf("## File Schema: design-intent shard files");
-    assert.ok(diIdx !== -1, "DI schema section must exist");
-    const diSection = content.slice(diIdx);
-    assert.ok(diSection.includes("**id**"), "DI schema must include 'id' field");
-    assert.ok(diSection.includes("**title**"), "DI schema must include 'title' field");
-    assert.ok(diSection.includes("**intent**"), "DI schema must include 'intent' field");
-    assert.ok(diSection.includes("**drift_risk**"), "DI schema must include 'drift_risk' field");
-    assert.ok(diSection.includes("**protection**"), "DI schema must include 'protection' field");
-    assert.ok(diSection.includes("**scope.modules**"), "DI schema must include 'scope.modules' field");
-    assert.ok(diSection.includes("**domain**"), "DI schema must include 'domain' field");
-    assert.ok(diSection.includes("**status**"), "DI schema must include 'status' field");
-    assert.ok(diSection.includes("**introducedBy**"), "DI schema must include 'introducedBy' field");
-    assert.ok(diSection.includes("**introducedAt**"), "DI schema must include 'introducedAt' field");
-    assert.ok(diSection.includes("**rationale**"), "DI schema must include 'rationale' field");
-    assert.ok(diSection.includes("**shard**"), "DI schema must include 'shard' field");
+  it("df-orchestrate SKILL.md should document balanced as a valid mode value", () => {
+    const content = readSkill("df-orchestrate");
     assert.ok(
-      diSection.includes("**enforced_by**") || diSection.includes("**enforcement**"),
-      "DI schema must include 'enforced_by' or 'enforcement' field"
+      content.includes("balanced"),
+      "df-orchestrate SKILL.md should document 'balanced' as a valid mode value"
     );
   });
-
-  it("project-memory-template.md overview table updated to 11 files including three DI shard files (AC-2)", () => {
-    const content = fs.readFileSync(tplPath, "utf8");
+  it("df-orchestrate SKILL.md should document quality as a valid mode value", () => {
+    const content = readSkill("df-orchestrate");
     assert.ok(
-      content.includes("design-intent-security.md"),
-      "project-memory-template.md must reference design-intent-security.md in overview"
-    );
-    assert.ok(
-      content.includes("design-intent-architecture.md"),
-      "project-memory-template.md must reference design-intent-architecture.md in overview"
-    );
-    assert.ok(
-      content.includes("design-intent-api.md"),
-      "project-memory-template.md must reference design-intent-api.md in overview"
-    );
-    assert.ok(
-      content.includes("eleven files"),
-      "project-memory-template.md must state the directory contains eleven files"
-    );
-  });
-
-  it("project-memory-template.md documents [type:design-intent] as a valid index row type (AC-3)", () => {
-    const content = fs.readFileSync(tplPath, "utf8");
-    assert.ok(
-      content.includes("[type:design-intent]") || content.includes("design-intent"),
-      "project-memory-template.md must document [type:design-intent] as a valid index row type"
-    );
-    // Ensure it appears in the index row format section
-    const indexSection = content.indexOf("## File Schema: index.md");
-    assert.ok(indexSection !== -1, "index.md schema section must exist");
-    const afterIndex = content.slice(indexSection);
-    assert.ok(
-      afterIndex.includes("design-intent"),
-      "index.md schema section must document design-intent as a valid [type] value"
-    );
-  });
-
-  it("project-memory-template.md ledger entry format includes introducedDesignIntents field (AC-4)", () => {
-    const content = fs.readFileSync(tplPath, "utf8");
-    assert.ok(
-      content.includes("introducedDesignIntents"),
-      "project-memory-template.md must include 'introducedDesignIntents' field in ledger entry format"
-    );
-  });
-
-  it("project-memory-template.md contains complete DI example entry with DI-NNNN ID format (AC-1)", () => {
-    const content = fs.readFileSync(tplPath, "utf8");
-    assert.ok(
-      content.includes("DI-0001") || content.includes("DI-NNNN"),
-      "project-memory-template.md must contain a complete DI example entry with DI-NNNN or DI-0001 ID format"
+      content.includes("quality"),
+      "df-orchestrate SKILL.md should document 'quality' as a valid mode value"
     );
   });
 });
 
-// ---------------------------------------------------------------------------
-// AC-5, AC-6: spec-template.md ## Design Intent section (FR-4, FR-5)
-// ---------------------------------------------------------------------------
-describe("ao-design-intent — spec-template.md Design Intent section (AC-5, AC-6)", () => {
-  const tplPath = path.join(ROOT, "dark-factory", "templates", "spec-template.md");
-
-  it("spec-template.md contains ## Design Intent section (AC-5, FR-4)", () => {
-    const content = fs.readFileSync(tplPath, "utf8");
+describe("ao-pipeline-mode — P-04: balanced is the default --mode value", () => {
+  it("df-orchestrate SKILL.md should document balanced as the default --mode value", () => {
+    const content = readSkill("df-orchestrate");
     assert.ok(
-      content.includes("## Design Intent"),
-      "spec-template.md must contain '## Design Intent' section"
-    );
-  });
-
-  it("spec-template.md ## Design Intent section appears between ## Context and ## Scope (AC-5)", () => {
-    const content = fs.readFileSync(tplPath, "utf8");
-    const contextIdx = content.indexOf("## Context");
-    const designIntentIdx = content.indexOf("## Design Intent");
-    const scopeIdx = content.indexOf("## Scope");
-    assert.ok(contextIdx !== -1, "## Context must exist");
-    assert.ok(designIntentIdx !== -1, "## Design Intent must exist");
-    assert.ok(scopeIdx !== -1, "## Scope must exist");
-    assert.ok(
-      contextIdx < designIntentIdx && designIntentIdx < scopeIdx,
-      "## Design Intent must appear after ## Context and before ## Scope"
-    );
-  });
-
-  it("spec-template.md ## Design Intent section contains all three required fields (AC-5, FR-4)", () => {
-    const content = fs.readFileSync(tplPath, "utf8");
-    const diIdx = content.indexOf("## Design Intent");
-    assert.ok(diIdx !== -1, "## Design Intent section must exist");
-    const scopeIdx = content.indexOf("## Scope");
-    const diSection = content.slice(diIdx, scopeIdx);
-    assert.ok(
-      diSection.includes("**Intent introduced**"),
-      "## Design Intent section must contain '**Intent introduced**' field"
-    );
-    assert.ok(
-      diSection.includes("**Existing intents touched**"),
-      "## Design Intent section must contain '**Existing intents touched**' field"
-    );
-    assert.ok(
-      diSection.includes("**Drift risk**"),
-      "## Design Intent section must contain '**Drift risk**' field"
-    );
-  });
-
-  it("spec-template.md ## Design Intent section contains tier-conditionality note (AC-5, FR-4)", () => {
-    const content = fs.readFileSync(tplPath, "utf8");
-    const diIdx = content.indexOf("## Design Intent");
-    const scopeIdx = content.indexOf("## Scope");
-    const diSection = content.slice(diIdx, scopeIdx);
-    assert.ok(
-      (diSection.includes("Tier 1") && diSection.includes("Tier 2")) ||
-      (diSection.includes("OPTIONAL") && diSection.includes("SUGGESTED")),
-      "## Design Intent section must contain tier-conditionality note referencing Tier 1 (OPTIONAL) and Tier 2/3 (SUGGESTED)"
-    );
-  });
-
-  it("spec-template.md ## Design Intent section references spec-agent auto-populate behavior (AC-6, FR-5)", () => {
-    const content = fs.readFileSync(tplPath, "utf8");
-    const diIdx = content.indexOf("## Design Intent");
-    const scopeIdx = content.indexOf("## Scope");
-    const diSection = content.slice(diIdx, scopeIdx);
-    assert.ok(
-      diSection.includes("auto-populate") || diSection.includes("auto-populates"),
-      "## Design Intent section must reference spec-agent auto-populate behavior"
+      content.includes("default") && content.includes("balanced"),
+      "df-orchestrate SKILL.md should document balanced as the default --mode value"
     );
   });
 });
 
-// ---------------------------------------------------------------------------
-// AC-6: spec-agent Phase 2a loads DI shards (FR-5)
-// ---------------------------------------------------------------------------
-describe("ao-design-intent — spec-agent Phase 2a loads DI shards (AC-6, FR-5)", () => {
-  it("spec-agent Phase 2a loads design-intent-{domain}.md shards alongside INV/DEC shards", () => {
-    const content = readAgent("spec-agent");
+describe("ao-pipeline-mode — P-05: execution plan mode block documented in df-orchestrate", () => {
+  it("df-orchestrate SKILL.md should describe the mode display in the execution plan with Mode: label", () => {
+    const content = readSkill("df-orchestrate");
     assert.ok(
-      content.includes("design-intent-security.md") || content.includes("design-intent-{domain}.md"),
-      "spec-agent must reference design-intent shard files in Phase 2a memory load"
+      content.includes("Mode:"),
+      "df-orchestrate SKILL.md should document Mode: label in the execution plan"
     );
   });
-
-  it("spec-agent Phase 2a includes graceful degradation for missing DI shards", () => {
-    const content = readAgent("spec-agent");
+  it("df-orchestrate SKILL.md should describe model mapping in execution plan (Sonnet or Opus)", () => {
+    const content = readSkill("df-orchestrate");
     assert.ok(
-      content.includes("design-intent") && content.includes("non-blocking"),
-      "spec-agent must include graceful degradation note for missing DI shards"
+      content.includes("claude-sonnet") || content.includes("claude-opus"),
+      "df-orchestrate SKILL.md should document model mapping (Sonnet/Opus) in execution plan"
     );
   });
-
-  it("spec-agent Phase 4 describes DI section auto-population and developer sign-off presentation", () => {
-    const content = readAgent("spec-agent");
+  it("df-orchestrate SKILL.md should state mode block appears before developer confirmation prompt", () => {
+    const content = readSkill("df-orchestrate");
     assert.ok(
-      content.includes("Design Intent") && content.includes("auto-populate"),
-      "spec-agent must describe DI section auto-populate in Phase 4"
-    );
-    assert.ok(
-      content.includes("scope sign-off") || content.includes("sign-off"),
-      "spec-agent must describe presenting DI section to developer at scope sign-off"
+      content.includes("BEFORE") || content.includes("before") && content.includes("confirmation"),
+      "df-orchestrate SKILL.md should state mode block appears before developer confirmation"
     );
   });
 });
 
-// ---------------------------------------------------------------------------
-// AC-7, AC-8: architect-agent Intent & Drift Check subsections (FR-7, FR-8, FR-9, FR-10)
-// ---------------------------------------------------------------------------
-describe("ao-design-intent — architect-agent Intent & Drift Check (AC-7, AC-8, FR-7, FR-8, FR-9, FR-10)", () => {
-  it("architect-agent contains ### Intent & Drift Check subsection (AC-7, FR-7/8/9)", () => {
-    const content = readAgent("architect-agent");
+describe("ao-pipeline-mode — P-06: lean mode has a use-case description", () => {
+  it("df-orchestrate SKILL.md should include a use-case description for lean mode", () => {
+    const content = readSkill("df-orchestrate");
     assert.ok(
-      content.includes("### Intent & Drift Check"),
-      "architect-agent must contain '### Intent & Drift Check' subsection"
-    );
-  });
-
-  it("architect-agent Intent & Drift Check covers Security domain (AC-7, FR-7)", () => {
-    const content = readAgent("architect-agent");
-    assert.ok(
-      content.includes("Intent & Drift Check — Security") ||
-      content.includes("Intent & Drift Check — Security & Data Integrity"),
-      "architect-agent must include Intent & Drift Check for Security domain"
-    );
-  });
-
-  it("architect-agent Intent & Drift Check covers Architecture domain (AC-7, FR-8)", () => {
-    const content = readAgent("architect-agent");
-    assert.ok(
-      content.includes("Intent & Drift Check — Architecture") ||
-      content.includes("Intent & Drift Check — Architecture & Performance"),
-      "architect-agent must include Intent & Drift Check for Architecture domain"
-    );
-  });
-
-  it("architect-agent Intent & Drift Check covers API domain (AC-7, FR-9)", () => {
-    const content = readAgent("architect-agent");
-    assert.ok(
-      content.includes("Intent & Drift Check — API") ||
-      content.includes("Intent & Drift Check — API Design"),
-      "architect-agent must include Intent & Drift Check for API domain"
-    );
-  });
-
-  it("architect-agent Intent & Drift Check states source restriction: memory shards only, no codebase inference (AC-7, AC-8, FR-10, BR-3)", () => {
-    const content = readAgent("architect-agent");
-    assert.ok(
-      content.includes("NEVER infer design intents") ||
-      (content.includes("design-intent") && content.includes("NEVER") && content.includes("codebase")),
-      "architect-agent must state that DI checks use only memory shard data, never freeform codebase inference"
-    );
-  });
-
-  it("architect-agent enforcement: SUGGESTION (never CONCERN, never BLOCKER) for missing ## Design Intent on Tier 3 spec (AC-8, FR-10, INV-TBD-b)", () => {
-    const content = readAgent("architect-agent");
-    // Must have SUGGESTION for missing Design Intent section
-    assert.ok(
-      content.includes("SUGGESTION") && content.includes("Design Intent"),
-      "architect-agent must emit SUGGESTION for missing ## Design Intent section"
-    );
-    // Must explicitly say NEVER CONCERN or NEVER BLOCKER in context of DI
-    assert.ok(
-      content.includes("NEVER CONCERN") || content.includes("never CONCERN") ||
-      content.includes("NEVER BLOCKER") || content.includes("never BLOCKER"),
-      "architect-agent must explicitly state NEVER CONCERN and/or NEVER BLOCKER for DI-related findings"
-    );
-  });
-
-  it("architect-agent enforcement: CONCERN (never BLOCKER) for empty Drift risk on cross-cutting spec (AC-8, FR-10)", () => {
-    const content = readAgent("architect-agent");
-    assert.ok(
-      content.includes("CONCERN") && content.includes("Drift risk"),
-      "architect-agent must emit CONCERN for empty Drift risk on cross-cutting spec"
-    );
-    // CONCERN but never BLOCKER for Drift risk
-    assert.ok(
-      content.includes("CONCERN") && (content.includes("never BLOCKER") || content.includes("NEVER BLOCKER")),
-      "architect-agent must state CONCERN (never BLOCKER) enforcement for empty Drift risk"
-    );
-  });
-
-  it("architect-agent loads DI shards in per-domain memory probe (AC-7, FR-7/8/9)", () => {
-    const content = readAgent("architect-agent");
-    assert.ok(
-      content.includes("design-intent-security.md") && content.includes("design-intent-architecture.md") && content.includes("design-intent-api.md"),
-      "architect-agent must reference all three DI shard files in per-domain memory probe"
-    );
-  });
-
-  it("architect-agent includes graceful degradation for missing DI shards (FR-14)", () => {
-    const content = readAgent("architect-agent");
-    assert.ok(
-      content.includes("DI shard") && content.includes("not found"),
-      "architect-agent must include DI shard missing graceful-degradation message"
+      (content.includes("lean") && (
+        content.includes("rapid iteration") ||
+        content.includes("low-risk") ||
+        content.includes("Fast and cheap") ||
+        content.includes("prototyping")
+      )),
+      "df-orchestrate SKILL.md should include a use-case description for lean mode in the execution plan"
     );
   });
 });
 
-// ---------------------------------------------------------------------------
-// AC-9, AC-10: onboard-agent Phase 3.7d and Batch 4 (FR-11, FR-12)
-// ---------------------------------------------------------------------------
-describe("ao-design-intent — onboard-agent Phase 3.7d Design Intent extraction (AC-9, FR-11)", () => {
-  it("onboard-agent Phase 3.7 includes Phase 3.7d Design Intent extraction step (AC-9, FR-11)", () => {
-    const content = readAgent("onboard-agent");
+describe("ao-pipeline-mode — P-07: quality mode has a use-case description", () => {
+  it("df-orchestrate SKILL.md should include a use-case description for quality mode", () => {
+    const content = readSkill("df-orchestrate");
     assert.ok(
-      content.includes("3.7d") || content.includes("3.7d Design Intent"),
-      "onboard-agent must include Phase 3.7d Design Intent extraction step"
-    );
-  });
-
-  it("onboard-agent Phase 3.7d scans agent MUST/NEVER/ALWAYS rules as source (AC-9, FR-11)", () => {
-    const content = readAgent("onboard-agent");
-    assert.ok(
-      content.includes("DI-CANDIDATE") || (content.includes("design intent") && content.includes("MUST") && content.includes("NEVER")),
-      "onboard-agent Phase 3.7d must scan agent MUST/NEVER/ALWAYS rules as a DI source"
-    );
-  });
-
-  it("onboard-agent Phase 3.7d uses DI-CANDIDATE-N candidate shape (AC-9, FR-11)", () => {
-    const content = readAgent("onboard-agent");
-    assert.ok(
-      content.includes("DI-CANDIDATE"),
-      "onboard-agent must use DI-CANDIDATE-N candidate shape in Phase 3.7d"
-    );
-  });
-
-  it("onboard-agent Phase 3.7d low-confidence candidates default to rejected (AC-9, FR-11, BR-8)", () => {
-    const content = readAgent("onboard-agent");
-    // Phase 3.7d should inherit the same LOW CONFIDENCE → rejected policy
-    const diIdx = content.indexOf("3.7d");
-    assert.ok(diIdx !== -1, "Phase 3.7d must exist");
-    assert.ok(
-      content.includes("[LOW CONFIDENCE]") || content.includes("low-confidence candidates default to rejected"),
-      "onboard-agent Phase 3.7d must state low-confidence candidates default to rejected"
+      (content.includes("quality") && (
+        content.includes("critical features") ||
+        content.includes("pre-release") ||
+        content.includes("Maximum confidence") ||
+        content.includes("complex migrations")
+      )),
+      "df-orchestrate SKILL.md should include a use-case description for quality mode in the execution plan"
     );
   });
 });
 
-describe("ao-design-intent — onboard-agent Phase 7 Batch 4 Design Intents (AC-10, FR-12)", () => {
-  it("onboard-agent Phase 7 Memory Sign-Off includes Batch 4 — Design Intents (AC-10, FR-12)", () => {
-    const content = readAgent("onboard-agent");
+describe("ao-pipeline-mode — P-08: df-orchestrate documents forwarding mode to implementation-agent", () => {
+  it("df-orchestrate SKILL.md should document passing pipeline mode to implementation-agent spawn", () => {
+    const content = readSkill("df-orchestrate");
     assert.ok(
-      content.includes("Batch 4") && content.includes("Design Intent"),
-      "onboard-agent Phase 7 must include Batch 4 — Design Intents"
-    );
-  });
-
-  it("onboard-agent Batch 4 has per-entry accept/edit/reject semantics (AC-10, FR-12)", () => {
-    const content = readAgent("onboard-agent");
-    const batch4Idx = content.indexOf("Batch 4");
-    assert.ok(batch4Idx !== -1, "Batch 4 must exist");
-    const afterBatch4 = content.slice(batch4Idx, batch4Idx + 400);
-    assert.ok(
-      afterBatch4.includes("accept") && afterBatch4.includes("reject"),
-      "Batch 4 must have per-entry accept/reject semantics"
-    );
-  });
-
-  it("onboard-agent Bootstrap Write Exception updated to include DI shard files (AC-10, FR-12)", () => {
-    const content = readAgent("onboard-agent");
-    const exceptionIdx = content.indexOf("Bootstrap Write Exception");
-    assert.ok(exceptionIdx !== -1, "Bootstrap Write Exception section must exist");
-    const afterException = content.slice(exceptionIdx, exceptionIdx + 600);
-    assert.ok(
-      afterException.includes("design-intent-security.md") && afterException.includes("design-intent-architecture.md") && afterException.includes("design-intent-api.md"),
-      "Bootstrap Write Exception must include all three DI shard files"
+      content.includes("pipeline mode") || (content.includes("mode") && content.includes("implementation-agent")),
+      "df-orchestrate SKILL.md should document forwarding mode to implementation-agent spawn"
     );
   });
 });
 
-// ---------------------------------------------------------------------------
-// AC-11: promote-agent DI write-through (FR-6)
-// ---------------------------------------------------------------------------
-describe("ao-design-intent — promote-agent DI write-through (AC-11, FR-6)", () => {
-  it("promote-agent contains DI write-through step (AC-11, FR-6)", () => {
-    const content = readAgent("promote-agent");
+describe("ao-pipeline-mode — P-09: model selection table documented in implementation-agent", () => {
+  it("implementation-agent.md should mention claude-sonnet for lean mode or Tier 1/2 in balanced mode", () => {
+    const content = readAgent("implementation-agent");
     assert.ok(
-      content.includes("Design Intent") && (content.includes("DI write-through") || content.includes("DI-TBD")),
-      "promote-agent must contain a DI write-through step"
+      content.includes("claude-sonnet"),
+      "implementation-agent.md should mention claude-sonnet as a model option"
     );
   });
-
-  it("promote-agent DI write-through reads spec ## Design Intent section (AC-11, FR-6)", () => {
-    const content = readAgent("promote-agent");
+  it("implementation-agent.md should mention claude-opus for quality mode or Tier 3 in balanced mode", () => {
+    const content = readAgent("implementation-agent");
     assert.ok(
-      content.includes("## Design Intent") && content.includes("spec"),
-      "promote-agent must instruct reading spec's ## Design Intent section for DI write-through"
+      content.includes("claude-opus"),
+      "implementation-agent.md should mention claude-opus as a model option"
     );
   });
-
-  it("promote-agent DI write-through assigns permanent DI-NNNN IDs (AC-11, FR-6, FR-2)", () => {
-    const content = readAgent("promote-agent");
+  it("implementation-agent.md should use model IDs without version suffixes", () => {
+    const content = readAgent("implementation-agent");
     assert.ok(
-      content.includes("DI-TBD") && (content.includes("DI-NNNN") || content.includes("permanent")),
-      "promote-agent must replace DI-TBD-* placeholders with permanent DI-NNNN IDs"
-    );
-  });
-
-  it("promote-agent DI write-through writes to design-intent-{domain}.md shard (AC-11, FR-6)", () => {
-    const content = readAgent("promote-agent");
-    assert.ok(
-      content.includes("design-intent-") && content.includes(".md"),
-      "promote-agent must write DI entries to design-intent-{domain}.md shards"
-    );
-  });
-
-  it("promote-agent DI write-through updates memory/index.md with DI rows (AC-11, FR-6)", () => {
-    const content = readAgent("promote-agent");
-    assert.ok(
-      content.includes("index.md") && content.includes("design-intent"),
-      "promote-agent must update memory/index.md with new DI rows"
-    );
-  });
-
-  it("promote-agent DI write-through records introducedDesignIntents in ledger entry (AC-11, FR-6)", () => {
-    const content = readAgent("promote-agent");
-    assert.ok(
-      content.includes("introducedDesignIntents"),
-      "promote-agent must record introducedDesignIntents in the FEAT ledger entry"
-    );
-  });
-
-  it("promote-agent DI write-through skips without error if spec has no ## Design Intent section (AC-11, FR-6, EC-1)", () => {
-    const content = readAgent("promote-agent");
-    assert.ok(
-      content.includes("skip") && content.includes("Design Intent"),
-      "promote-agent must skip DI write-through without error if spec has no ## Design Intent section"
+      !(/claude-opus-[\d]/.test(content)) && !(/claude-sonnet-[\d]/.test(content)),
+      "implementation-agent.md should use model IDs without version suffixes (found 'claude-opus-X' or 'claude-sonnet-X')"
     );
   });
 });
 
-// ---------------------------------------------------------------------------
-// AC-12: dark-factory-context.md references design-intent shards (FR-13)
-// ---------------------------------------------------------------------------
-describe("ao-design-intent — dark-factory-context.md DI shard guidance (AC-12, FR-13)", () => {
-  it("dark-factory-context.md references design-intent shards as load-on-demand context (AC-12, FR-13)", () => {
-    const ctxPath = path.join(ROOT, ".claude", "rules", "dark-factory-context.md");
-    const content = fs.readFileSync(ctxPath, "utf8");
+describe("ao-pipeline-mode — P-10: judge agents always use claude-sonnet regardless of mode", () => {
+  it("implementation-agent.md should document that judge agents always use claude-sonnet regardless of mode", () => {
+    const content = readAgent("implementation-agent");
     assert.ok(
-      content.includes("design-intent"),
-      "dark-factory-context.md must reference design-intent shards"
-    );
-  });
-
-  it("dark-factory-context.md DI guidance is additive (does not modify existing load instructions) (FR-13)", () => {
-    const ctxPath = path.join(ROOT, ".claude", "rules", "dark-factory-context.md");
-    const content = fs.readFileSync(ctxPath, "utf8");
-    // Must still contain the core existing instructions
-    assert.ok(content.includes("project-profile.md"), "dark-factory-context.md must still reference project-profile.md");
-    assert.ok(content.includes("manifest.json"), "dark-factory-context.md must still reference manifest.json");
-    assert.ok(content.includes("memory/index.md"), "dark-factory-context.md must still reference memory/index.md");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// AC-13: DI shard files exist with header comment (FR-1)
-// ---------------------------------------------------------------------------
-describe("ao-design-intent — DI shard files bootstrapped (AC-13, FR-1)", () => {
-  it("dark-factory/memory/design-intent-security.md exists (AC-13)", () => {
-    assert.ok(
-      fs.existsSync(path.join(ROOT, "dark-factory", "memory", "design-intent-security.md")),
-      "dark-factory/memory/design-intent-security.md must exist"
-    );
-  });
-
-  it("dark-factory/memory/design-intent-architecture.md exists (AC-13)", () => {
-    assert.ok(
-      fs.existsSync(path.join(ROOT, "dark-factory", "memory", "design-intent-architecture.md")),
-      "dark-factory/memory/design-intent-architecture.md must exist"
-    );
-  });
-
-  it("dark-factory/memory/design-intent-api.md exists (AC-13)", () => {
-    assert.ok(
-      fs.existsSync(path.join(ROOT, "dark-factory", "memory", "design-intent-api.md")),
-      "dark-factory/memory/design-intent-api.md must exist"
-    );
-  });
-
-  it("design-intent-security.md contains bootstrap header comment (AC-13)", () => {
-    const content = fs.readFileSync(path.join(ROOT, "dark-factory", "memory", "design-intent-security.md"), "utf8");
-    assert.ok(
-      content.includes("Bootstrap") || content.includes("bootstrap"),
-      "design-intent-security.md must contain bootstrap header comment"
-    );
-  });
-
-  it("design-intent-architecture.md contains bootstrap header comment (AC-13)", () => {
-    const content = fs.readFileSync(path.join(ROOT, "dark-factory", "memory", "design-intent-architecture.md"), "utf8");
-    assert.ok(
-      content.includes("Bootstrap") || content.includes("bootstrap"),
-      "design-intent-architecture.md must contain bootstrap header comment"
-    );
-  });
-
-  it("design-intent-api.md contains bootstrap header comment (AC-13)", () => {
-    const content = fs.readFileSync(path.join(ROOT, "dark-factory", "memory", "design-intent-api.md"), "utf8");
-    assert.ok(
-      content.includes("Bootstrap") || content.includes("bootstrap"),
-      "design-intent-api.md must contain bootstrap header comment"
+      (content.includes("architect-agent") && content.includes("claude-sonnet") && (
+        content.includes("always") || content.includes("regardless of")
+      )) ||
+      (content.includes("judge agents") && content.includes("claude-sonnet")),
+      "implementation-agent.md should document that judge agents (architect-agent, test-agent) always use claude-sonnet regardless of mode"
     );
   });
 });
 
-// ---------------------------------------------------------------------------
-// AC-14: Plugin mirror parity (FR-16)
-// ---------------------------------------------------------------------------
-describe("ao-design-intent — plugin mirror parity (AC-14, FR-16)", () => {
-  it("plugins/dark-factory/templates/project-memory-template.md matches source (AC-14)", () => {
-    const source = fs.readFileSync(path.join(ROOT, "dark-factory", "templates", "project-memory-template.md"), "utf8");
-    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "templates", "project-memory-template.md"), "utf8");
-    assert.equal(source, plugin, "Plugin project-memory-template.md must match source exactly (ao-design-intent)");
-  });
-
-  it("plugins/dark-factory/templates/spec-template.md matches source (AC-14)", () => {
-    const source = fs.readFileSync(path.join(ROOT, "dark-factory", "templates", "spec-template.md"), "utf8");
-    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "templates", "spec-template.md"), "utf8");
-    assert.equal(source, plugin, "Plugin spec-template.md must match source exactly (ao-design-intent)");
-  });
-
-  it("plugins/dark-factory/agents/spec-agent.md matches source (AC-14)", () => {
-    const source = fs.readFileSync(path.join(ROOT, ".claude", "agents", "spec-agent.md"), "utf8");
-    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "agents", "spec-agent.md"), "utf8");
-    assert.equal(source, plugin, "Plugin spec-agent.md must match source exactly (ao-design-intent)");
-  });
-
-  it("plugins/dark-factory/agents/architect-agent.md matches source (AC-14)", () => {
-    const source = fs.readFileSync(path.join(ROOT, ".claude", "agents", "architect-agent.md"), "utf8");
-    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "agents", "architect-agent.md"), "utf8");
-    assert.equal(source, plugin, "Plugin architect-agent.md must match source exactly (ao-design-intent)");
-  });
-
-  it("plugins/dark-factory/agents/onboard-agent.md matches source (AC-14)", () => {
-    const source = fs.readFileSync(path.join(ROOT, ".claude", "agents", "onboard-agent.md"), "utf8");
-    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "agents", "onboard-agent.md"), "utf8");
-    assert.equal(source, plugin, "Plugin onboard-agent.md must match source exactly (ao-design-intent)");
-  });
-
-  it("plugins/dark-factory/agents/promote-agent.md matches source (AC-14)", () => {
-    const source = fs.readFileSync(path.join(ROOT, ".claude", "agents", "promote-agent.md"), "utf8");
-    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "agents", "promote-agent.md"), "utf8");
-    assert.equal(source, plugin, "Plugin promote-agent.md must match source exactly (ao-design-intent)");
-  });
-
-  it("plugins/dark-factory/rules/dark-factory-context.md matches source (AC-14)", () => {
-    const source = fs.readFileSync(path.join(ROOT, ".claude", "rules", "dark-factory-context.md"), "utf8");
-    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "rules", "dark-factory-context.md"), "utf8");
-    assert.equal(source, plugin, "Plugin dark-factory-context.md must match source exactly (ao-design-intent)");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Holdout scenarios H-01..H-18 (promoted from holdout validation)
-// ---------------------------------------------------------------------------
-
-describe("ao-design-intent — H-01: DI TBD IDs are spec-local; promote-agent assigns sequential permanent IDs", () => {
-  it("promote-agent scans existing DI-NNNN IDs to assign next sequential ID", () => {
-    const content = readAgent("promote-agent");
-    assert.ok(content.includes("sequential") && content.includes("DI-"), "promote-agent must describe sequential DI ID assignment");
-  });
-  it("promote-agent uses DI-TBD-* placeholder resolution pattern", () => {
-    const content = readAgent("promote-agent");
-    assert.ok(content.includes("DI-TBD"), "promote-agent must reference DI-TBD-* placeholder IDs for resolution");
-  });
-});
-
-describe("ao-design-intent — H-02: DI-TBD-* missing required field triggers architect BLOCKER", () => {
-  it("architect-agent specifies BLOCKER for DI-TBD-* missing required fields", () => {
-    const content = readAgent("architect-agent");
-    assert.ok(content.includes("DI-TBD") && content.includes("required"), "architect-agent must BLOCKER on DI-TBD-* entries missing required fields");
-  });
-  it("architect-agent memory probe references DI-specific required fields (intent/drift_risk)", () => {
-    const content = readAgent("architect-agent");
-    assert.ok(content.includes("drift_risk") || content.includes("intent"), "architect-agent must reference DI-specific required fields");
-  });
-});
-
-describe("ao-design-intent — H-04: Developer rejection of auto-populated Design Intent is authoritative", () => {
-  it("spec-agent states developer decision at scope sign-off is authoritative for DI section", () => {
-    const content = readAgent("spec-agent");
-    assert.ok(content.includes("developer") && (content.includes("authoritative") || content.includes("developer's decision")), "spec-agent must state developer decision on DI section is authoritative");
-  });
-});
-
-describe("ao-design-intent — H-05: Promote-agent skips DI write-through when no ## Design Intent", () => {
-  it("promote-agent records introducedDesignIntents: [] even when no DI entries", () => {
-    const content = readAgent("promote-agent");
-    assert.ok(content.includes("introducedDesignIntents"), "promote-agent must record introducedDesignIntents field");
-  });
-});
-
-describe("ao-design-intent — H-06: Promote-agent creates DI shard if absent", () => {
-  it("promote-agent creates DI shard file if it does not exist", () => {
-    const content = readAgent("promote-agent");
-    assert.ok(content.includes("design-intent") && (content.includes("does not exist") || content.includes("create")), "promote-agent must handle absent DI shards by creating them");
-  });
-});
-
-describe("ao-design-intent — H-07: Architect source restriction — DI shards only, no codebase inference", () => {
-  it("architect-agent prohibits inferring design intents from codebase reading", () => {
-    const content = readAgent("architect-agent");
-    assert.ok(content.includes("NEVER infer design intents"), "architect-agent must prohibit DI inference from codebase reading");
-  });
-});
-
-describe("ao-design-intent — H-11: Onboard Batch 4 zero candidates message", () => {
-  it("onboard-agent shows 'No design intent candidates found' when Phase 3.7d produces zero candidates", () => {
-    const content = readAgent("onboard-agent");
-    assert.ok(content.includes("No design intent candidates found"), "onboard-agent must display zero-candidates message in Batch 4");
-  });
-});
-
-describe("ao-design-intent — H-13: DI guards field is opaque to code-agent", () => {
-  it("project-memory-template.md states DI guards field is opaque to code-agent", () => {
-    const tplPath = path.join(ROOT, "dark-factory", "templates", "project-memory-template.md");
-    const content = fs.readFileSync(tplPath, "utf8");
-    assert.ok(content.includes("guards") && content.includes("opaque"), "project-memory-template.md must state DI guards field is opaque to code-agent");
-  });
-});
-
-describe("ao-design-intent — H-14: Spec-agent with no DI shards produces placeholder Design Intent", () => {
-  it("spec-agent produces placeholder prose when DI shards are absent for Tier 2/3 specs", () => {
-    const content = readAgent("spec-agent");
-    assert.ok(content.includes("No design intent baseline found") || content.includes("placeholder"), "spec-agent must describe placeholder behavior when DI shards are absent");
-  });
-});
-
-describe("ao-design-intent — H-15: DI-TBD declared but Intent introduced empty → architect CONCERN", () => {
-  it("architect-agent emits CONCERN when DI-TBD entries exist but Intent introduced field is empty", () => {
-    const content = readAgent("architect-agent");
-    assert.ok(content.includes("DI-TBD") && content.includes("CONCERN") && content.includes("Intent introduced"), "architect-agent must emit CONCERN when DI-TBD declared but Intent introduced empty");
-  });
-});
-
-describe("ao-design-intent — H-16: Invalid domain DI candidate rerouted to architecture + UNCLASSIFIED tag", () => {
-  it("onboard-agent routes invalid-domain DI candidates with [UNCLASSIFIED DOMAIN] tag", () => {
-    const content = readAgent("onboard-agent");
-    assert.ok(content.includes("[UNCLASSIFIED DOMAIN]"), "onboard-agent must apply [UNCLASSIFIED DOMAIN] tag to invalid-domain DI candidates");
-  });
-});
-
-describe("ao-design-intent — H-17: Architect emits SUGGESTION for unknown DI-NNNN in spec", () => {
-  it("architect-agent emits SUGGESTION for DI-NNNN referenced in spec but not found in shard", () => {
-    const content = readAgent("architect-agent");
-    assert.ok(content.includes("DI-NNNN referenced in spec but not found in design intent shards"), "architect-agent must emit SUGGESTION for DI-NNNN not found in shard");
-  });
-});
-
-describe("ao-design-intent — H-18: Superseded DI entries not checked by architect", () => {
-  it("architect-agent checks only active DI entries (status: active)", () => {
-    const content = readAgent("architect-agent");
-    assert.ok(content.includes("status: active") || (content.includes("Only check") && content.includes("active")), "architect-agent must only check status: active entries");
-  });
-});
-
-// DF-PROMOTED-END: ao-design-intent
-
-// ===========================================================================
-// Promoted from Dark Factory holdout: ao-org-context
-// Feature: Add Org Context section to project profile — org vocabulary, compliance, PR reviewer routing
-// Guards: dark-factory/templates/project-profile-template.md, dark-factory/templates/project-profile-slim-template.md, .claude/agents/onboard-agent.md, .claude/agents/spec-agent.md, plugins/dark-factory/
-// DF-PROMOTED-START: ao-org-context
-// ===========================================================================
-
-describe("ao-org-context — P-01: project-profile-template.md contains Org Context section with all 5 fields", () => {
-  it("template has ## Org Context heading", () => {
-    const template = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
-    assert.ok(template.includes("## Org Context"), "project-profile-template.md must contain ## Org Context section");
-  });
-
-  it("template Org Context has Core values/priorities field", () => {
-    const template = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
-    assert.ok(template.includes("Core values/priorities"), "Org Context must include Core values/priorities field");
-  });
-
-  it("template Org Context has Domain vocabulary field", () => {
-    const template = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
-    assert.ok(template.includes("Domain vocabulary"), "Org Context must include Domain vocabulary field");
-  });
-
-  it("template Org Context has Team structure field", () => {
-    const template = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
-    assert.ok(template.includes("Team structure"), "Org Context must include Team structure field");
-  });
-
-  it("template Org Context has Open constraints field", () => {
-    const template = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
-    assert.ok(template.includes("Open constraints"), "Org Context must include Open constraints field");
-  });
-
-  it("template Org Context has PR reviewer handles field", () => {
-    const template = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
-    assert.ok(template.includes("PR reviewer handles"), "Org Context must include PR reviewer handles field");
-  });
-
-  it("Org Context section appears after Developer Notes", () => {
-    const template = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
-    const devNotesPos = template.indexOf("## Developer Notes");
-    const orgCtxPos = template.indexOf("## Org Context");
-    assert.ok(devNotesPos > -1 && orgCtxPos > -1, "Both Developer Notes and Org Context must exist");
-    assert.ok(orgCtxPos > devNotesPos, "Org Context must appear after Developer Notes");
-  });
-});
-
-describe("ao-org-context — P-02: Org Context section warns against committing secrets", () => {
-  it("template Org Context section warns against secrets being committed to git", () => {
-    const template = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
-    const orgCtxIdx = template.indexOf("## Org Context");
-    assert.ok(orgCtxIdx !== -1, "## Org Context must exist");
-    const afterOrgCtx = template.slice(orgCtxIdx);
+describe("ao-pipeline-mode — P-11: --afk flag documented in df-orchestrate trigger section", () => {
+  it("df-orchestrate SKILL.md should document --afk flag", () => {
+    const content = readSkill("df-orchestrate");
     assert.ok(
-      afterOrgCtx.includes("committed to git") || afterOrgCtx.includes("not store secrets"),
-      "Org Context section must warn against committing secrets to git"
+      content.includes("--afk"),
+      "df-orchestrate SKILL.md should document --afk flag in trigger section"
+    );
+  });
+  it("df-orchestrate SKILL.md should describe --afk as creating a draft PR", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("draft") || content.includes("gh pr create") || content.includes("auto-PR") || content.includes("draft PR"),
+      "df-orchestrate SKILL.md should document --afk flag with PR creation description"
     );
   });
 });
 
-describe("ao-org-context — P-03: slim profile template excludes Org Context and notes its exclusion", () => {
-  it("slim template does NOT contain ## Org Context heading", () => {
-    const slim = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-slim-template.md"), "utf8");
-    assert.ok(!slim.includes("## Org Context"), "Slim template must NOT contain ## Org Context section");
-  });
-
-  it("slim template notes that Org Context is excluded / available in full profile", () => {
-    const slim = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-slim-template.md"), "utf8");
+describe("ao-pipeline-mode — P-12: --afk spec content captured before cleanup deletes spec file", () => {
+  it("implementation-agent.md should document that --afk spec content is captured before spec file is deleted", () => {
+    const content = readAgent("implementation-agent");
     assert.ok(
-      slim.includes("Org Context") && (slim.includes("not included") || slim.includes("excluded") || slim.includes("full profile")),
-      "Slim template must note that Org Context is excluded and available in full profile"
+      (content.includes("--afk") && (
+        content.includes("before") && (content.includes("deleted") || content.includes("cleanup"))
+      )) ||
+      content.includes("capture spec") ||
+      content.includes("Read and cache spec sections first"),
+      "implementation-agent.md should document that --afk spec content is captured before the spec file is deleted"
     );
   });
 });
 
-describe("ao-org-context — P-04: onboard-agent Phase 6 includes org context question", () => {
-  it("onboard-agent includes org context capture in Phase 6", () => {
-    const onboard = readAgent("onboard-agent");
+describe("ao-pipeline-mode — P-13: --afk --skip-tests combination is documented as a warning (not error)", () => {
+  it("df-orchestrate SKILL.md should document --afk --skip-tests as a warning (not an error)", () => {
+    const content = readSkill("df-orchestrate");
     assert.ok(
-      onboard.includes("Org Context") || onboard.includes("org context") || onboard.includes("org-level"),
-      "onboard-agent must include org context question in Phase 6"
-    );
-  });
-
-  it("onboard-agent org context question mentions at least one example domain", () => {
-    const onboard = readAgent("onboard-agent");
-    assert.ok(
-      onboard.includes("compliance") || onboard.includes("vocabulary") || onboard.includes("team structure"),
-      "onboard-agent org context question must mention at least one example domain"
+      content.includes("--afk") && (
+        content.includes("warn but don't error") ||
+        content.includes("warning") ||
+        content.includes("warn but proceed") ||
+        content.includes("Warn (but don't error)")
+      ),
+      "df-orchestrate SKILL.md should document --afk --skip-tests as a warning (not an error)"
     );
   });
 });
 
-describe("ao-org-context — P-05: onboard-agent preserve-on-rerun behavior for Org Context", () => {
-  it("onboard-agent specifies preserve-on-rerun for existing Org Context", () => {
-    const onboard = readAgent("onboard-agent");
+describe("ao-pipeline-mode — P-14: --mode lean --best-of-n documented as error", () => {
+  it("df-orchestrate SKILL.md should document that --best-of-n is not a standalone flag", () => {
+    const content = readSkill("df-orchestrate");
     assert.ok(
-      onboard.includes("Org Context already exists") || onboard.includes("update it") || onboard.includes("preserve"),
-      "onboard-agent must specify preserve-on-rerun behavior for Org Context"
+      content.includes("best-of-n") && (
+        content.includes("not a standalone flag") ||
+        content.includes("--mode quality") ||
+        content.includes("is not a standalone")
+      ),
+      "df-orchestrate SKILL.md should document that --best-of-n is not a standalone flag and direct users to --mode quality"
     );
   });
 });
 
-describe("ao-org-context — P-06: spec-agent reads Org Context and applies domain vocabulary", () => {
-  it("spec-agent references Org Context section from profile", () => {
-    const spec = readAgent("spec-agent");
+describe("ao-pipeline-mode — P-15: manifest mode field documented in implementation-agent", () => {
+  it("implementation-agent.md should document writing the mode field to manifest entry", () => {
+    const content = readAgent("implementation-agent");
     assert.ok(
-      spec.includes("Org Context") || spec.includes("org context"),
-      "spec-agent must reference Org Context section"
-    );
-  });
-
-  it("spec-agent instructs vocabulary application", () => {
-    const spec = readAgent("spec-agent");
-    assert.ok(
-      spec.includes("domain vocabulary") || spec.includes("Domain vocabulary") || spec.includes("vocabulary"),
-      "spec-agent must instruct vocabulary application from Org Context"
-    );
-  });
-
-  it("spec-agent makes Org Context reading conditional on presence", () => {
-    const spec = readAgent("spec-agent");
-    assert.ok(
-      spec.includes("if present") || spec.includes("when present") || spec.includes("absent") || spec.includes("optional"),
-      "spec-agent must state that Org Context reading is conditional on presence"
+      content.includes('"mode"') || (content.includes("mode") && content.includes("manifest")),
+      "implementation-agent.md should document writing the 'mode' field to the manifest entry"
     );
   });
 });
 
-describe("ao-org-context — P-07: spec-agent includes compliance constraints in spec sections", () => {
-  it("spec-agent mentions compliance or open constraints application", () => {
-    const spec = readAgent("spec-agent");
+describe("ao-pipeline-mode — P-16: --mode and --skip-tests are NOT mutually exclusive", () => {
+  it("df-orchestrate SKILL.md should not treat --mode and --skip-tests as mutually exclusive", () => {
+    const content = readSkill("df-orchestrate");
+    // Verify the mutual-exclusivity block only covers --group/--all conflicts, not --mode/--skip-tests
+    const mutualExSection = content.match(/Mutual exclusivity[\s\S]*?(?=\n##|\n###|$)/);
+    if (mutualExSection) {
+      // If there's a mutual exclusivity section, it should NOT pair --mode with --skip-tests as mutually exclusive
+      const section = mutualExSection[0];
+      assert.ok(
+        !(section.includes("--mode") && section.includes("--skip-tests") && section.includes("Error:")),
+        "df-orchestrate SKILL.md should not treat --mode and --skip-tests as mutually exclusive"
+      );
+    }
+    // Also verify the flag is documented as orthogonal
     assert.ok(
-      spec.includes("Open constraints") || spec.includes("compliance") || spec.includes("constraints"),
-      "spec-agent must mention compliance/constraint application from Org Context"
-    );
-  });
-
-  it("spec-agent names at least one target section for compliance injection", () => {
-    const spec = readAgent("spec-agent");
-    assert.ok(
-      spec.includes("Migration") || spec.includes("Business Rules") || spec.includes("Error Handling"),
-      "spec-agent must name at least one target spec section for compliance injection"
-    );
-  });
-});
-
-describe("ao-org-context — P-08: spec-agent references PR reviewer handles", () => {
-  it("spec-agent instructs PR reviewer handle reference from Org Context", () => {
-    const spec = readAgent("spec-agent");
-    assert.ok(
-      spec.includes("PR reviewer") || spec.includes("reviewer handles") || spec.includes("PR routing"),
-      "spec-agent must reference PR reviewer handles from Org Context"
+      content.includes("--mode") && content.includes("--skip-tests"),
+      "df-orchestrate SKILL.md should document both --mode and --skip-tests"
     );
   });
 });
 
-describe("ao-org-context — P-09: plugin mirrors match source files for all four changed files", () => {
-  it("plugins project-profile-template.md matches source", () => {
-    const source = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-template.md"), "utf8");
-    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "templates", "project-profile-template.md"), "utf8");
-    assert.equal(source, plugin, "Plugin project-profile-template.md must be byte-for-byte identical to source");
+describe("ao-pipeline-mode — plugin mirror parity", () => {
+  it("Plugin df-orchestrate SKILL.md must match source exactly (ao-pipeline-mode)", () => {
+    const source = fs.readFileSync(path.join(ROOT, ".claude", "skills", "df-orchestrate", "SKILL.md"), "utf8");
+    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "skills", "df-orchestrate", "SKILL.md"), "utf8");
+    assert.equal(source, plugin, "Plugin df-orchestrate SKILL.md must match source exactly (ao-pipeline-mode)");
   });
-
-  it("plugins project-profile-slim-template.md matches source", () => {
-    const source = fs.readFileSync(path.join(DF_DIR, "templates", "project-profile-slim-template.md"), "utf8");
-    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "templates", "project-profile-slim-template.md"), "utf8");
-    assert.equal(source, plugin, "Plugin project-profile-slim-template.md must be byte-for-byte identical to source");
-  });
-
-  it("plugins onboard-agent.md matches source", () => {
-    const source = fs.readFileSync(path.join(ROOT, ".claude", "agents", "onboard-agent.md"), "utf8");
-    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "agents", "onboard-agent.md"), "utf8");
-    assert.equal(source, plugin, "Plugin onboard-agent.md must be byte-for-byte identical to source after ao-org-context");
-  });
-
-  it("plugins spec-agent.md matches source", () => {
-    const source = fs.readFileSync(path.join(ROOT, ".claude", "agents", "spec-agent.md"), "utf8");
-    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "agents", "spec-agent.md"), "utf8");
-    assert.equal(source, plugin, "Plugin spec-agent.md must be byte-for-byte identical to source after ao-org-context");
+  it("Plugin implementation-agent.md must match source exactly (ao-pipeline-mode)", () => {
+    const source = fs.readFileSync(path.join(ROOT, ".claude", "agents", "implementation-agent.md"), "utf8");
+    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "agents", "implementation-agent.md"), "utf8");
+    assert.equal(source, plugin, "Plugin implementation-agent.md must match source exactly (ao-pipeline-mode)");
   });
 });
 
-describe("ao-org-context — P-10: absent Org Context causes no degraded behavior", () => {
-  it("spec-agent handles absent Org Context gracefully (conditional language)", () => {
-    const spec = readAgent("spec-agent");
-    assert.ok(
-      spec.includes("if present") || spec.includes("when present") || spec.includes("absent") || spec.includes("optional"),
-      "spec-agent must state that Org Context reading is conditional — absent section is not an error"
-    );
-  });
-});
-
-// DF-PROMOTED-END: ao-org-context
+// DF-PROMOTED-END: ao-pipeline-mode
