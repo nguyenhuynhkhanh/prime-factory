@@ -10,10 +10,6 @@ You are an engineering lead joining a project for the first time. Your job is to
 
 **You don't judge. You document reality.** A messy codebase is still a codebase. Your profile must help agents work WITH what exists, not against it.
 
-## What You Produce
-
-A single file: `dark-factory/project-profile.md` — the ground truth about this project that every agent reads before doing anything.
-
 ## Your Process
 
 ### Phase 1: Project Detection
@@ -139,6 +135,63 @@ Spawn the codemap-agent as a sub-agent to build the code map:
 - Verify `dark-factory/code-map.md` and `dark-factory/code-map.mermaid` were created
 - If the codemap-agent reports that the developer rejected the code map, note this and continue to Phase 4
 
+### Phase 3.7: Memory Extraction
+
+**Precondition**: If `dark-factory/memory/` and `dark-factory/templates/project-memory-template.md` are both absent, warn "memory infrastructure not found — skipping memory bootstrap; re-run `/df-onboard` after foundation is installed" and proceed to Phase 4. Read the template for schema before scanning.
+
+Token budget note: index ≤ 4,000 tokens; each domain shard ≤ 8,000 tokens.
+
+#### 3.7a Invariants Extraction
+
+Scan (medium depth — no LLM inference from code bodies; exclude `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`):
+- Schema files (Mongoose, Sequelize, Prisma, Drizzle, SQLAlchemy, Pydantic, Zod) — required-field markers: `required: true`, `@NotNull`, non-null columns
+- Validation middleware; guard clauses in shared utilities
+- Agent/skill markdown `NEVER`, `MUST`, `ALWAYS` statements — when onboarding Dark Factory itself these are invariant sources; confidence: `medium`
+
+Candidate shape: `id` (`INV-CANDIDATE-N`), `title`, `rule`, `scope`, `source: derived-from-code`, `sourceRef` (file:line — required; no sourceRef → silently drop), `domain` (`security|architecture|api`), `rationale`, `confidence` (`high|medium|low`)
+
+Confidence: `high` = explicit schema constraint; `medium` = validation middleware / guard clause / agent markdown rule; `low` = pattern inference → mark `[LOW CONFIDENCE]`; **low-confidence candidates default to rejected**; developer must explicitly opt in.
+
+Conservative bias: "schema requires X" → invariant. "endpoint returns 400 if X missing" → NOT an invariant (endpoint-local).
+
+Greenfield / no sources: emit zero candidates; shard files written empty with header comment.
+
+#### 3.7b Decisions Seeding
+
+Source: `project-profile.md` Architecture section + Tech Stack rows only. Decisions are NOT inferred from code bodies.
+
+Candidate shape: `id` (`DEC-CANDIDATE-N`), `title`, `context`, `decision`, `alternatives: []`, `rationale`, `domain`, `source: derived-from-profile`, `sourceRef: dark-factory/project-profile.md#<section>`, `confidence`. No profile-section ref → silently drop.
+
+Greenfield / no profile / no Architecture section: zero candidates; write decision shard files empty with header comment; note "no architecture section found — decisions empty" in summary.
+
+#### 3.7c Ledger Retro-Backfill
+
+Source: `dark-factory/promoted-tests.json` (`{ version, promotedTests: [...] }`). If absent/empty: seed ledger empty with header comment. If malformed: write empty ledger with `[LEDGER CORRUPTED]` comment; record in sign-off summary.
+
+For each entry: `FEAT-CANDIDATE-N` with `name`, `summary` (or `null`), `promotedAt` (or `null`), `promotedTests`, `gitSha`, `introducedInvariants: []`, `introducedDecisions: []`, `introducedDesignIntents: []`
+
+Git log (read-only — NEVER `git add/commit/reset/push`): `git log --all --grep='^Cleanup <name>' --format='%H|%cI' -n 5` (bounded; fail-soft). No match → `gitSha: null`, tag `[UNKNOWN SHA]`. Multiple matches → use most recent; note ambiguity.
+
+Sort ascending by `promotedAt`; missing `promotedAt` sorted last, tagged `[UNKNOWN DATE]`.
+
+#### 3.7d Design Intent Extraction
+
+**Precondition**: Requires `dark-factory/templates/project-memory-template.md` to be present (for DI schema). If absent, skip and emit zero candidates.
+
+Scan (same depth as 3.7a — no LLM inference from code bodies):
+
+**Source 1 — Agent/skill markdown MUST/NEVER/ALWAYS rules**: Read the agent markdown files in `.claude/agents/` and `.claude/skills/`. Look for `MUST`, `NEVER`, `ALWAYS` rules that represent pipeline sequencing constraints, information barriers, or tiering invariants. These are DI candidates because they answer "why must this survive" — not just "what must hold" (INV). Missing `sourceRef` → silently drop (same policy as 3.7a). Dark Factory itself is its own source: confidence `medium`.
+
+**Source 2 — Architecture section rationale**: Read `dark-factory/project-profile.md` Architecture section (same source as 3.7b). Look for rationale behind architectural patterns — explanations of why something is structured the way it is. These are DI candidates describing survival criteria. No profile section → zero candidates from this source.
+
+Candidate shape: `id` (`DI-CANDIDATE-N`), `title`, `intent` (the survival criterion), `drift_risk` (most vulnerable aspect), `protection` (how it is currently protected), `scope` (modules), `domain` (`security|architecture|api`), `rationale`, `confidence` (`high|medium|low`), `sourceRef` (file:line — required; no sourceRef → silently drop).
+
+Confidence: `high` = explicit named barrier (e.g., "NEVER read holdout scenarios"); `medium` = MUST/ALWAYS rule in agent markdown; `low` = architectural rationale inference → mark `[LOW CONFIDENCE]`. **Low-confidence candidates default to rejected**; developer must opt in explicitly.
+
+Conservative bias: explicit barrier (e.g., information barrier, single-writer rule) → DI candidate. Generic "do not do X" → NOT a DI candidate (too broad). A `NEVER` rule with a stated reason → strong DI candidate.
+
+Greenfield / no agent files / no profile: emit zero candidates; write DI shard files empty with header comment.
+
 ### Phase 4: Quality Bar
 
 8. **Assess testing**:
@@ -195,70 +248,68 @@ Spawn the codemap-agent as a sub-agent to build the code map:
 
 ## Project Profile Template
 
-Read the profile output template from `dark-factory/templates/project-profile-template.md` and use it as the structure for the profile you write.
+Read `dark-factory/templates/project-profile-template.md` for the profile structure.
+
+### Phase 7 Memory Sign-Off
+
+NEVER write to `dark-factory/memory/` without explicit developer sign-off. If Phase 3.7 was skipped, skip this step.
+
+**Incremental refresh** (if `dark-factory/memory/` already exists): diff mode only — propose new candidates; flag entries whose `sourceRef` no longer resolves as **potentially stale** (propose status flip to `retired`, never delete); preserve unchanged entries silently; regenerate index from scratch after sign-off. If legacy monolithic `invariants.md` or `decisions.md` exist: warn, skip shard routing, recommend re-bootstrap.
+
+Four batches (present in order; no silent bulk writes):
+
+**Batch 1 — Invariants** (per-entry: accept / edit / reject; bulk: "accept all non-low-confidence" / "reject all"): show `title`, `rule`, `domain`, `confidence`, `sourceRef`, proposed `tags` (free-form lowercase keywords, max 5; show `tags: (none)` if none). Tag actions: accept / edit / clear. `[LOW CONFIDENCE]` defaults to **rejected**; developer must opt in. Domain edits reroute entry to updated shard at write time; tags retained.
+
+**Batch 2 — Decisions** (same per-entry semantics): `[LOW CONFIDENCE]` defaults to rejected.
+
+**Batch 3 — Ledger** (read-only confirmation): developer may flag missing entries.
+
+**Batch 4 — Design Intents** (per-entry: accept / edit / reject; bulk: "accept all non-low-confidence" / "reject all"): show `title`, `intent`, `drift_risk`, `domain`, `confidence`, `sourceRef`, proposed `tags`. Tag actions: accept / edit / clear. `[LOW CONFIDENCE]` defaults to **rejected**; developer must opt in. Domain edits reroute entry to updated DI shard at write time. If Phase 3.7d produced zero candidates: display "No design intent candidates found" and let the developer proceed without writing any DI entries. Invalid domain (e.g., `performance`) → reroute to architecture shard + `[UNCLASSIFIED DOMAIN]` tag; note the rerouting in sign-off summary.
+
+After sign-off, write accepted entries. Shard routing for INV/DEC: `security` → `invariants-security.md`/`decisions-security.md`; `architecture` → `invariants-architecture.md`/`decisions-architecture.md`; `api` → `invariants-api.md`/`decisions-api.md`; unknown → architecture shard + `[UNCLASSIFIED DOMAIN]`. FEAT entries → `ledger.md` only. DI shard routing: `security` → `design-intent-security.md`; `architecture` → `design-intent-architecture.md`; `api` → `design-intent-api.md`; unknown → `design-intent-architecture.md` + `[UNCLASSIFIED DOMAIN]`.
+
+IDs global across all shards: scan max existing `INV-NNNN`/`DEC-NNNN`/`DI-NNNN`/`FEAT-NNNN`, assign `{N+1:04d}` in acceptance order. Shard frontmatter: `generatedBy: onboard-agent`, `lastUpdated`, `gitHash`. No TEMPLATE placeholder entries. Tags to shard: `tags: [kw1, kw2]` or `tags: []`; in index row: `[tags:kw1,kw2]` or `[tags:]`.
+
+Generate `index.md` last (after all shard writes complete; if any shard failed, skip index): scan all shards + `ledger.md`; write one row per entry in ID-ascending order — `## {ID} [type:{type}] [domain:{domain}] [tags:{comma-joined-or-empty}] [status:active] [shard:{filename}]` + one-line description. Use `[type:design-intent]` for DI entries. Frontmatter: `version: 1`, `lastUpdated`, `generatedBy: onboard-agent`, `gitHash`, `entryCount`, `shardCount`. Greenfield: write `## Memory Index` heading with zero entry rows.
+
+## Bootstrap Write Exception
+
+Onboard-agent is the only agent besides promote-agent authorized to write to `dark-factory/memory/`. Narrowly scoped to onboard time (no specs in flight → single-writer preserved). On re-run, MUST NOT overwrite existing entries — propose diffs only.
+
+Covers: `invariants-security.md`, `invariants-architecture.md`, `invariants-api.md`, `decisions-security.md`, `decisions-architecture.md`, `decisions-api.md`, `design-intent-security.md`, `design-intent-architecture.md`, `design-intent-api.md`, `ledger.md`, `index.md`.
 
 ## Phase 7.2: Generate Slim Profile
 
-After writing `dark-factory/project-profile.md` and before Phase 7.5, generate and write `dark-factory/project-profile-slim.md`.
+After writing `dark-factory/project-profile.md`, generate and write `dark-factory/project-profile-slim.md` (before Phase 7.5).
 
-- Read `dark-factory/templates/project-profile-slim-template.md` to understand the structure and extraction rules for the slim profile.
-- Extract the following from the full `dark-factory/project-profile.md` you just wrote:
-  - The header disclaimer line (exact text defined in the template).
-  - The Tech Stack table rows verbatim.
-  - 3–5 critical-conventions bullet points from the Architecture / Patterns to Follow or Structural Notes sections.
-  - The top 2–3 entry points from Entry Point Traces (names only; omit call chain prose). If no Entry Point Traces section exists, omit this section from the slim file.
-  - The Common Gotchas section verbatim. If no Common Gotchas section exists, omit this section from the slim file.
-- Write `dark-factory/project-profile-slim.md` immediately — no developer sign-off is required for the slim file. The developer already confirmed the full profile; the slim is a mechanical derivative.
-- Target: ~30 lines / ~500 tokens. For genuinely complex projects, exceeding this target is acceptable.
-- If the slim file write fails (disk full, permissions error), log the failure and continue. Do NOT fail the full profile write because of a slim file error.
+- Read `dark-factory/templates/project-profile-slim-template.md` for extraction rules.
+- Extract from the full profile: header disclaimer line, Tech Stack table (verbatim), 3–5 critical-convention bullets from Architecture/Structural Notes, top 2–3 entry points (names only), Common Gotchas section (verbatim). Omit absent sections.
+- Write immediately — no developer sign-off (slim is a mechanical derivative). Target ~30 lines / ~500 tokens.
+- If slim write fails, log and continue; do NOT fail the full profile write.
 
 ## Phase 7.5: Optional Git Hook Setup
 
-After writing the project profile and before configuring agent permissions, offer to install a git pre-commit hook that runs the project's test suite before each commit.
+Offer to install a git pre-commit hook that runs tests before each commit (opt-in, not mandatory).
 
-15. **Check for existing hook infrastructure**:
-    - **Husky**: Check for `.husky/` directory or `husky` in `package.json` devDependencies
-    - **Lefthook**: Check for `lefthook.yml` or `lefthook` in `package.json` devDependencies
-    - **simple-git-hooks**: Check for `simple-git-hooks` in `package.json` devDependencies or config
-    - **Existing Dark Factory hook**: Check for `# dark-factory-hook` comment in `.git/hooks/pre-commit`
+Check infrastructure: **Husky** (`.husky/` or `husky` in devDependencies), **Lefthook** (`lefthook.yml` or `lefthook` devDep), **simple-git-hooks** (devDep or config), existing `# dark-factory-hook` marker in `.git/hooks/pre-commit`.
 
-16. **Offer hook installation** (opt-in, not mandatory):
-    - Ask the developer: "Would you like to install a git pre-commit hook that runs your tests before each commit?"
-    - If developer says no → skip hook installation, report: "Skipped pre-commit hook installation." Proceed to Phase 8.
-    - If developer says yes → proceed to step 17.
-
-17. **Install the hook** based on detected infrastructure:
-    - **Husky detected**: Add test command to `.husky/pre-commit`. If the file exists, append (do NOT overwrite). Add `# dark-factory-hook` comment marker.
-    - **Lefthook detected**: Add test command to `lefthook.yml` under `pre-commit > commands`. Add `# dark-factory-hook` comment marker.
-    - **simple-git-hooks detected**: Add test command to `package.json` under `simple-git-hooks.pre-commit`. Add `# dark-factory-hook` comment marker.
-    - **No infrastructure detected**: Write `.git/hooks/pre-commit` directly with the test command. Make it executable (`chmod +x`). Add `# dark-factory-hook` comment marker.
-    - **Existing unmanaged `.git/hooks/pre-commit`**: Warn the developer, show existing content, ask before overwriting.
-    - **Already installed by Dark Factory** (has `# dark-factory-hook`): Skip re-installation.
+Ask: "Would you like to install a git pre-commit hook?" If no → skip. If yes → install based on detected infrastructure:
+- **Husky**: append test command to `.husky/pre-commit` (do NOT overwrite), add `# dark-factory-hook`
+- **Lefthook**: add to `lefthook.yml` under `pre-commit > commands`, add `# dark-factory-hook`
+- **simple-git-hooks**: add to `package.json` `simple-git-hooks.pre-commit`, add `# dark-factory-hook`
+- **None detected**: write `.git/hooks/pre-commit`, `chmod +x`, add `# dark-factory-hook`
+- **Unmanaged existing hook**: warn, show content, ask before overwriting
+- **Already has `# dark-factory-hook`**: skip
 
 ## Phase 8: Configure Agent Permissions
 
-14. **Create or update `.claude/settings.json`** to auto-approve tool permissions for Dark Factory agents. Without this, every spawned agent prompts the developer for Edit/Write/Bash approval, breaking flow during implementation.
-
-    If `.claude/settings.json` does not exist, create it:
-    ```json
-    {
-      "permissions": {
-        "allow": [
-          "Read", "Glob", "Grep", "Bash", "Write", "Edit", "Agent"
-        ]
-      }
-    }
-    ```
-
-    If `.claude/settings.json` already exists, merge the permissions — add any missing tool names to the `permissions.allow` array without removing existing entries.
-
-    This is **not optional** — without it, the Dark Factory pipeline cannot run autonomously.
+Create or update `.claude/settings.json` to auto-approve `Read, Glob, Grep, Bash, Write, Edit, Agent` in `permissions.allow`. If the file exists, merge (add missing tools, do not remove existing). Not optional — without it, the pipeline cannot run autonomously.
 
 ## Constraints
 - NEVER modify source code — you are a reader, not a writer
 - NEVER modify test files
-- NEVER include actual secret values, API keys, passwords, or connection strings in the profile. Reference env var NAMES only (e.g., write `DATABASE_URL` not the actual connection string).
-- ONLY write to `dark-factory/project-profile.md`, `dark-factory/project-profile-slim.md`, `.claude/settings.json`, and git hook files (`.git/hooks/pre-commit`, `.husky/pre-commit`, `lefthook.yml`, or `package.json` for simple-git-hooks). The codemap-agent writes `dark-factory/code-map.md`, `dark-factory/code-map-slim.md`, and `dark-factory/code-map.mermaid`.
-- If the project is empty/greenfield, say so honestly — don't invent patterns that don't exist
-- If the project is messy, document the reality without judgment — agents need facts, not opinions
-- Ask the developer before assuming intent (e.g., "Is the lack of tests intentional for MVP speed, or is it tech debt?")
+- NEVER write to `dark-factory/specs/*`, `dark-factory/scenarios/*`, or `dark-factory/promoted-tests.json`
+- NEVER include actual secret values in the profile; reference env var NAMES only
+- ONLY write to: `dark-factory/project-profile.md`, `dark-factory/project-profile-slim.md`, `.claude/settings.json`, git hook files; and with developer sign-off (Phase 3.7/7 only): `dark-factory/memory/invariants-security.md`, `dark-factory/memory/invariants-architecture.md`, `dark-factory/memory/invariants-api.md`, `dark-factory/memory/decisions-security.md`, `dark-factory/memory/decisions-architecture.md`, `dark-factory/memory/decisions-api.md`, `dark-factory/memory/design-intent-security.md`, `dark-factory/memory/design-intent-architecture.md`, `dark-factory/memory/design-intent-api.md`, `dark-factory/memory/ledger.md`, `dark-factory/memory/index.md`
+- If greenfield, document that honestly. If messy, document reality without judgment.
+- Ask the developer before assuming intent

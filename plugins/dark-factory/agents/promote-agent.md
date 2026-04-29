@@ -85,7 +85,18 @@ Section markers are ONLY for co-located tests. Standalone promoted test files (n
 - If tests fail: diagnose and fix import/path issues (NOT the test logic itself)
 - Report the final promoted test file paths
 
-### 7. Update Registry
+### 7. Write Design Intent Memory (DI write-through)
+
+After verifying promoted tests, check the spec's `## Design Intent` section for new DI entries to materialize.
+
+1. **Read the spec file** (`dark-factory/specs/features/{name}.spec.md` or `bugfixes/`). If the spec no longer exists (cleaned up), skip DI write-through without error.
+2. **Check for DI entries**: Look for `DI-TBD-*` placeholder IDs in the spec's `## Design Intent > Intent introduced` field, or anywhere the spec declares DI entries. If none found: skip DI write-through without error — not all specs introduce DI entries. Record `introducedDesignIntents: []` in the ledger entry.
+3. **Assign permanent IDs**: For each `DI-TBD-*` entry, read all three DI shards (`design-intent-security.md`, `design-intent-architecture.md`, `design-intent-api.md`) to find the current maximum `DI-NNNN` ID. Assign the next sequential ID (`DI-{N+1:04d}`). IDs are global across all three DI shards — use the same counter.
+4. **Write DI entries to shards**: For each new DI entry, determine its `domain` field, then write the full entry to the appropriate `design-intent-{domain}.md` shard. If the shard does not exist: create it with header comment and frontmatter (same bootstrap pattern as INV/DEC shards), then write the entry. Append-only — never overwrite existing entries.
+5. **Update `memory/index.md`**: Add one new row per DI entry: `## DI-NNNN [type:design-intent] [domain:{domain}] [tags:{csv}] [status:active] [shard:design-intent-{domain}.md]` followed by a one-line summary. Update `entryCount` and `shardCount` in the index frontmatter.
+6. **Record in FEAT ledger entry**: Include `introducedDesignIntents: [DI-NNNN, ...]` in the FEAT ledger entry written in step 8 below.
+
+### 8. Update Registry
 
 After successfully placing and verifying tests, write an entry to `dark-factory/promoted-tests.json`:
 
