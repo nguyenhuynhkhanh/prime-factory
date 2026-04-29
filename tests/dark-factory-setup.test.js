@@ -5069,3 +5069,248 @@ describe("project-memory-consumers — no old monolithic memory paths in any con
 });
 
 // DF-PROMOTED-END: project-memory-consumers
+
+// DF-PROMOTED-START: ao-pipeline-mode
+// Source: dark-factory/scenarios/holdout/ao-pipeline-mode/
+// ao-pipeline-mode: --mode flag, model selection table, Best-of-N, --afk, manifest schema
+
+describe("ao-pipeline-mode — P-01/P-02/P-03: --mode flag values documented in df-orchestrate", () => {
+  it("df-orchestrate SKILL.md should document --mode lean flag in Trigger section", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("--mode") && content.includes("lean"),
+      "df-orchestrate SKILL.md should document --mode flag with lean as a valid value"
+    );
+  });
+  it("df-orchestrate SKILL.md should document balanced as a valid mode value", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("balanced"),
+      "df-orchestrate SKILL.md should document 'balanced' as a valid mode value"
+    );
+  });
+  it("df-orchestrate SKILL.md should document quality as a valid mode value", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("quality"),
+      "df-orchestrate SKILL.md should document 'quality' as a valid mode value"
+    );
+  });
+});
+
+describe("ao-pipeline-mode — P-04: balanced is the default --mode value", () => {
+  it("df-orchestrate SKILL.md should document balanced as the default --mode value", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("default") && content.includes("balanced"),
+      "df-orchestrate SKILL.md should document balanced as the default --mode value"
+    );
+  });
+});
+
+describe("ao-pipeline-mode — P-05: execution plan mode block documented in df-orchestrate", () => {
+  it("df-orchestrate SKILL.md should describe the mode display in the execution plan with Mode: label", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Mode:"),
+      "df-orchestrate SKILL.md should document Mode: label in the execution plan"
+    );
+  });
+  it("df-orchestrate SKILL.md should describe model mapping in execution plan (Sonnet or Opus)", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("claude-sonnet") || content.includes("claude-opus"),
+      "df-orchestrate SKILL.md should document model mapping (Sonnet/Opus) in execution plan"
+    );
+  });
+  it("df-orchestrate SKILL.md should state mode block appears before developer confirmation prompt", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("BEFORE") || content.includes("before") && content.includes("confirmation"),
+      "df-orchestrate SKILL.md should state mode block appears before developer confirmation"
+    );
+  });
+});
+
+describe("ao-pipeline-mode — P-06: lean mode has a use-case description", () => {
+  it("df-orchestrate SKILL.md should include a use-case description for lean mode", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      (content.includes("lean") && (
+        content.includes("rapid iteration") ||
+        content.includes("low-risk") ||
+        content.includes("Fast and cheap") ||
+        content.includes("prototyping")
+      )),
+      "df-orchestrate SKILL.md should include a use-case description for lean mode in the execution plan"
+    );
+  });
+});
+
+describe("ao-pipeline-mode — P-07: quality mode has a use-case description", () => {
+  it("df-orchestrate SKILL.md should include a use-case description for quality mode", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      (content.includes("quality") && (
+        content.includes("critical features") ||
+        content.includes("pre-release") ||
+        content.includes("Maximum confidence") ||
+        content.includes("complex migrations")
+      )),
+      "df-orchestrate SKILL.md should include a use-case description for quality mode in the execution plan"
+    );
+  });
+});
+
+describe("ao-pipeline-mode — P-08: df-orchestrate documents forwarding mode to implementation-agent", () => {
+  it("df-orchestrate SKILL.md should document passing pipeline mode to implementation-agent spawn", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("pipeline mode") || (content.includes("mode") && content.includes("implementation-agent")),
+      "df-orchestrate SKILL.md should document forwarding mode to implementation-agent spawn"
+    );
+  });
+});
+
+describe("ao-pipeline-mode — P-09: model selection table documented in implementation-agent", () => {
+  it("implementation-agent.md should mention claude-sonnet for lean mode or Tier 1/2 in balanced mode", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes("claude-sonnet"),
+      "implementation-agent.md should mention claude-sonnet as a model option"
+    );
+  });
+  it("implementation-agent.md should mention claude-opus for quality mode or Tier 3 in balanced mode", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes("claude-opus"),
+      "implementation-agent.md should mention claude-opus as a model option"
+    );
+  });
+  it("implementation-agent.md should use model IDs without version suffixes", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      !(/claude-opus-[\d]/.test(content)) && !(/claude-sonnet-[\d]/.test(content)),
+      "implementation-agent.md should use model IDs without version suffixes (found 'claude-opus-X' or 'claude-sonnet-X')"
+    );
+  });
+});
+
+describe("ao-pipeline-mode — P-10: judge agents always use claude-sonnet regardless of mode", () => {
+  it("implementation-agent.md should document that judge agents always use claude-sonnet regardless of mode", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      (content.includes("architect-agent") && content.includes("claude-sonnet") && (
+        content.includes("always") || content.includes("regardless of")
+      )) ||
+      (content.includes("judge agents") && content.includes("claude-sonnet")),
+      "implementation-agent.md should document that judge agents (architect-agent, test-agent) always use claude-sonnet regardless of mode"
+    );
+  });
+});
+
+describe("ao-pipeline-mode — P-11: --afk flag documented in df-orchestrate trigger section", () => {
+  it("df-orchestrate SKILL.md should document --afk flag", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("--afk"),
+      "df-orchestrate SKILL.md should document --afk flag in trigger section"
+    );
+  });
+  it("df-orchestrate SKILL.md should describe --afk as creating a draft PR", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("draft") || content.includes("gh pr create") || content.includes("auto-PR") || content.includes("draft PR"),
+      "df-orchestrate SKILL.md should document --afk flag with PR creation description"
+    );
+  });
+});
+
+describe("ao-pipeline-mode — P-12: --afk spec content captured before cleanup deletes spec file", () => {
+  it("implementation-agent.md should document that --afk spec content is captured before spec file is deleted", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      (content.includes("--afk") && (
+        content.includes("before") && (content.includes("deleted") || content.includes("cleanup"))
+      )) ||
+      content.includes("capture spec") ||
+      content.includes("Read and cache spec sections first"),
+      "implementation-agent.md should document that --afk spec content is captured before the spec file is deleted"
+    );
+  });
+});
+
+describe("ao-pipeline-mode — P-13: --afk --skip-tests combination is documented as a warning (not error)", () => {
+  it("df-orchestrate SKILL.md should document --afk --skip-tests as a warning (not an error)", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("--afk") && (
+        content.includes("warn but don't error") ||
+        content.includes("warning") ||
+        content.includes("warn but proceed") ||
+        content.includes("Warn (but don't error)")
+      ),
+      "df-orchestrate SKILL.md should document --afk --skip-tests as a warning (not an error)"
+    );
+  });
+});
+
+describe("ao-pipeline-mode — P-14: --mode lean --best-of-n documented as error", () => {
+  it("df-orchestrate SKILL.md should document that --best-of-n is not a standalone flag", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("best-of-n") && (
+        content.includes("not a standalone flag") ||
+        content.includes("--mode quality") ||
+        content.includes("is not a standalone")
+      ),
+      "df-orchestrate SKILL.md should document that --best-of-n is not a standalone flag and direct users to --mode quality"
+    );
+  });
+});
+
+describe("ao-pipeline-mode — P-15: manifest mode field documented in implementation-agent", () => {
+  it("implementation-agent.md should document writing the mode field to manifest entry", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes('"mode"') || (content.includes("mode") && content.includes("manifest")),
+      "implementation-agent.md should document writing the 'mode' field to the manifest entry"
+    );
+  });
+});
+
+describe("ao-pipeline-mode — P-16: --mode and --skip-tests are NOT mutually exclusive", () => {
+  it("df-orchestrate SKILL.md should not treat --mode and --skip-tests as mutually exclusive", () => {
+    const content = readSkill("df-orchestrate");
+    // Verify the mutual-exclusivity block only covers --group/--all conflicts, not --mode/--skip-tests
+    const mutualExSection = content.match(/Mutual exclusivity[\s\S]*?(?=\n##|\n###|$)/);
+    if (mutualExSection) {
+      // If there's a mutual exclusivity section, it should NOT pair --mode with --skip-tests as mutually exclusive
+      const section = mutualExSection[0];
+      assert.ok(
+        !(section.includes("--mode") && section.includes("--skip-tests") && section.includes("Error:")),
+        "df-orchestrate SKILL.md should not treat --mode and --skip-tests as mutually exclusive"
+      );
+    }
+    // Also verify the flag is documented as orthogonal
+    assert.ok(
+      content.includes("--mode") && content.includes("--skip-tests"),
+      "df-orchestrate SKILL.md should document both --mode and --skip-tests"
+    );
+  });
+});
+
+describe("ao-pipeline-mode — plugin mirror parity", () => {
+  it("Plugin df-orchestrate SKILL.md must match source exactly (ao-pipeline-mode)", () => {
+    const source = fs.readFileSync(path.join(ROOT, ".claude", "skills", "df-orchestrate", "SKILL.md"), "utf8");
+    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "skills", "df-orchestrate", "SKILL.md"), "utf8");
+    assert.equal(source, plugin, "Plugin df-orchestrate SKILL.md must match source exactly (ao-pipeline-mode)");
+  });
+  it("Plugin implementation-agent.md must match source exactly (ao-pipeline-mode)", () => {
+    const source = fs.readFileSync(path.join(ROOT, ".claude", "agents", "implementation-agent.md"), "utf8");
+    const plugin = fs.readFileSync(path.join(ROOT, "plugins", "dark-factory", "agents", "implementation-agent.md"), "utf8");
+    assert.equal(source, plugin, "Plugin implementation-agent.md must match source exactly (ao-pipeline-mode)");
+  });
+});
+
+// DF-PROMOTED-END: ao-pipeline-mode

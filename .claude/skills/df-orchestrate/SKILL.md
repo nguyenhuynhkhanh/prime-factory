@@ -14,19 +14,36 @@ You are the orchestrator for the implementation phase. You are a thin coordinato
 `/df-orchestrate --all` — every active spec in the manifest
 Optional: `--force` — override cross-group guard in explicit mode
 Optional: `--skip-tests` — bypass the pre-flight test gate (logged in manifest)
+Optional: `--mode lean|balanced|quality` — quality-vs-speed tradeoff (default: balanced). lean = claude-sonnet everywhere, no Best-of-N; balanced = claude-sonnet Tier 1/2, claude-opus Tier 3, no Best-of-N; quality = claude-opus everywhere + Best-of-N for Tier 3
+Optional: `--afk` — post-run draft PR creation via `gh pr create --draft` for each promoted spec. Reads spec `## Context`/`## Acceptance Criteria` before cleanup. Non-blocking failures. `--afk --skip-tests`: warn but don't error
 
 ### Argument Parsing
 
-1. **Parse flags first**: Extract `--group`, `--all`, `--force`, `--skip-tests` from the arguments. Everything else is an explicit spec name.
-2. **Mutual exclusivity checks** (fail fast with clear errors):
-   - `--group` and `--all` together → Error: "Cannot use --group and --all together. Use --group to orchestrate a specific group, or --all to run everything."
-   - `--group` or `--all` with explicit spec names → Error: "Cannot combine --group/--all with explicit spec names. Use one mode at a time."
-   - `--group` with no argument or empty string → Error: "--group requires a group name. Usage: /df-orchestrate --group <name>"
-3. **`--force` warnings**: If `--force` is used with `--group` or `--all`, warn: "--force has no effect with --group/--all (it only applies to explicit mode cross-group guard)." Then proceed normally (not an error).
-4. **Determine mode**:
-   - If `--group {name}` → **Group Mode**
-   - If `--all` → **All Mode**
-   - If explicit spec names → **Explicit Mode** (existing behavior + cross-group guard)
+1. **Parse flags first**: Extract `--group`, `--all`, `--force`, `--skip-tests`, `--mode`, `--afk` from the arguments. Everything else is an explicit spec name.
+   - `--mode` validation: must be `lean`, `balanced`, or `quality`. Invalid → Error: "Unknown mode '{value}'. Valid modes: lean, balanced, quality." Abort before execution plan.
+   - `--best-of-n` is not a standalone flag → Error: "Unknown flag '--best-of-n'. Best-of-N is automatically enabled in --mode quality for Tier 3 specs. Use --mode quality instead."
+   - `--mode` and `--skip-tests` are orthogonal — NOT mutually exclusive. Do NOT add a mutual-exclusivity check for this combination.
+2. **Mutual exclusivity checks** (fail fast):
+   - `--group` + `--all` → Error: "Cannot use --group and --all together."
+   - `--group`/`--all` + explicit names → Error: "Cannot combine --group/--all with explicit spec names."
+   - `--group` with no argument → Error: "--group requires a group name."
+3. **`--force` warnings**: With `--group`/`--all`, warn: "--force has no effect with --group/--all (it only applies to explicit mode cross-group guard)." Not an error.
+4. **Determine mode**: `--group` → Group Mode; `--all` → All Mode; names → Explicit Mode
+
+---
+
+## Execution Plan Mode Block
+
+Include this block in the execution plan BEFORE the developer confirmation prompt (after the plan header, before the wave breakdown):
+
+```
+Mode: {mode} (default)    ← append "(default)" only when --mode was omitted
+  → lean:     Fast and cheap — rapid iteration and low-risk changes. All specs: claude-sonnet | No Best-of-N
+  → balanced: Standard workflow — Tier 1/2 specs: claude-sonnet | Tier 3 specs: claude-opus | No Best-of-N
+  → quality:  Maximum confidence — claude-opus for all specs. Tier 3 specs: Best-of-N (two independent tracks)
+```
+
+For multi-spec quality runs, note per-spec: "Tier 1 spec — Best-of-N skipped" or "Tier 3 spec — Best-of-N enabled."
 
 ---
 
@@ -36,7 +53,7 @@ Optional: `--skip-tests` — bypass the pre-flight test gate (logged in manifest
 2. **Group not found**: If no active specs match the group name, check if ANY specs (any status) have that group name. If none at all, list all available groups: "No group named '{name}' found. Available groups: [list unique non-null group values from manifest]". If all specs in the group are completed (removed from manifest), show: "All specs in group '{name}' are already completed. Nothing to do."
 3. **Resolve dependencies into waves**: Using the active specs found, build the dependency graph and resolve into execution waves (see Wave Resolution below).
 4. **Show completed specs**: For any dependency that references a spec NOT in the manifest (removed = completed), show it as "already completed (skipped)" in the execution plan.
-5. **Display execution plan** and wait for developer confirmation before executing.
+5. **Display execution plan** (including the Mode Block above) and wait for developer confirmation before executing.
 6. **Execute waves** in order (see Execute by Waves below).
 
 ---
@@ -140,35 +157,26 @@ Each spec runs in its own git worktree. Worktree is created BEFORE implementatio
 
 ### Serena Worktree Setup
 
-Before spawning any agent in a worktree, df-orchestrate MUST:
-1. Write `.serena/project.yml` to the worktree root directory with the content:
-   ```yaml
-   project_root: /absolute/path/to/worktree
-   ```
-   The `project_root` value MUST be an absolute path. A relative path would resolve relative to Serena's server process working directory, which is not the worktree.
-2. If the `.serena/` directory does not exist, create it first.
-3. If the write fails (permissions, missing parent dir), log the error and proceed without the scope file. In this case, pass an explicit note in the agent prompt context: "Serena scope file not written — use Read/Grep for all operations."
-4. Also ensure `.serena/` is listed in the project's `.gitignore` to prevent accidental commits.
+Before spawning any agent, write `.serena/project.yml` to the worktree root with `project_root: /absolute/path/to/worktree` (absolute path — required). Create `.serena/` directory if missing. On write failure, pass "Serena scope file not written — use Read/Grep for all operations." in prompt context. Ensure `.serena/` is in `.gitignore`.
 
-After ExitWorktree completes, delete `.serena/project.yml` from the worktree. The file must not be merged back to the main branch.
+After ExitWorktree completes, delete `.serena/project.yml` from the worktree (must not merge back to main branch).
 
 ### Serena Mode Detection
 
-Detect whether this run is single-worktree or multi-spec parallel, and set `SERENA_MODE` accordingly:
-- **Single-worktree mode** (one spec being implemented): `SERENA_MODE=full` — all Serena tools available including mutation tools.
-- **Multi-spec parallel mode** (multiple code-agents implementing specs simultaneously in a wave): `SERENA_MODE=read-only` — discovery tools only; mutation tools disabled. This prevents race conditions where multiple agents simultaneously issue mutations through a single Serena server process.
+Set `SERENA_MODE` based on run type (pass as explicit prompt context line — Claude Code agents do not read OS environment variables):
+- Single-worktree (one spec): `SERENA_MODE=full` — all Serena tools including mutation.
+- Multi-spec parallel wave: `SERENA_MODE=read-only` — discovery tools only; prevents race conditions from concurrent mutations.
 
-Pass `SERENA_MODE` as an explicit line in the agent prompt context (e.g., "Serena mode: full" or "Serena mode: read-only"). Claude Code agents do not read OS environment variables; context must be passed in the prompt.
-
-If `SERENA_MODE` is absent from agent context (e.g., an older df-orchestrate invocation), agents default to `read-only` behavior.
+Default when absent: `read-only`.
 
 ### Single spec: `/df-orchestrate my-feature`
 1. Enter worktree (EnterWorktree tool)
 2. Write `.serena/project.yml` to the worktree root (absolute path, see Serena Worktree Setup above)
-3. Spawn **implementation-agent** (`.claude/agents/implementation-agent.md`) with: spec name, spec path, mode, branch name, skip-tests flag, and "Serena mode: full" in prompt context
+3. Spawn **implementation-agent** (`.claude/agents/implementation-agent.md`) with: spec name, spec path, mode (feature/bugfix), branch name, skip-tests flag, pipeline mode (`--mode` value, default `balanced`), afk flag, and "Serena mode: full" in prompt context
 4. Implementation-agent handles: architect review, code agents, holdout validation, promotion, cleanup
 5. Exit worktree (ExitWorktree) — merges back to original branch
 6. Delete `.serena/project.yml` from the worktree after ExitWorktree completes
+7. If `--afk` flag is set and spec was successfully promoted: proceed to AFK PR Creation (see below)
 
 ### Multiple specs: `/df-orchestrate spec-a spec-b spec-c`
 
@@ -198,6 +206,8 @@ For each wave, spawn an **independent** agent (`run_in_background: true`) that r
 - The list of spec names for that wave
 - The current branch name
 - The mode (feature or bugfix) for each spec
+- The pipeline mode (`--mode` value, default `balanced`) — forwarded to implementation-agent
+- The afk flag — forwarded to implementation-agent
 - Serena mode: `read-only` for all specs in a multi-spec wave (multiple simultaneous worktrees)
 
 Each wave agent:
@@ -277,6 +287,19 @@ Blocked specs (dependency on failed spec):
 Summary: 1 passed, 1 failed, 1 blocked
 ```
 
+## AFK PR Creation
+
+When `--afk` is set, create a draft PR for each promoted spec after cleanup completes.
+
+1. Check `gh` CLI: `gh --version`. Not found → warn "gh CLI not found — skipping auto-PR. Install from https://cli.github.com" (non-blocking).
+2. PR body: use `--body-file` with a temp file (NOT shell interpolation — prevents injection from backticks/`$`/quotes in spec content). Clean up temp file after attempt regardless of success or failure.
+3. Run: `gh pr create --draft --title "{spec-name}" --body-file {temp-file}`
+4. Reviewer: search project-profile `## Org Context` for `PR reviewer handles`. If found → `gh pr edit --add-reviewer {value}`. If missing, skip silently.
+5. Failure: log "Auto-PR failed for {spec-name}: {error}. Create manually: gh pr create --draft" and continue. Never abort.
+6. Multi-spec: PRs for promoted specs only. Failed specs → "PR skipped: spec failed" in summary.
+
+---
+
 ## Information Barrier Rules
 
 These apply at the coordination level — the orchestrator enforces what context is passed to implementation-agents and wave agents:
@@ -286,7 +309,7 @@ These apply at the coordination level — the orchestrator enforces what context
 - NEVER pass test/scenario content to the architect-agent
 - The architect-agent communicates ONLY about spec content with spec/debug agents — never about tests
 - Each agent spawn is completely independent (fresh context)
-- Only pass: spec name, spec path, mode, and branch name to implementation-agents
+- Only pass: spec name, spec path, mode (feature/bugfix), pipeline mode (`--mode` value), afk flag, and branch name to implementation-agents
 - The implementation-agent forwards architect findings to code-agents: Extract ONLY the "Key Decisions Made" and "Remaining Notes" sections from the review. Strip round-by-round discussion content.
 - The implementation-agent passes the feature name (test-agent reads holdout scenarios itself) and the spec file path or debug report path to the test-agent
 - The implementation-agent passes the feature name and holdout test file path from `dark-factory/results/{name}/` to the promote-agent
