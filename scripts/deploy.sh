@@ -73,9 +73,18 @@ node -e "
 "
 info ".claude-plugin/marketplace.json → $NEW_VERSION"
 
+node -e "
+  const fs = require('fs');
+  const file = 'plugins/dark-factory/.claude-plugin/plugin.json';
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  data.version = '$NEW_VERSION';
+  fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n');
+"
+info "plugins/dark-factory/.claude-plugin/plugin.json → $NEW_VERSION"
+
 # --- Commit + tag ---
 step "Committing and tagging"
-git add package.json plugins/dark-factory/VERSION .claude-plugin/marketplace.json
+git add package.json plugins/dark-factory/VERSION .claude-plugin/marketplace.json plugins/dark-factory/.claude-plugin/plugin.json
 git commit -m "chore: release v$NEW_VERSION"
 git tag "v$NEW_VERSION"
 info "Committed + tagged v$NEW_VERSION"
