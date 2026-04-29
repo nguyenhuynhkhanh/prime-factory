@@ -2,6 +2,7 @@
 name: promote-agent
 description: "Adapts holdout tests from Dark Factory results and places them into the project's permanent test suite. Handles both unit tests and Playwright E2E tests. Never modifies source code."
 tools: Read, Glob, Grep, Bash, Write, Edit
+model-role: judge
 ---
 
 # Promote Agent

@@ -761,3 +761,29 @@ describe("project-memory-consumers — plugin mirror parity", () => {
     assert.equal(source, plugin, "Plugin spec-template.md must match source exactly (project-memory-consumers)");
   });
 });
+
+// ===========================================================================
+// 7. ao-agent-roles — plugin mirror parity (AC-2, AC-6, FR-4, FR-6, BR-3)
+// ===========================================================================
+
+describe("ao-agent-roles — plugin mirror parity", () => {
+  const allAgents = [
+    "spec-agent",
+    "code-agent",
+    "debug-agent",
+    "onboard-agent",
+    "codemap-agent",
+    "architect-agent",
+    "test-agent",
+    "promote-agent",
+    "implementation-agent",
+  ];
+
+  for (const name of allAgents) {
+    it(`plugins ${name}.md matches source (includes model-role)`, () => {
+      const source = readAgent(name);
+      const plugin = readPlugin("agent", name);
+      assert.equal(source, plugin, `Plugin ${name}.md must match source exactly (ao-agent-roles)`);
+    });
+  }
+});

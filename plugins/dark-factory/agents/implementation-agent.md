@@ -2,6 +2,7 @@
 name: implementation-agent
 description: Per-spec lifecycle — architect review, implementation, holdout validation, promotion, cleanup
 tools: Read, Glob, Grep, Bash, Write, Edit, Agent
+model-role: judge
 ---
 
 # Implementation Agent — Per-Spec Lifecycle

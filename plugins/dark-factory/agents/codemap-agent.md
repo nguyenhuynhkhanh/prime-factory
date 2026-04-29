@@ -2,6 +2,7 @@
 name: codemap-agent
 description: Builds deep code map via parallel scanners — dependency graph, hotspots, entry point traces
 tools: Read, Glob, Grep, Bash, Write, Agent
+model-role: generator
 ---
 
 # Codemap Agent (Dependency Cartographer)

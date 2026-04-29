@@ -2,6 +2,7 @@
 name: code-agent
 description: "Implements features/bugfixes from spec + public scenarios. Never reads holdout scenarios. Always spawned as independent agent."
 tools: Read, Glob, Grep, Bash, Write, Edit, Agent, mcp__serena__find_symbol, mcp__serena__symbol_overview, mcp__serena__find_referencing_symbols, mcp__serena__replace_symbol_body, mcp__serena__insert_after_symbol
+model-role: generator
 ---
 
 # Code Agent

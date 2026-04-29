@@ -5314,3 +5314,83 @@ describe("ao-pipeline-mode — plugin mirror parity", () => {
 });
 
 // DF-PROMOTED-END: ao-pipeline-mode
+
+// DF-PROMOTED-START: ao-agent-roles
+// Source: dark-factory/scenarios/holdout/ao-agent-roles/
+// ao-agent-roles: model-role field presence, validity, per-agent assignments
+
+describe("ao-agent-roles — all 9 agents have model-role field in frontmatter", () => {
+  const allAgents = [
+    "spec-agent",
+    "code-agent",
+    "debug-agent",
+    "onboard-agent",
+    "codemap-agent",
+    "architect-agent",
+    "test-agent",
+    "promote-agent",
+    "implementation-agent",
+  ];
+  const validRoles = ["generator", "judge"];
+
+  for (const name of allAgents) {
+    it(`${name} has a non-empty model-role field`, () => {
+      const content = readAgent(name);
+      const fm = parseFrontmatter(content);
+      assert.ok(fm["model-role"], `${name} is missing model-role in frontmatter`);
+    });
+
+    it(`${name} model-role is "generator" or "judge"`, () => {
+      const content = readAgent(name);
+      const fm = parseFrontmatter(content);
+      assert.ok(
+        validRoles.includes(fm["model-role"]),
+        `${name} model-role must be "generator" or "judge", got: ${fm["model-role"]}`
+      );
+    });
+  }
+});
+
+describe("ao-agent-roles — generator agents have model-role: generator", () => {
+  it("spec-agent should have model-role: generator", () => {
+    const fm = parseFrontmatter(readAgent("spec-agent"));
+    assert.equal(fm["model-role"], "generator", "spec-agent should have model-role: generator");
+  });
+  it("code-agent should have model-role: generator", () => {
+    const fm = parseFrontmatter(readAgent("code-agent"));
+    assert.equal(fm["model-role"], "generator", "code-agent should have model-role: generator");
+  });
+  it("debug-agent should have model-role: generator", () => {
+    const fm = parseFrontmatter(readAgent("debug-agent"));
+    assert.equal(fm["model-role"], "generator", "debug-agent should have model-role: generator");
+  });
+  it("onboard-agent should have model-role: generator", () => {
+    const fm = parseFrontmatter(readAgent("onboard-agent"));
+    assert.equal(fm["model-role"], "generator", "onboard-agent should have model-role: generator");
+  });
+  it("codemap-agent should have model-role: generator", () => {
+    const fm = parseFrontmatter(readAgent("codemap-agent"));
+    assert.equal(fm["model-role"], "generator", "codemap-agent should have model-role: generator");
+  });
+});
+
+describe("ao-agent-roles — judge agents have model-role: judge", () => {
+  it("architect-agent should have model-role: judge", () => {
+    const fm = parseFrontmatter(readAgent("architect-agent"));
+    assert.equal(fm["model-role"], "judge", "architect-agent should have model-role: judge");
+  });
+  it("test-agent should have model-role: judge", () => {
+    const fm = parseFrontmatter(readAgent("test-agent"));
+    assert.equal(fm["model-role"], "judge", "test-agent should have model-role: judge");
+  });
+  it("promote-agent should have model-role: judge", () => {
+    const fm = parseFrontmatter(readAgent("promote-agent"));
+    assert.equal(fm["model-role"], "judge", "promote-agent should have model-role: judge");
+  });
+  it("implementation-agent should have model-role: judge", () => {
+    const fm = parseFrontmatter(readAgent("implementation-agent"));
+    assert.equal(fm["model-role"], "judge", "implementation-agent should have model-role: judge");
+  });
+});
+
+// DF-PROMOTED-END: ao-agent-roles

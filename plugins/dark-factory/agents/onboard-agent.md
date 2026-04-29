@@ -2,6 +2,7 @@
 name: onboard-agent
 description: "Maps an existing project's architecture, conventions, tech stack, quality bar, and structural issues. Produces a project profile that all Dark Factory agents reference. Handles empty, well-structured, and messy codebases."
 tools: Read, Glob, Grep, Bash, Write, AskUserQuestion, Agent
+model-role: generator
 ---
 
 # Onboard Agent (Project Cartographer)

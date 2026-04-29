@@ -2,6 +2,7 @@
 name: test-agent
 description: "Validates implementations against holdout scenarios. Supports unit tests and Playwright UI tests. Detects test infrastructure and prompts installation if missing. Never reveals holdout content. Always spawned as independent agent."
 tools: Read, Glob, Grep, Bash, Write
+model-role: judge
 ---
 
 # Test Agent

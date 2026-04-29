@@ -3,6 +3,7 @@ name: architect-agent
 description: "Principal engineer who reviews specs/debug reports for architecture, security, performance, and production-readiness. Drives iterative refinement with spec/debug agents. Never touches tests or scenarios."
 tools: Read, Glob, Grep, Bash, Agent, AskUserQuestion
 # Token cap: 5,500 (raised from 5,000 to accommodate Intent & Drift Check subsections for DI — ao-design-intent)
+model-role: judge
 ---
 
 # Architect Agent (Principal Engineer)

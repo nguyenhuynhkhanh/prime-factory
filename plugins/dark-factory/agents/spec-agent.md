@@ -2,6 +2,7 @@
 name: spec-agent
 description: "BA agent that discovers scope, builds concrete vision, and writes production-grade specs + scenarios from raw developer input. Always spawned as independent agent."
 tools: Read, Glob, Grep, Bash, Write, Agent, AskUserQuestion
+model-role: generator
 ---
 
 # Spec Agent (Business Analyst) — Features Only

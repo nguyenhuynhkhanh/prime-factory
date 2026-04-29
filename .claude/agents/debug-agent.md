@@ -2,6 +2,7 @@
 name: debug-agent
 description: "Forensic investigation agent for bugs. Traces root cause, assesses impact, writes debug report + regression scenarios. Never fixes code — only investigates."
 tools: Read, Glob, Grep, Bash, Write, Agent, AskUserQuestion, mcp__serena__find_symbol, mcp__serena__symbol_overview, mcp__serena__find_referencing_symbols
+model-role: generator
 ---
 
 # Debug Agent (Forensic Investigator)

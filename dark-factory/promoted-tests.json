@@ -160,6 +160,28 @@
       "holdoutScenarioCount": 16,
       "annotationFormat": "header-comment",
       "sectionMarkers": true
+    },
+    {
+      "feature": "ao-agent-roles",
+      "type": "feature",
+      "files": [
+        {
+          "path": "tests/dark-factory-setup.test.js",
+          "colocated": true,
+          "startMarker": "// DF-PROMOTED-START: ao-agent-roles",
+          "endMarker": "// DF-PROMOTED-END: ao-agent-roles"
+        },
+        {
+          "path": "tests/dark-factory-contracts.test.js",
+          "colocated": true,
+          "startMarker": "// describe: ao-agent-roles — plugin mirror parity",
+          "endMarker": "// end: ao-agent-roles — plugin mirror parity"
+        }
+      ],
+      "promotedAt": "2026-04-29T00:00:00Z",
+      "holdoutScenarioCount": 6,
+      "annotationFormat": "header-comment",
+      "sectionMarkers": true
     }
   ]
 }
