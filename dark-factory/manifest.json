@@ -55,15 +55,6 @@
       "group": "project-memory",
       "dependencies": ["project-memory-foundation", "project-memory-consumers", "project-memory-onboard"]
     },
-    "ao-org-context": {
-      "type": "feature",
-      "status": "active",
-      "specPath": "dark-factory/specs/features/ao-org-context.spec.md",
-      "created": "2026-04-29T00:00:00Z",
-      "rounds": 0,
-      "group": "ao-pipeline-improvements",
-      "dependencies": ["ao-design-intent"]
-    },
     "ao-pipeline-mode": {
       "type": "feature",
       "status": "active",
