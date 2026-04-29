@@ -54,6 +54,21 @@
       "rounds": 0,
       "group": "project-memory",
       "dependencies": ["project-memory-foundation", "project-memory-consumers", "project-memory-onboard"]
+    },
+    "ao-pipeline-mode": {
+      "type": "feature",
+      "status": "promoted",
+      "specPath": "dark-factory/specs/features/ao-pipeline-mode.spec.md",
+      "created": "2026-04-29T00:00:00Z",
+      "rounds": 1,
+      "group": "ao-pipeline-improvements",
+      "dependencies": ["ao-design-intent"],
+      "mode": "balanced",
+      "passedAt": "2026-04-29T00:00:00Z",
+      "promotedAt": "2026-04-29T00:00:00Z",
+      "promotedTestPath": "tests/dark-factory-setup.test.js",
+      "estimatedFiles": 6,
+      "actualFiles": 6
     }
   }
 }
