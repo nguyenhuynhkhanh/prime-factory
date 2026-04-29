@@ -46,23 +46,7 @@ Neither condition alone is sufficient. Tier 1/2 specs in quality mode use a sing
 
 ### Manifest Mode Recording
 
-Record the `"mode"` field in the manifest entry at spec start (before architect review). If the spec ultimately fails, the mode is still recorded. Example:
-```json
-{
-  "mode": "balanced"
-}
-```
-
-Record the `"bestOfN"` object in the manifest entry when Best-of-N actually ran:
-```json
-{
-  "bestOfN": {
-    "winner": "track-a",
-    "loserResult": "failed-holdout"
-  }
-}
-```
-`loserResult` values: `"failed-holdout"` (losing track failed validation) | `"both-passed"` (both tracks passed, Track A chosen arbitrarily). When both fail and a Round 2 retry occurs, `bestOfN` is omitted until the retry result is known.
+Record the `"mode"` field in the manifest entry at spec start. Record `"bestOfN"` when Best-of-N ran (with `"winner"` and `"loserResult"` fields).
 
 ## Pre-flight Test Gate
 
@@ -81,93 +65,48 @@ Check if `dark-factory/results/{name}/` has previous results:
 
 ## Step 0: Architect Review (MANDATORY — both modes)
 
-**Step 0a: Check for existing review**
-- Read the spec's `Architect Review Tier` field (see Step 0c for tier logic). If the field is missing or unrecognized, default to Tier 3.
-- For Tier 1 specs: check only for `{name}.review.md` (no domain files expected).
-- For Tier 2/3 specs: check if `{name}.review.md` exists with APPROVED or APPROVED WITH NOTES — skip review, extract findings (Step 0d), proceed.
-- If BLOCKED or missing: check cached domain reviews (Step 0b).
-- After receiving the architect review output, check for "Escalated from Tier" in the review. If found, record in manifest: `"tierEscalation": { "from": N, "to": M, "reason": "..." }`.
-
-**Step 0b: Check cached domain review files**
-- **Tier 1**: if `{name}.review.md` exists and is cached, go to Step 0c synthesis.
-- **Tier 2/3**: Look for `{name}.review-security.md`, `{name}.review-architecture.md`, `{name}.review-api.md` in the spec directory.
-  - All three exist but synthesized missing: re-synthesize from cached files (go to Step 0c synthesis).
-  - Some missing: re-spawn only missing domain architect-agents, reuse existing ones.
-  - None exist: full parallel review.
+**Step 0a:** Read spec's `Architect Review Tier` field. If missing, unrecognized, or "Unset — architect self-assesses": default to Tier 3. For Tier 2/3: if `{name}.review.md` exists with APPROVED/APPROVED WITH NOTES — skip to Step 0d. If BLOCKED or missing: check for cached domain files. After review, if "Escalated from Tier" found: record `"tierEscalation": { "from": N, "to": M, "reason": "..." }` in manifest.
 
 **Step 0c: Tier-aware architect spawn**
 
-Read the spec's `Architect Review Tier` field before spawning. Tier is a floor — if field is missing, unrecognized, or "Unset — architect self-assesses": default to Tier 3.
+Tier 1: Spawn 1 combined architect-agent (`.claude/agents/architect-agent.md`, no domain parameter). Produces single `{name}.review.md`.
 
-**Tier 1:** Spawn 1 combined architect-agent (NO domain parameter) with `.claude/agents/architect-agent.md`. Pass the tier value ("Tier 1") as a spawn parameter. The architect performs a unified review covering all three domains in a single session and produces a single `{name}.review.md`.
-
-**Tier 2/3:** Spawn 3 **independent** architect-agents in parallel with `.claude/agents/architect-agent.md`, each with a domain parameter:
+Tier 2/3: Spawn 3 independent architect-agents in parallel, each with a domain parameter:
   1. **Security & Data Integrity**
   2. **Architecture & Performance**
   3. **API Design & Backward Compatibility**
 
-Each receives: spec file path, feature name, feature/bugfix mode, assigned domain parameter, and the tier value as a spawn parameter. Wait for all three.
+Synthesize: **Strictest-wins** — any BLOCKED = overall BLOCKED; any APPROVED WITH NOTES = overall APPROVED WITH NOTES; otherwise APPROVED. Deduplicate overlapping findings. Write synthesized `{name}.review.md`.
 
-Synthesize into unified review:
-- **Strictest-wins**: any BLOCKED = overall BLOCKED; otherwise any APPROVED WITH NOTES = overall APPROVED WITH NOTES; otherwise APPROVED.
-- **Contradiction detection**: contradictory recommendations across domains = escalate to developer via AskUserQuestion.
-- **Deduplicate overlapping findings**: merge semantically similar findings, attribute all source domains, use highest severity.
-- Collect findings into "Key Decisions Made" and "Remaining Notes" sections.
-- Write synthesized `{name}.review.md`.
+If domain BLOCKED: spawn spec-agent (features) or debug-agent (bugs) with all findings. Re-spawn only blocked domains. Max 3 total passes. If overall BLOCKED after all passes: report to developer, do NOT proceed.
 
-If any domain BLOCKED: collect all blockers, spawn spec-agent (features) or debug-agent (bugs) with all findings to update spec. Re-spawn only blocked/concerned domains. Max 3 total passes.
-If overall BLOCKED after all passes: report to developer, do NOT proceed.
-If APPROVED or APPROVED WITH NOTES: proceed to Step 0d.
-
-**Step 0d: Extract and forward findings to code-agents**
+**Step 0d: Extract findings and write to file**
 - Read `{name}.review.md`. Extract ONLY "Key Decisions Made" and "Remaining Notes" sections.
-- Strip round-by-round discussion content (protect information barrier).
-- If no "Key Decisions Made" section: pass empty findings.
+- Write extracted findings to `dark-factory/specs/features/{name}.findings.md` (feature mode) or `dark-factory/specs/bugfixes/{name}.findings.md` (bugfix mode). This file MUST be written before code-agent is spawned in Step 1. If the write fails, report the error and STOP.
+- Set `architectFindingsPath` to the path of the file just written. Pass this path to code-agent.
 
-**Architect review rules:**
-- The architect NEVER discusses tests or scenarios with the spec/debug agent
-- The architect can ONLY provide information about spec gaps
-- If architect and spec agent disagree, escalate to developer
+**Architect review rules:** The architect NEVER discusses tests or scenarios with the spec/debug agent. If architect and spec agent disagree, escalate to developer.
 
 ## Feature Mode — Implementation Cycle
 
 ### Step 0.5: Determine Parallelism
 
-Read the spec's **Implementation Size Estimate** section for suggested parallel tracks. If missing, analyze:
-- **small** (1-2 files): 1 code-agent
-- **medium** (3-5 files): 1-2 code-agents
-- **large** (6-10 files): 2-3 code-agents
-- **x-large** (10+ files): 3-4 code-agents
-
-Rules: zero file overlap between tracks, sequential if dependencies exist, max 4 parallel code-agents. Auto-determine without developer confirmation.
+Read spec's **Implementation Size Estimate** for suggested parallel tracks. small=1, medium=1-2, large=2-3, x-large=3-4 code-agents. Zero file overlap between tracks, max 4, auto-determine without developer confirmation.
 
 ### Best-of-N (quality mode + Tier 3 only)
 
-When pipeline mode is `quality` AND spec tier is Tier 3, use Best-of-N instead of a single code-agent on Round 1:
-
-1. Create two worktrees with branches `{spec-name}-track-a` and `{spec-name}-track-b`.
-2. Spawn two independent code-agents in parallel, each with identical inputs: full spec, all public scenarios, architect findings. Each agent writes to its own worktree.
-3. Run holdout validation independently per track (spawn test-agent for each).
-4. Promotion logic:
-   - **Track A passes, Track B fails**: Promote Track A. Log Track B result in manifest as `"loserResult": "failed-holdout"`. Leave Track B worktree for developer inspection.
-   - **Track B passes, Track A fails**: Promote Track B. Record `"winner": "track-b"` in manifest.
-   - **Both pass**: Promote Track A (deterministic). Record `"loserResult": "both-passed"` in manifest.
-   - **Both fail**: Merge both failure summaries into combined diagnosis. Enter Round 2 as a single code-agent with the combined diagnosis. This counts as 1 round against the 3-round max (not 2).
-5. Track A merge conflict → hard stop for this spec. Report with file details. Continue independent specs. Abandon Track B.
-6. If both-fail diagnosis is empty or malformed → fall back to running Round 2 with original spec inputs. Log: "Best-of-N diagnosis unavailable — running Round 2 with original spec."
-
-Round counting: A Best-of-N attempt (two tracks) counts as exactly 1 round against the 3-round max, regardless of how many tracks ran.
+When pipeline mode is `quality` AND spec tier is Tier 3: spawn two parallel code-agents (track-a, track-b) with identical inputs. Run holdout validation per track. Track A passes → promote Track A. Track B passes → promote Track B. Both pass → promote Track A. Both fail → combined diagnosis for Round 2 (counts as 1 round). Track A merge conflict → hard stop. A Best-of-N attempt counts as 1 round against the 3-round max.
 
 ### Round N (max 3 rounds):
 
 **Step 1: Code Agents** (skip in test-only mode)
-- Read spec file and all public scenario files.
 - If fix mode: include sanitized failure summary from previous round.
 - Apply model selection from the Model Selection Table based on pipeline mode and spec tier.
+- Pass `specPath`, `publicScenariosDir` (path to `dark-factory/scenarios/public/{name}/`), and `architectFindingsPath` to code-agent as explicit path parameters. Do NOT read spec file content or public scenario file content into this agent's context for forwarding to code-agent — code-agent self-loads from these paths.
 
-**Single track:** Spawn ONE code-agent with full spec and public scenarios in feature mode, using the resolved model.
+**Single track:** Spawn ONE code-agent with `specPath`, `publicScenariosDir`, `architectFindingsPath`, and mode in feature mode, using the resolved model.
 
-**Multiple tracks:** Spawn code-agents in parallel with `isolation: "worktree"`, each with: full spec, all public scenarios, explicit track assignment, explicit file boundaries, resolved model. Merge worktree branches back sequentially; report merge conflicts to developer.
+**Multiple tracks:** Spawn code-agents in parallel with `isolation: "worktree"`, each with: `specPath`, `publicScenariosDir`, `architectFindingsPath`, explicit track assignment, explicit file boundaries, resolved model. Merge worktree branches back sequentially; report merge conflicts to developer.
 
 **Step 2: Test Agent**
 - Spawn test-agent with: the feature name (test-agent reads holdout scenarios itself), the spec file path.
@@ -194,12 +133,13 @@ If `flakyE2E: true` is found:
 ## Bugfix Mode — Red-Green Cycle
 
 ### Step 1: Red Phase (Prove the Bug)
-- Read debug report and all public scenario files.
-- Spawn code-agent with: debug report, public scenarios, instruction: **bugfix mode, Step 1 only — write failing test, NO source code changes**.
+- Pass `specPath` (debug report path), `publicScenariosDir` (path to `dark-factory/scenarios/public/{name}/`), and `architectFindingsPath` to code-agent as explicit path parameters. Do NOT read debug report or public scenario file content into this agent's context for forwarding to code-agent.
+- Spawn code-agent with: `specPath`, `publicScenariosDir`, `architectFindingsPath`, instruction: **bugfix mode, Step 1 only — write failing test, NO source code changes**.
 - Verify: code-agent ONLY created/modified test files, test FAILS. If test passes: report to developer, STOP.
 
 ### Step 2: Green Phase (Fix the Bug)
-- Spawn code-agent with: debug report, public scenarios, test file path from Step 1, instruction: **bugfix mode, Step 2 only — implement fix, NO test file changes**.
+- Pass `specPath` (debug report path), `publicScenariosDir`, `architectFindingsPath`, and test file path from Step 1 to code-agent as explicit path parameters. Do NOT read debug report or public scenario file content into this agent's context for forwarding.
+- Spawn code-agent with: `specPath`, `publicScenariosDir`, `architectFindingsPath`, test file path from Step 1, instruction: **bugfix mode, Step 2 only — implement fix, NO test file changes**.
 - Verify: ONLY source files modified, failing test now PASSES, ALL existing tests still pass.
 - If test still fails or existing tests break: retry (max 3 rounds).
 
@@ -211,11 +151,7 @@ If `flakyE2E: true` is found:
 
 ## Post-Implementation File Count Check
 
-After implementation (before holdout validation):
-1. Collect distinct files created/modified by all code-agents across all tracks.
-2. Read estimated count from spec's "Implementation Size Estimate" / "Estimated file count".
-3. Update manifest: set `actualFiles`. If `estimatedFiles` not set, set from spec.
-4. Log: "File count: estimated {estimatedFiles}, actual {actualFiles} (delta: {+/-difference})".
+Collect distinct files from all code-agents. Read estimated count from spec. Update manifest with `actualFiles`. Log: "File count: estimated {estimatedFiles}, actual {actualFiles} (delta: {+/-difference})".
 
 ## Post-Implementation Lifecycle
 
@@ -229,12 +165,28 @@ After implementation (before holdout validation):
 - If promoted tests fail: keep status `"passed"`, report failure, STOP.
 
 **Step 5: Cleanup**
-- If `--afk` flag is set: capture spec `## Context` and `## Acceptance Criteria` sections BEFORE the spec file is deleted in cleanup. Read and cache spec sections first, then delete. This ordering is mandatory — cleanup deletes the spec file, so AFK spec content must be captured before cleanup proceeds. If content capture fails, log a warning and store a minimal body: "{name} — Content not available — spec was deleted before capture."
+- If `--afk`: Read and cache spec sections first (before deleted in cleanup), then delete.
 - Commit spec/scenario files if uncommitted: "Archive {name}: spec + scenarios (promoted to permanent tests)"
-- Delete: spec file, review files, `dark-factory/scenarios/public/{name}/`, `dark-factory/scenarios/holdout/{name}/`, `dark-factory/results/{name}/`.
+- Delete: spec file, findings file (`dark-factory/specs/features/{name}.findings.md` or `dark-factory/specs/bugfixes/{name}.findings.md`), review files, `dark-factory/scenarios/public/{name}/`, `dark-factory/scenarios/holdout/{name}/`, `dark-factory/results/{name}/`.
 - Remove entry from `dark-factory/manifest.json`.
 - Commit deletion: `git add -A dark-factory/ && git commit -m "Cleanup {name}: artifacts deleted, tests promoted"`
-- If `--afk` flag is set: pass the cached spec content to df-orchestrate for draft PR creation (see df-orchestrate's AFK PR Creation section).
+- If `--afk`: pass cached spec content to df-orchestrate for draft PR creation.
+
+**Step 6: Emit Structured Result**
+
+After all steps complete (including cleanup), emit a structured JSON result at the end of every lifecycle path:
+
+```json
+{
+  "specName": "{name}",
+  "status": "passed | failed | blocked | token-cap",
+  "error": "reason (required when status is failed or blocked)",
+  "promotedTestPath": "path (required when status is passed)",
+  "tierEscalation": { "from": N, "to": M, "reason": "..." }
+}
+```
+
+`token-cap` is a distinguishable sentinel — not `failed`. Emit AFTER cleanup so `promotedTestPath` is final. Omit `error` for `passed`/`token-cap`. Omit `promotedTestPath` for non-passed statuses.
 
 ## Information Barrier Rules
 

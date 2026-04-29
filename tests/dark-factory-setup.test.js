@@ -2411,7 +2411,7 @@ describe("Token cap enforcement", () => {
     "test-agent": 3500,
     "promote-agent": 2500,
     "codemap-agent": 3500,
-    "implementation-agent": 4000,
+    "implementation-agent": 3200,
   };
 
   for (const [agent, cap] of Object.entries(agentCaps)) {
@@ -5466,3 +5466,306 @@ describe("ao-compile-time-agents — context-loading canonical text in assembled
 // DF-PROMOTED-END: ao-compile-time-agents
 
 // DF-PROMOTED-END: ao-agent-roles
+
+// Promoted from Dark Factory holdout: ao-thin-impl-agent
+// Root cause: implementation-agent read spec + all public scenario files inline, filling its context with content it only forwarded to code-agent
+// Guards: src/agents/implementation-agent.src.md, src/agents/code-agent.src.md, .claude/agents/implementation-agent.md, .claude/agents/code-agent.md, plugins/dark-factory/agents/implementation-agent.md, plugins/dark-factory/agents/code-agent.md
+// DF-PROMOTED-START: ao-thin-impl-agent
+// ===========================================================================
+
+describe("ao-thin-impl-agent — path-passing contract (AC-2, FR-1, BR-3)", () => {
+  it("P-01/P-02: implementation-agent Step 0d writes findings to file before code-agent spawn", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "src", "agents", "implementation-agent.src.md"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes(".findings.md"),
+      "implementation-agent.src.md Step 0d must reference {name}.findings.md"
+    );
+    assert.ok(
+      content.includes("MUST be written before code-agent is spawned") ||
+        content.includes("before code-agent is spawned"),
+      "implementation-agent.src.md Step 0d must specify findings file is written before code-agent spawn"
+    );
+  });
+
+  it("P-03: implementation-agent Step 1 passes specPath, publicScenariosDir, architectFindingsPath", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "src", "agents", "implementation-agent.src.md"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("specPath"),
+      "implementation-agent.src.md must pass specPath to code-agent"
+    );
+    assert.ok(
+      content.includes("publicScenariosDir"),
+      "implementation-agent.src.md must pass publicScenariosDir to code-agent"
+    );
+    assert.ok(
+      content.includes("architectFindingsPath"),
+      "implementation-agent.src.md must pass architectFindingsPath to code-agent"
+    );
+  });
+
+  it("P-05: implementation-agent does NOT read spec file content for forwarding to code-agent (AC-1)", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "src", "agents", "implementation-agent.src.md"),
+      "utf8"
+    );
+    assert.ok(
+      !content.includes("Read spec file and all public scenario files"),
+      "implementation-agent.src.md must NOT contain 'Read spec file and all public scenario files' in Step 1"
+    );
+    assert.ok(
+      content.includes("Do NOT read spec file content") ||
+        content.includes("do NOT read spec file content") ||
+        content.includes("Do NOT read debug report or public scenario file content"),
+      "implementation-agent.src.md must explicitly forbid reading spec/scenario content for forwarding"
+    );
+  });
+
+  it("P-06: code-agent uses explicit publicScenariosDir, NOT broad glob (AC-5, BR-2)", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("publicScenariosDir"),
+      "code-agent must reference publicScenariosDir path parameter"
+    );
+    assert.ok(
+      content.includes("do NOT glob") ||
+        content.includes("do NOT glob `dark-factory/scenarios/`") ||
+        content.includes("explicit path") ||
+        content.includes("MUST use this explicit path"),
+      "code-agent must instruct using explicit publicScenariosDir path, not broad glob"
+    );
+  });
+
+  it("P-07: missing findings file is non-blocking for code-agent (FR-6, BR-4)", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("No architect findings file") ||
+        content.includes("proceeding with empty findings") ||
+        content.includes("not an error"),
+      "code-agent must treat missing architectFindingsPath as non-blocking"
+    );
+  });
+
+  it("P-08: Step 5 cleanup lists findings file for deletion (FR-7, BR-5, AC-9)", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "src", "agents", "implementation-agent.src.md"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes(".findings.md") && content.includes("Cleanup"),
+      "implementation-agent.src.md Step 5 must list findings file for deletion"
+    );
+  });
+
+  it("P-09: compiled implementation-agent token cap is <= 3200 (AC-6, NFR-1)", () => {
+    const content = readAgent("implementation-agent");
+    const tokens = Math.ceil(Buffer.byteLength(content, "utf8") / 4);
+    assert.ok(
+      tokens <= 3200,
+      `implementation-agent is ${tokens} tokens, cap is 3200 (ao-thin-impl-agent)`
+    );
+  });
+
+  it("P-10: holdout-barrier.md is not weakened — code-agent still prohibits holdout reads (NFR-3, AC-10)", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("NEVER read") && content.includes("holdout"),
+      "code-agent must still prohibit reading holdout scenarios"
+    );
+  });
+});
+
+describe("ao-thin-impl-agent — code-agent self-load contract (FR-4, AC-4)", () => {
+  it("code-agent documents self-loading from specPath", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("specPath"),
+      "code-agent must document self-loading from specPath"
+    );
+    assert.ok(
+      content.includes("dark-factory/specs/features/") || content.includes("dark-factory/specs/bugfixes/"),
+      "code-agent must reference the spec path pattern"
+    );
+  });
+
+  it("code-agent documents self-loading from architectFindingsPath", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("architectFindingsPath"),
+      "code-agent must document self-loading from architectFindingsPath"
+    );
+    assert.ok(
+      content.includes("Key Decisions Made") || content.includes("Remaining Notes"),
+      "code-agent must reference Key Decisions Made / Remaining Notes from findings"
+    );
+  });
+});
+
+describe("ao-thin-impl-agent — plugin mirror parity (AC-8)", () => {
+  it("plugins/dark-factory/agents/implementation-agent.md matches source (ao-thin-impl-agent)", () => {
+    const source = readAgent("implementation-agent");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "implementation-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin implementation-agent.md must match source (ao-thin-impl-agent)");
+  });
+
+  it("plugins/dark-factory/agents/code-agent.md matches source (ao-thin-impl-agent)", () => {
+    const source = readAgent("code-agent");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "code-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin code-agent.md must match source (ao-thin-impl-agent)");
+  });
+});
+
+// DF-PROMOTED-END: ao-thin-impl-agent
+
+// Promoted from Dark Factory holdout: ao-thin-wave-orchestration
+// Root cause: orchestrator accumulated prose summaries across waves; replaced with structured JSON result contract between implementation-agent, wave agents, and orchestrator
+// Guards: .claude/skills/df-orchestrate/SKILL.md, plugins/dark-factory/skills/df-orchestrate/SKILL.md, src/agents/implementation-agent.src.md, .claude/agents/implementation-agent.md, plugins/dark-factory/agents/implementation-agent.md
+// DF-PROMOTED-START: ao-thin-wave-orchestration
+// ===========================================================================
+
+describe("ao-thin-wave-orchestration — JSON result schema in df-orchestrate (AC-1, AC-2, AC-3, FR-1, FR-2, FR-3)", () => {
+  it("df-orchestrate SKILL.md defines structured JSON result schema with required fields", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes('"specName"'),
+      "df-orchestrate SKILL.md must define specName field in result schema"
+    );
+    assert.ok(
+      content.includes('"status"'),
+      "df-orchestrate SKILL.md must define status field in result schema"
+    );
+    assert.ok(
+      content.includes('"promotedTestPath"'),
+      "df-orchestrate SKILL.md must define promotedTestPath field in result schema"
+    );
+    assert.ok(
+      content.includes('"error"'),
+      "df-orchestrate SKILL.md must define error field in result schema"
+    );
+  });
+
+  it("df-orchestrate SKILL.md documents wave isolation — no carryover context (AC-4, FR-4, DI-TBD-b)", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("no carryover context") ||
+        content.includes("carryover") ||
+        content.includes("fresh") && content.includes("wave"),
+      "df-orchestrate SKILL.md must document wave agent freshness (no carryover context)"
+    );
+    assert.ok(
+      content.includes("NEW wave agent") ||
+        content.includes("new wave agent") ||
+        content.includes("each wave spawns"),
+      "df-orchestrate SKILL.md must say each wave spawns a new/fresh wave agent"
+    );
+  });
+
+  it("df-orchestrate SKILL.md specifies what is NOT passed to wave agents (BR-5)", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("no spec file contents") ||
+        content.includes("no spec prose") ||
+        content.includes("no scenario text"),
+      "df-orchestrate SKILL.md must specify no spec/scenario content passed to wave agents"
+    );
+  });
+
+  it("df-orchestrate SKILL.md defines token-cap sentinel distinctly (FR-7, BR-7, DEC-TBD-b)", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("token-cap"),
+      "df-orchestrate SKILL.md must define token-cap sentinel"
+    );
+    assert.ok(
+      content.includes("token cap") || content.includes("hit token cap"),
+      "df-orchestrate SKILL.md must describe token-cap handling"
+    );
+  });
+
+  it("df-orchestrate SKILL.md documents malformed JSON handling (FR-5, FR-6)", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("result-parse-error") || content.includes("parse-error"),
+      "df-orchestrate SKILL.md must define result-parse-error sentinel"
+    );
+    assert.ok(
+      content.includes("wave-agent-crash") || content.includes("agent crash"),
+      "df-orchestrate SKILL.md must define wave-agent-crash handling"
+    );
+  });
+
+  it("df-orchestrate SKILL.md character count <= 14000 (FR-10, AC-9)", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.length <= 14000,
+      `df-orchestrate SKILL.md is ${content.length} characters, cap is 14000 (ao-thin-wave-orchestration)`
+    );
+  });
+});
+
+describe("ao-thin-wave-orchestration — implementation-agent result emit (AC-5, AC-8, INV-TBD-c)", () => {
+  it("implementation-agent contains result emit step language", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes("Emit Structured Result") || content.includes("emit a structured JSON result"),
+      "implementation-agent must contain result emit step language"
+    );
+  });
+
+  it("implementation-agent contains token-cap sentinel language (AC-8)", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes("token-cap"),
+      "implementation-agent must define token-cap sentinel"
+    );
+  });
+
+  it("implementation-agent result schema has all required fields", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes('"specName"') || content.includes("specName"),
+      "implementation-agent result schema must include specName"
+    );
+    assert.ok(
+      content.includes('"status"') || content.includes("status"),
+      "implementation-agent result schema must include status"
+    );
+    assert.ok(
+      content.includes('"promotedTestPath"') || content.includes("promotedTestPath"),
+      "implementation-agent result schema must include promotedTestPath"
+    );
+  });
+});
+
+describe("ao-thin-wave-orchestration — plugin mirror parity (AC-11, AC-12, AC-13)", () => {
+  it("plugins/dark-factory/skills/df-orchestrate/SKILL.md matches source (ao-thin-wave-orchestration)", () => {
+    const source = readSkill("df-orchestrate");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "skills", "df-orchestrate", "SKILL.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin df-orchestrate SKILL.md must match source (ao-thin-wave-orchestration)");
+  });
+
+  it("plugins/dark-factory/agents/implementation-agent.md matches source (ao-thin-wave-orchestration)", () => {
+    const source = readAgent("implementation-agent");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "implementation-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin implementation-agent.md must match source (ao-thin-wave-orchestration)");
+  });
+});
+
+// DF-PROMOTED-END: ao-thin-wave-orchestration
