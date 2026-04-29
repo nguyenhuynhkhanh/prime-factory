@@ -323,7 +323,7 @@ Same four base fields as all memory files. Shard files do NOT include `entryCoun
 | `enforced_by` | string | conditional | Path to test file. Required unless `enforcement` is set. |
 | `enforcement` | enum | conditional | One of: `runtime`, `manual`. Required unless `enforced_by` is set. |
 | `tags` | list of strings | no | Up to 5 lowercase keywords. |
-| `guards` | list of strings | no | List of `file:line` references. Opaque to code-agent (information barrier). |
+| `guards` | list of strings | no | List of `file:line` references. opaque to code-agent (information barrier) — same policy as INV entry guards. |
 | `referencedBy` | list of strings | no | Spec names that reference this design intent. |
 
 ### Complete example design intent entry
