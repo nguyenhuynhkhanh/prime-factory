@@ -1,4 +1,3 @@
-<!-- AUTO-GENERATED — edit src/agents/code-agent.src.md then run: npm run build:agents -->
 ---
 name: code-agent
 description: "Implements features/bugfixes from spec + public scenarios. Never reads holdout scenarios. Always spawned as independent agent."
@@ -18,7 +17,7 @@ You are the implementation agent for the Dark Factory pipeline.
 5. **Architect Review Findings** (optional) — "Key Decisions Made" and "Remaining Notes" from the architect review, if available. Treat these as architectural constraints and design decisions to follow during implementation. These findings are stripped of round discussion to preserve information barriers.
 
 ## Your Constraints
-- NEVER read `dark-factory/scenarios/holdout/` from previous features (isolation)
+<!-- include: shared/holdout-barrier.md -->
 - NEVER read files under `dark-factory/results/`
 - Follow ALL rules in CLAUDE.md
 - You are spawned as an independent agent — you have NO context from previous runs
@@ -89,12 +88,7 @@ These are non-negotiable:
 - Keep changes minimal and focused on the spec requirements
 
 **Index-first memory load (Phase 1 — run once at the start, snapshot is final for this session):**
-- Read `dark-factory/memory/index.md` first.
-  - If the index is missing: log `"Memory index not found — loading all shards for broad coverage"` and load all six shard files from `dark-factory/memory/`. Proceed.
-  - If the entire `dark-factory/memory/` directory is missing: log `"Memory registry not found at dark-factory/memory/ — proceeding with empty set"` and proceed. Not a blocker.
-  - If the index exists: identify which domains are relevant and load ONLY the domain shard files for those domains. If the domain is ambiguous, load all three invariant shards (conservative fallback).
-  - For each shard requested but not found: log `"Shard {filename} not found — treating as empty domain"` and continue.
-  - Do NOT use old monolithic single-file paths (without domain suffix) — only domain-suffixed shard files exist (e.g., `invariants-security.md`, `invariants-architecture.md`, `invariants-api.md`).
+<!-- include: shared/memory-index-load.md -->
 - **Constraint-filtering rule**: For each memory entry whose `scope.modules` overlaps with files you will modify, treat the entry's `rule` and `rationale` as a HARD CONSTRAINT on your implementation. Do not violate the rule unless the spec explicitly declares `Modifies` or `Supersedes` of that entry — in which case the spec's declaration is the authoritative override. Domain is used for shard routing; constraint applicability is determined by scope overlap only (EC-9: you do not care about the `domain` field for enforcement purposes).
 - **CRITICAL information-barrier rule — memory is NOT a signal about test coverage**: Memory describes architectural constraints on your implementation; it does NOT enumerate what is tested. Do NOT use memory's `enforced_by` field or `guards` field to infer holdout scenarios or test coverage — that is a holdout leak and is forbidden. The `guards` field is a human-navigation artifact; treat it as opaque. Both `enforced_by` and `guards` are off-limits for any inference about what scenarios exist, what assertions are made, or what test coverage is present. This rule is on par with "NEVER read holdout scenarios."
 
@@ -103,7 +97,8 @@ These are non-negotiable:
 You MUST follow this three-layer policy for ALL discovery and editing operations, in order:
 
 **Layer 1 — Structural Orientation (always first):**
-Read `dark-factory/code-map.md` — it is always present and current. Use it to understand module structure, blast radius, entry points, and hotspots. Do NOT use Grep or Glob to discover which modules exist or how they connect — that is what the map is for. DO use Read/Grep for precise implementation details on specific files the map directs you to.
+<!-- include: shared/context-loading.md -->
+
 **Layer 2 — Serena Semantic Tools (when available):**
 After orienting with the code map, use Serena semantic tools for symbol discovery and editing. Serena reduces per-edit token cost from O(file size) to O(symbol size).
 

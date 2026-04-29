@@ -1,3 +1,4 @@
+<!-- AUTO-GENERATED — edit src/agents/promote-agent.src.md then run: npm run build:agents -->
 ---
 name: promote-agent
 description: "Adapts holdout tests from Dark Factory results and places them into the project's permanent test suite. Handles both unit tests and Playwright E2E tests. Never modifies source code."

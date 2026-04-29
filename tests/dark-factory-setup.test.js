@@ -24,9 +24,12 @@ function readSkill(name) {
   );
 }
 
-/** Parse YAML-ish frontmatter between --- delimiters */
+/** Parse YAML-ish frontmatter between --- delimiters.
+ * Supports files that begin with an HTML comment (auto-generated header). */
 function parseFrontmatter(content) {
-  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  // Strip any leading HTML comment block (e.g., auto-generated header) before matching
+  const stripped = content.replace(/^<!--[\s\S]*?-->\n?/, '');
+  const match = stripped.match(/^---\n([\s\S]*?)\n---/);
   if (!match) return null;
   const fm = {};
   for (const line of match[1].split("\n")) {
@@ -5392,5 +5395,74 @@ describe("ao-agent-roles — judge agents have model-role: judge", () => {
     assert.equal(fm["model-role"], "judge", "implementation-agent should have model-role: judge");
   });
 });
+
+// ===========================================================================
+// Promoted from Dark Factory holdout: ao-compile-time-agents
+// Root cause: shared blocks in agent files drift silently across copies; build system centralizes canonical text
+// Guards: src/agents/shared/context-loading.md, bin/build-agents.js, .claude/agents/, plugins/dark-factory/agents/
+// DF-PROMOTED-START: ao-compile-time-agents
+// ===========================================================================
+
+describe("ao-compile-time-agents — auto-generated header in assembled agents", () => {
+  const AGENT_NAMES = [
+    "spec-agent",
+    "debug-agent",
+    "architect-agent",
+    "code-agent",
+    "test-agent",
+    "promote-agent",
+    "onboard-agent",
+    "codemap-agent",
+    "implementation-agent",
+  ];
+
+  for (const name of AGENT_NAMES) {
+    it(`${name}.md has auto-generated header comment as first line`, () => {
+      const content = readAgent(name);
+      const firstLine = content.split("\n")[0];
+      assert.ok(
+        firstLine.startsWith("<!-- AUTO-GENERATED"),
+        `${name}.md first line must be the auto-generated header comment, got: ${firstLine}`
+      );
+      assert.ok(
+        firstLine.includes(`src/agents/${name}.src.md`),
+        `${name}.md header must reference src/agents/${name}.src.md`
+      );
+      assert.ok(
+        firstLine.includes("npm run build:agents"),
+        `${name}.md header must reference the build command`
+      );
+    });
+  }
+});
+
+describe("ao-compile-time-agents — context-loading canonical text in assembled agents", () => {
+  const CANONICAL_CONTEXT_LOADING = "Read `dark-factory/code-map.md` — it is always present and current. Use it to understand module structure, blast radius, entry points, and hotspots. Do NOT use Grep or Glob to discover which modules exist or how they connect — that is what the map is for. DO use Read/Grep for precise implementation details on specific files the map directs you to.";
+
+  const AGENTS_USING_CONTEXT_LOADING = [
+    "spec-agent",
+    "debug-agent",
+    "architect-agent",
+    "promote-agent",
+    "test-agent",
+    "code-agent",
+  ];
+
+  for (const name of AGENTS_USING_CONTEXT_LOADING) {
+    it(`${name}.md contains canonical context-loading text (resolved from shared/context-loading.md)`, () => {
+      const content = readAgent(name);
+      assert.ok(
+        content.includes(CANONICAL_CONTEXT_LOADING),
+        `${name}.md must contain the canonical context-loading text (with DO use Read/Grep suffix)`
+      );
+      assert.ok(
+        !content.includes("<!-- include: shared/context-loading.md -->"),
+        `${name}.md must not contain an unresolved include directive`
+      );
+    });
+  }
+});
+
+// DF-PROMOTED-END: ao-compile-time-agents
 
 // DF-PROMOTED-END: ao-agent-roles

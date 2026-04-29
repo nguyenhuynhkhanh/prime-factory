@@ -1,0 +1,6 @@
+- Read `dark-factory/memory/index.md` first.
+  - If the index is missing: log `"Memory index not found — loading all shards for broad coverage"` and load all six shard files from `dark-factory/memory/`. Proceed.
+  - If the entire `dark-factory/memory/` directory is missing: log `"Memory registry not found at dark-factory/memory/ — proceeding with empty set"` and proceed. Not a blocker.
+  - If the index exists: identify which domains are relevant and load ONLY the domain shard files for those domains. If the domain is ambiguous, load all three invariant shards (conservative fallback).
+  - For each shard requested but not found: log `"Shard {filename} not found — treating as empty domain"` and continue.
+  - Do NOT use old monolithic single-file paths (without domain suffix) — only domain-suffixed shard files exist (e.g., `invariants-security.md`, `invariants-architecture.md`, `invariants-api.md`).

@@ -28,6 +28,11 @@ fail() { echo -e "  ${RED}✗${NC} $1" >&2; exit 1; }
 
 cd "$ROOT"
 
+# --- Build agents ---
+step "Building agents from src/"
+node bin/build-agents.js
+info "Agents assembled"
+
 # --- Pre-flight checks ---
 step "Pre-flight checks"
 

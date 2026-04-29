@@ -22,6 +22,9 @@
   ],
   "author": "",
   "scripts": {
+    "build:agents": "node bin/build-agents.js",
+    "test": "node --test tests/",
+    "pretest": "node bin/build-agents.js",
     "deploy": "bash scripts/deploy.sh patch",
     "deploy:minor": "bash scripts/deploy.sh minor",
     "deploy:major": "bash scripts/deploy.sh major"

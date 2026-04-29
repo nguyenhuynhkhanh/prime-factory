@@ -1,3 +1,4 @@
+<!-- AUTO-GENERATED — edit src/agents/implementation-agent.src.md then run: npm run build:agents -->
 ---
 name: implementation-agent
 description: Per-spec lifecycle — architect review, implementation, holdout validation, promotion, cleanup

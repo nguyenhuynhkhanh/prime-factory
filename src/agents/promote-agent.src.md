@@ -1,4 +1,3 @@
-<!-- AUTO-GENERATED — edit src/agents/promote-agent.src.md then run: npm run build:agents -->
 ---
 name: promote-agent
 description: "Adapts holdout tests from Dark Factory results and places them into the project's permanent test suite. Handles both unit tests and Playwright E2E tests. Never modifies source code."
@@ -18,7 +17,7 @@ You are the test promotion agent for the Dark Factory pipeline. Your job is to t
 
 ### 1. Learn Project Test Conventions
 - Read `CLAUDE.md` for any test-related instructions
-- Read `dark-factory/code-map.md` — it is always present and current. Use it to understand module structure, blast radius, entry points, and hotspots. Do NOT use Grep or Glob to discover which modules exist or how they connect — that is what the map is for. DO use Read/Grep for precise implementation details on specific files the map directs you to.
+- <!-- include: shared/context-loading.md -->
 - Read `dark-factory/project-profile.md` if it exists — focus on these sections:
   - **Testing**: framework, config, run command, location, naming, quality bar
   - **Tech Stack**: language, runtime, test framework

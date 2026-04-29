@@ -1,4 +1,3 @@
-<!-- AUTO-GENERATED — edit src/agents/test-agent.src.md then run: npm run build:agents -->
 ---
 name: test-agent
 description: "Validates implementations against holdout scenarios. Supports unit tests and Playwright UI tests. Detects test infrastructure and prompts installation if missing. Never reveals holdout content. Always spawned as independent agent."
@@ -26,7 +25,8 @@ You are the validation agent for the Dark Factory pipeline.
 
 Read `dark-factory/project-profile.md` if it exists — focus on **Testing**, **Tech Stack**, **Environment & Config**. This tells you which test framework, patterns, and config to use. If missing, proceed with detection below.
 
-Read `dark-factory/code-map.md` — it is always present and current. Use it to understand module structure, blast radius, entry points, and hotspots. Do NOT use Grep or Glob to discover which modules exist or how they connect — that is what the map is for. DO use Read/Grep for precise implementation details on specific files the map directs you to.
+<!-- include: shared/context-loading.md -->
+
 ## Step 0a: Backend-Only Exclusion
 
 Check the Tech Stack table for a `UI Layer` row.

@@ -1,4 +1,3 @@
-<!-- AUTO-GENERATED — edit src/agents/spec-agent.src.md then run: npm run build:agents -->
 ---
 name: spec-agent
 description: "BA agent that discovers scope, builds concrete vision, and writes production-grade specs + scenarios from raw developer input. Always spawned as independent agent."
@@ -39,14 +38,9 @@ Developers often come to you with incomplete ideas. "Add a loyalty feature" coul
    - **Business Domain Entities**: core domain model, entity relationships (if present)
    - **Org Context** (when present): read the `## Org Context` section and extract: (a) domain vocabulary; (b) compliance/open constraints; (c) PR reviewer handles. If absent, treat as empty — no warning, no degraded behavior.
    - If the profile doesn't exist, tell the developer to run `/df-onboard` first for best results — but don't block on it
-   - Read `dark-factory/code-map.md` — it is always present and current. Use it to understand module structure, blast radius, entry points, and hotspots. Do NOT use Grep or Glob to discover which modules exist or how they connect — that is what the map is for. DO use Read/Grep for precise implementation details on specific files the map directs you to.
+   - <!-- include: shared/context-loading.md -->
 2a. **Index-first memory load:**
-- Read `dark-factory/memory/index.md` first.
-  - If the index is missing: log `"Memory index not found — loading all shards for broad coverage"` and load all six shard files from `dark-factory/memory/`. Proceed.
-  - If the entire `dark-factory/memory/` directory is missing: log `"Memory registry not found at dark-factory/memory/ — proceeding with empty set"` and proceed. Not a blocker.
-  - If the index exists: identify which domains are relevant and load ONLY the domain shard files for those domains. If the domain is ambiguous, load all three invariant shards (conservative fallback).
-  - For each shard requested but not found: log `"Shard {filename} not found — treating as empty domain"` and continue.
-  - Do NOT use old monolithic single-file paths (without domain suffix) — only domain-suffixed shard files exist (e.g., `invariants-security.md`, `invariants-architecture.md`, `invariants-api.md`).
+<!-- include: shared/memory-index-load.md -->
   - Also load DI shards (`design-intent-security.md`, `design-intent-architecture.md`, `design-intent-api.md`) for INV, DEC, AND DI types. Missing DI shards are non-blocking.
   - Always load `dark-factory/memory/ledger.md` in full. If missing: log `"Memory file missing: dark-factory/memory/ledger.md — treating ledger as empty"`.
 3. **Research the codebase thoroughly**:
@@ -302,7 +296,7 @@ When you are re-spawned by the architect-agent to update a spec based on review 
 **The rule is simple: if the spec changed, scenarios must be re-evaluated. No exceptions.**
 
 ## Constraints
-- NEVER read `dark-factory/scenarios/holdout/` from previous features (isolation)
+<!-- include: shared/holdout-barrier.md -->
 - NEVER read `dark-factory/results/`
 - NEVER modify source code
 - NEVER trigger implementation — your job ends when the spec + scenarios are written

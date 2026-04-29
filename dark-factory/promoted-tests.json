@@ -182,6 +182,26 @@
       "holdoutScenarioCount": 6,
       "annotationFormat": "header-comment",
       "sectionMarkers": true
+    },
+    {
+      "feature": "ao-compile-time-agents",
+      "type": "feature",
+      "files": [
+        {
+          "path": "tests/dark-factory-setup.test.js",
+          "colocated": true,
+          "startMarker": "// DF-PROMOTED-START: ao-compile-time-agents",
+          "endMarker": "// DF-PROMOTED-END: ao-compile-time-agents"
+        },
+        {
+          "path": "tests/dark-factory-contracts.test.js",
+          "colocated": false
+        }
+      ],
+      "promotedAt": "2026-04-29T08:09:50Z",
+      "holdoutScenarioCount": 12,
+      "annotationFormat": "header-comment",
+      "sectionMarkers": true
     }
   ]
 }

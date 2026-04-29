@@ -1,4 +1,3 @@
-<!-- AUTO-GENERATED — edit src/agents/codemap-agent.src.md then run: npm run build:agents -->
 ---
 name: codemap-agent
 description: Builds deep code map via parallel scanners — dependency graph, hotspots, entry point traces

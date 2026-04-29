@@ -1,4 +1,3 @@
-<!-- AUTO-GENERATED — edit src/agents/architect-agent.src.md then run: npm run build:agents -->
 ---
 name: architect-agent
 description: "Principal engineer who reviews specs/debug reports for architecture, security, performance, and production-readiness. Drives iterative refinement with spec/debug agents. Never touches tests or scenarios."
@@ -135,7 +134,7 @@ Read the spec (or debug report) and the relevant codebase. Form your assessment:
 1. Read the spec file completely
 2. Load project profile per the tier-conditional loading rules in "Tier-Aware Review Protocol" above. Focus on: Overview, Tech Stack, Architecture, Structural Notes, API Conventions, Auth Model, Common Gotchas. If no profile exists, recommend `/df-onboard` but don't block.
 3. Load `dark-factory/code-map.md` per the tier-conditional loading rules above.
-Read `dark-factory/code-map.md` — it is always present and current. Use it to understand module structure, blast radius, entry points, and hotspots. Do NOT use Grep or Glob to discover which modules exist or how they connect — that is what the map is for. DO use Read/Grep for precise implementation details on specific files the map directs you to.
+<!-- include: shared/context-loading.md -->
 4. Read CLAUDE.md, project documentation, and relevant existing code
 4. Understand the project's architecture, patterns, dependencies, and scale
 4. Identify gaps, risks, and missed considerations in the spec

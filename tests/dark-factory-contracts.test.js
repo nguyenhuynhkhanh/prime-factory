@@ -2,6 +2,8 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
+const { execSync } = require("child_process");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -786,4 +788,78 @@ describe("ao-agent-roles — plugin mirror parity", () => {
       assert.equal(source, plugin, `Plugin ${name}.md must match source exactly (ao-agent-roles)`);
     });
   }
+});
+
+// ===========================================================================
+// ao-compile-time-agents — build system contracts
+// ===========================================================================
+
+describe("ao-compile-time-agents — built output matches src/ (sync check)", () => {
+  const AGENT_NAMES = [
+    "spec-agent",
+    "debug-agent",
+    "architect-agent",
+    "code-agent",
+    "test-agent",
+    "promote-agent",
+    "onboard-agent",
+    "codemap-agent",
+    "implementation-agent",
+  ];
+
+  it("build script produces output identical to current .claude/agents/*.md", () => {
+    // Run build to a temp directory and compare output vs current assembled files
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "df-build-"));
+    try {
+      execSync(
+        `node ${path.join(ROOT, "bin", "build-agents.js")} --output-dir ${tmpDir}`,
+        { cwd: ROOT }
+      );
+      for (const name of AGENT_NAMES) {
+        const builtPath = path.join(tmpDir, `${name}.md`);
+        const currentPath = path.join(ROOT, ".claude", "agents", `${name}.md`);
+        assert.ok(
+          fs.existsSync(builtPath),
+          `Build did not produce ${name}.md in temp output directory`
+        );
+        const built = fs.readFileSync(builtPath, "utf8");
+        const current = fs.readFileSync(currentPath, "utf8");
+        assert.equal(
+          built,
+          current,
+          `${name}.md is out of sync with src/ — run: npm run build:agents`
+        );
+      }
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("ao-compile-time-agents — build script zero npm dependencies", () => {
+  it("bin/build-agents.js uses only Node.js stdlib (no npm package requires)", () => {
+    const buildScript = fs.readFileSync(
+      path.join(ROOT, "bin", "build-agents.js"),
+      "utf8"
+    );
+    // Find all require() calls
+    const requireMatches = buildScript.match(/require\(['"]([^'"]+)['"]\)/g) || [];
+    const nodejsBuiltins = new Set([
+      "fs", "path", "os", "http", "https", "url", "crypto", "child_process",
+      "stream", "util", "events", "buffer", "querystring", "readline",
+      "assert", "zlib", "net", "tls", "dns", "cluster", "worker_threads",
+      "node:fs", "node:path", "node:os", "node:http", "node:https",
+      "node:crypto", "node:child_process", "node:stream", "node:util",
+      "node:events", "node:buffer", "node:assert", "node:readline",
+    ]);
+    for (const req of requireMatches) {
+      const modName = req.match(/require\(['"]([^'"]+)['"]\)/)[1];
+      // Strip node: prefix for checking
+      const bare = modName.startsWith("node:") ? modName.slice(5) : modName;
+      assert.ok(
+        nodejsBuiltins.has(modName) || nodejsBuiltins.has("node:" + bare),
+        `bin/build-agents.js must not require npm packages; found: require('${modName}')`
+      );
+    }
+  });
 });

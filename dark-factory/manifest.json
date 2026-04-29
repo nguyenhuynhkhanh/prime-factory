@@ -57,12 +57,19 @@
     },
     "ao-compile-time-agents": {
       "type": "feature",
-      "status": "active",
+      "status": "promoted",
       "specPath": "dark-factory/specs/features/ao-compile-time-agents.spec.md",
       "created": "2026-04-29T00:00:00Z",
-      "rounds": 0,
+      "passedAt": "2026-04-29T08:09:50Z",
+      "promotedAt": "2026-04-29T08:09:50Z",
+      "promotedTestPath": "tests/dark-factory-setup.test.js",
+      "rounds": 1,
       "group": "ao-pipeline-improvements",
-      "dependencies": ["ao-agent-roles"]
+      "dependencies": ["ao-agent-roles"],
+      "estimatedFiles": 28,
+      "actualFiles": 34,
+      "testGateSkipped": false,
+      "mode": "balanced"
     }
   }
 }
