@@ -54,6 +54,51 @@
       "rounds": 0,
       "group": "project-memory",
       "dependencies": ["project-memory-foundation", "project-memory-consumers", "project-memory-onboard"]
+    },
+    "ao-design-intent": {
+      "type": "feature",
+      "status": "active",
+      "specPath": "dark-factory/specs/features/ao-design-intent.spec.md",
+      "created": "2026-04-29T00:00:00Z",
+      "rounds": 0,
+      "group": "ao-pipeline-improvements",
+      "dependencies": []
+    },
+    "ao-org-context": {
+      "type": "feature",
+      "status": "active",
+      "specPath": "dark-factory/specs/features/ao-org-context.spec.md",
+      "created": "2026-04-29T00:00:00Z",
+      "rounds": 0,
+      "group": "ao-pipeline-improvements",
+      "dependencies": ["ao-design-intent"]
+    },
+    "ao-pipeline-mode": {
+      "type": "feature",
+      "status": "active",
+      "specPath": "dark-factory/specs/features/ao-pipeline-mode.spec.md",
+      "created": "2026-04-29T00:00:00Z",
+      "rounds": 0,
+      "group": "ao-pipeline-improvements",
+      "dependencies": ["ao-design-intent"]
+    },
+    "ao-agent-roles": {
+      "type": "feature",
+      "status": "active",
+      "specPath": "dark-factory/specs/features/ao-agent-roles.spec.md",
+      "created": "2026-04-29T00:00:00Z",
+      "rounds": 0,
+      "group": "ao-pipeline-improvements",
+      "dependencies": ["ao-org-context", "ao-pipeline-mode"]
+    },
+    "ao-compile-time-agents": {
+      "type": "feature",
+      "status": "active",
+      "specPath": "dark-factory/specs/features/ao-compile-time-agents.spec.md",
+      "created": "2026-04-29T00:00:00Z",
+      "rounds": 0,
+      "group": "ao-pipeline-improvements",
+      "dependencies": ["ao-agent-roles"]
     }
   }
 }

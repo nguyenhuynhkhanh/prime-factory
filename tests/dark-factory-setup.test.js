@@ -5617,4 +5617,108 @@ describe("ao-design-intent — plugin mirror parity (AC-14, FR-16)", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Holdout scenarios H-01..H-18 (promoted from holdout validation)
+// ---------------------------------------------------------------------------
+
+describe("ao-design-intent — H-01: DI TBD IDs are spec-local; promote-agent assigns sequential permanent IDs", () => {
+  it("promote-agent scans existing DI-NNNN IDs to assign next sequential ID", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(content.includes("sequential") && content.includes("DI-"), "promote-agent must describe sequential DI ID assignment");
+  });
+  it("promote-agent uses DI-TBD-* placeholder resolution pattern", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(content.includes("DI-TBD"), "promote-agent must reference DI-TBD-* placeholder IDs for resolution");
+  });
+});
+
+describe("ao-design-intent — H-02: DI-TBD-* missing required field triggers architect BLOCKER", () => {
+  it("architect-agent specifies BLOCKER for DI-TBD-* missing required fields", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(content.includes("DI-TBD") && content.includes("required"), "architect-agent must BLOCKER on DI-TBD-* entries missing required fields");
+  });
+  it("architect-agent memory probe references DI-specific required fields (intent/drift_risk)", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(content.includes("drift_risk") || content.includes("intent"), "architect-agent must reference DI-specific required fields");
+  });
+});
+
+describe("ao-design-intent — H-04: Developer rejection of auto-populated Design Intent is authoritative", () => {
+  it("spec-agent states developer decision at scope sign-off is authoritative for DI section", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(content.includes("developer") && (content.includes("authoritative") || content.includes("developer's decision")), "spec-agent must state developer decision on DI section is authoritative");
+  });
+});
+
+describe("ao-design-intent — H-05: Promote-agent skips DI write-through when no ## Design Intent", () => {
+  it("promote-agent records introducedDesignIntents: [] even when no DI entries", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(content.includes("introducedDesignIntents"), "promote-agent must record introducedDesignIntents field");
+  });
+});
+
+describe("ao-design-intent — H-06: Promote-agent creates DI shard if absent", () => {
+  it("promote-agent creates DI shard file if it does not exist", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(content.includes("design-intent") && (content.includes("does not exist") || content.includes("create")), "promote-agent must handle absent DI shards by creating them");
+  });
+});
+
+describe("ao-design-intent — H-07: Architect source restriction — DI shards only, no codebase inference", () => {
+  it("architect-agent prohibits inferring design intents from codebase reading", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(content.includes("NEVER infer design intents"), "architect-agent must prohibit DI inference from codebase reading");
+  });
+});
+
+describe("ao-design-intent — H-11: Onboard Batch 4 zero candidates message", () => {
+  it("onboard-agent shows 'No design intent candidates found' when Phase 3.7d produces zero candidates", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(content.includes("No design intent candidates found"), "onboard-agent must display zero-candidates message in Batch 4");
+  });
+});
+
+describe("ao-design-intent — H-13: DI guards field is opaque to code-agent", () => {
+  it("project-memory-template.md states DI guards field is opaque to code-agent", () => {
+    const tplPath = path.join(ROOT, "dark-factory", "templates", "project-memory-template.md");
+    const content = fs.readFileSync(tplPath, "utf8");
+    assert.ok(content.includes("guards") && content.includes("opaque"), "project-memory-template.md must state DI guards field is opaque to code-agent");
+  });
+});
+
+describe("ao-design-intent — H-14: Spec-agent with no DI shards produces placeholder Design Intent", () => {
+  it("spec-agent produces placeholder prose when DI shards are absent for Tier 2/3 specs", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(content.includes("No design intent baseline found") || content.includes("placeholder"), "spec-agent must describe placeholder behavior when DI shards are absent");
+  });
+});
+
+describe("ao-design-intent — H-15: DI-TBD declared but Intent introduced empty → architect CONCERN", () => {
+  it("architect-agent emits CONCERN when DI-TBD entries exist but Intent introduced field is empty", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(content.includes("DI-TBD") && content.includes("CONCERN") && content.includes("Intent introduced"), "architect-agent must emit CONCERN when DI-TBD declared but Intent introduced empty");
+  });
+});
+
+describe("ao-design-intent — H-16: Invalid domain DI candidate rerouted to architecture + UNCLASSIFIED tag", () => {
+  it("onboard-agent routes invalid-domain DI candidates with [UNCLASSIFIED DOMAIN] tag", () => {
+    const content = readAgent("onboard-agent");
+    assert.ok(content.includes("[UNCLASSIFIED DOMAIN]"), "onboard-agent must apply [UNCLASSIFIED DOMAIN] tag to invalid-domain DI candidates");
+  });
+});
+
+describe("ao-design-intent — H-17: Architect emits SUGGESTION for unknown DI-NNNN in spec", () => {
+  it("architect-agent emits SUGGESTION for DI-NNNN referenced in spec but not found in shard", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(content.includes("DI-NNNN referenced in spec but not found in design intent shards"), "architect-agent must emit SUGGESTION for DI-NNNN not found in shard");
+  });
+});
+
+describe("ao-design-intent — H-18: Superseded DI entries not checked by architect", () => {
+  it("architect-agent checks only active DI entries (status: active)", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(content.includes("status: active") || (content.includes("Only check") && content.includes("active")), "architect-agent must only check status: active entries");
+  });
+});
+
 // DF-PROMOTED-END: ao-design-intent
