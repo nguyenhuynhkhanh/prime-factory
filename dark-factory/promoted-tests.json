@@ -234,6 +234,26 @@
       "holdoutScenarioCount": 10,
       "annotationFormat": "header-comment",
       "sectionMarkers": true
+    },
+    {
+      "feature": "project-memory-consumers",
+      "type": "feature",
+      "files": [
+        {
+          "path": "tests/dark-factory-setup.test.js",
+          "colocated": true,
+          "startMarker": "// DF-PROMOTED-START: project-memory-consumers",
+          "endMarker": "// DF-PROMOTED-END: project-memory-consumers"
+        },
+        {
+          "path": "tests/dark-factory-contracts.test.js",
+          "colocated": false
+        }
+      ],
+      "promotedAt": "2026-04-30T00:00:00Z",
+      "holdoutScenarioCount": 24,
+      "annotationFormat": "header-comment",
+      "sectionMarkers": true
     }
   ]
 }
