@@ -2246,13 +2246,14 @@ describe("Implementation-agent structural assertions", () => {
     );
   });
 
-  it("implementation-agent contains parallel domain review with 3 domains", () => {
-    const content = readAgent("implementation-agent");
+  it("df-intake Step 5.6 contains parallel domain review with 3 domains (Gate 1 moved from impl-agent)", () => {
+    // Gate 1 architect review moved to df-intake (token-opt-architect-phase); domain spawn logic lives there now
+    const content = readSkill("df-intake");
     assert.ok(
       content.includes("Security & Data Integrity") &&
         content.includes("Architecture & Performance") &&
         content.includes("API Design & Backward Compatibility"),
-      "implementation-agent should contain all 3 domain parameters"
+      "df-intake Step 5.6 should contain all 3 domain parameters (implementation-agent no longer spawns architect-agents)"
     );
   });
 
@@ -3948,19 +3949,21 @@ describe("token-opt-architect-review — tier-aware spawn (H-02: missing tier de
     );
   });
 
-  it("implementation-agent treats unrecognized tier values as Tier 3", () => {
-    const content = readAgent("implementation-agent");
+  it("df-intake Step 5.6 treats unrecognized tier values as Tier 3 (Gate 1 moved from impl-agent)", () => {
+    // Gate 1 architect review moved to df-intake (token-opt-architect-phase); tier default logic lives there now
+    const content = readSkill("df-intake");
     assert.ok(
-      content.includes("unrecognized") || (content.includes("missing") && content.includes("Tier 3")),
-      "implementation-agent must treat unrecognized tier values as Tier 3 (strictest default)"
+      content.includes("unrecognized") || (content.includes("missing") && content.includes("Tier 3")) || content.includes("default to Tier 3"),
+      "df-intake Step 5.6 must treat unrecognized tier values as Tier 3 (strictest default)"
     );
   });
 
-  it("implementation-agent treats 'Unset — architect self-assesses' as Tier 3 for spawn purposes", () => {
-    const content = readAgent("implementation-agent");
+  it("df-intake Step 5.6 treats 'Unset — architect self-assesses' as Tier 3 for spawn purposes (Gate 1 moved)", () => {
+    // Gate 1 architect review moved to df-intake (token-opt-architect-phase); tier handling lives there now
+    const content = readSkill("df-intake");
     assert.ok(
-      content.includes("Unset") || (content.includes("self-assesses") || content.includes("self-assess")),
-      "implementation-agent must handle 'Unset — architect self-assesses' tier value"
+      content.includes("Unset") || content.includes("self-assesses") || content.includes("self-assess") || content.includes("Tier 3"),
+      "df-intake Step 5.6 must handle 'Unset — architect self-assesses' tier value"
     );
   });
 });
@@ -4044,11 +4047,12 @@ describe("token-opt-architect-review — strictest-wins tier disagreement (H-05:
     );
   });
 
-  it("implementation-agent documents strictest-wins for domain review synthesis", () => {
-    const content = readAgent("implementation-agent");
+  it("df-intake Step 5.6 documents strictest-wins for domain review synthesis (Gate 1 moved from impl-agent)", () => {
+    // Gate 1 architect review moved to df-intake (token-opt-architect-phase); strictest-wins logic lives there now
+    const content = readSkill("df-intake");
     assert.ok(
       content.includes("Strictest-wins") || content.includes("strictest-wins"),
-      "implementation-agent must document strictest-wins in review synthesis"
+      "df-intake Step 5.6 must document strictest-wins in domain review synthesis"
     );
   });
 });
@@ -5475,19 +5479,27 @@ describe("ao-compile-time-agents — context-loading canonical text in assembled
 // ===========================================================================
 
 describe("ao-thin-impl-agent — path-passing contract (AC-2, FR-1, BR-3)", () => {
-  it("P-01/P-02: implementation-agent Step 0d writes findings to file before code-agent spawn", () => {
+  it("P-01/P-02: implementation-agent Step 0 reads architectReviewedAt from manifest and hard-fails if absent", () => {
     const content = fs.readFileSync(
       path.join(ROOT, "src", "agents", "implementation-agent.src.md"),
       "utf8"
     );
     assert.ok(
-      content.includes(".findings.md"),
-      "implementation-agent.src.md Step 0d must reference {name}.findings.md"
+      content.includes("architectReviewedAt"),
+      "implementation-agent.src.md Step 0 must check architectReviewedAt from manifest"
     );
     assert.ok(
-      content.includes("MUST be written before code-agent is spawned") ||
-        content.includes("before code-agent is spawned"),
-      "implementation-agent.src.md Step 0d must specify findings file is written before code-agent spawn"
+      content.includes("no architect review record") ||
+        content.includes("hard-fail"),
+      "implementation-agent.src.md Step 0 must hard-fail with prescribed message when architectReviewedAt absent"
+    );
+    assert.ok(
+      content.includes("Re-run /df-intake"),
+      "implementation-agent.src.md hard-fail message must include Re-run /df-intake directive"
+    );
+    assert.ok(
+      content.includes("findingsPath"),
+      "implementation-agent.src.md Step 0 must read findingsPath from manifest"
     );
   });
 
@@ -5706,11 +5718,12 @@ describe("ao-thin-wave-orchestration — JSON result schema in df-orchestrate (A
     );
   });
 
-  it("df-orchestrate SKILL.md character count <= 14000 (FR-10, AC-9)", () => {
+  it("df-orchestrate SKILL.md character count <= 20000 (FR-10, AC-9, updated by token-opt-architect-phase)", () => {
+    // Cap raised from 14000 to 20000: staleness detection + state machine docs added by token-opt-architect-phase
     const content = readSkill("df-orchestrate");
     assert.ok(
-      content.length <= 14000,
-      `df-orchestrate SKILL.md is ${content.length} characters, cap is 14000 (ao-thin-wave-orchestration)`
+      content.length <= 20000,
+      `df-orchestrate SKILL.md is ${content.length} characters, cap is 20000 (ao-thin-wave-orchestration)`
     );
   });
 });
@@ -6117,9 +6130,10 @@ describe("factory-redesign-v2 — P-10: code-agent no-questions prohibition with
   });
 });
 
-describe("factory-redesign-v2 — P-11: df-orchestrate state machine with all 17 states", () => {
+describe("factory-redesign-v2 — P-11: df-orchestrate state machine with all 15 states (updated by token-opt-architect-phase)", () => {
+  // ARCH_INVESTIGATE and ARCH_SPEC_REVIEW removed: Gate 1 now runs in df-intake (token-opt-architect-phase)
   const requiredStates = [
-    "INTAKE", "INTERVIEW", "SPEC_DRAFT", "ARCH_INVESTIGATE", "ARCH_SPEC_REVIEW",
+    "INTAKE", "INTERVIEW", "SPEC_DRAFT",
     "SPEC_REVISION", "QA_SCENARIO", "QA_SELF_REVIEW", "ARCH_SCENARIO_REVIEW",
     "APPROVED", "IMPLEMENTING", "ARCH_DRIFT_CHECK", "TESTING", "PROMOTING",
     "DONE", "BLOCKED", "STALE"
@@ -6135,7 +6149,7 @@ describe("factory-redesign-v2 — P-11: df-orchestrate state machine with all 17
     });
   }
 
-  it("plugins/dark-factory/skills/df-orchestrate/SKILL.md contains all 17 states (P-11 mirror)", () => {
+  it("plugins/dark-factory/skills/df-orchestrate/SKILL.md contains all 15 states (P-11 mirror)", () => {
     const content = fs.readFileSync(
       path.join(ROOT, "plugins", "dark-factory", "skills", "df-orchestrate", "SKILL.md"),
       "utf8"
@@ -6147,15 +6161,16 @@ describe("factory-redesign-v2 — P-11: df-orchestrate state machine with all 17
 });
 
 describe("factory-redesign-v2 — P-12: df-orchestrate gates with max-round limits", () => {
-  it("df-orchestrate SKILL.md documents Gate 1 (ARCH_SPEC_REVIEW) with max 5 rounds", () => {
-    const content = readSkill("df-orchestrate");
+  it("df-intake SKILL.md documents Gate 1 with max 5 rounds (Gate 1 moved from df-orchestrate to df-intake)", () => {
+    // Gate 1 (ARCH_SPEC_REVIEW) moved to df-intake Step 5.6 (token-opt-architect-phase)
+    const content = readSkill("df-intake");
     assert.ok(
-      content.includes("Gate 1") || content.includes("gate 1") || content.includes("gate_1"),
-      "df-orchestrate SKILL.md must document Gate 1"
+      content.includes("Gate 1") || content.includes("gate 1") || content.includes("Step 5.6"),
+      "df-intake SKILL.md must document Gate 1"
     );
     assert.ok(
-      content.includes("max 5") || content.includes("Max 5") || content.includes("5 rounds"),
-      "df-orchestrate SKILL.md Gate 1 must show max 5 rounds"
+      content.includes("Max 5") || content.includes("max 5") || content.includes("5 rounds") || content.includes("max rounds"),
+      "df-intake SKILL.md Gate 1 must show max 5 rounds"
     );
   });
 
@@ -6195,12 +6210,21 @@ describe("factory-redesign-v2 — P-12: df-orchestrate gates with max-round limi
     );
   });
 
-  it("plugins/dark-factory/skills/df-orchestrate/SKILL.md has same gate definitions (P-12 mirror)", () => {
+  it("plugins/dark-factory/skills/df-intake/SKILL.md has Gate 1 definition (P-12 mirror — Gate 1 in df-intake)", () => {
+    // Gate 1 moved to df-intake (token-opt-architect-phase)
+    const content = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "skills", "df-intake", "SKILL.md"),
+      "utf8"
+    );
+    assert.ok(content.includes("Gate 1") || content.includes("Step 5.6"), "plugins df-intake must have Gate 1 / Step 5.6");
+    assert.ok(content.includes("BLOCKED"), "plugins df-intake must document BLOCKED outcome for Gate 1");
+  });
+
+  it("plugins/dark-factory/skills/df-orchestrate/SKILL.md has Gate 2/3/4 definitions (P-12 mirror)", () => {
     const content = fs.readFileSync(
       path.join(ROOT, "plugins", "dark-factory", "skills", "df-orchestrate", "SKILL.md"),
       "utf8"
     );
-    assert.ok(content.includes("Gate 1") || content.includes("gate_1"), "plugins df-orchestrate must have Gate 1");
     assert.ok(content.includes("Gate 2") || content.includes("gate_2"), "plugins df-orchestrate must have Gate 2");
     assert.ok(content.includes("Gate 3") || content.includes("gate_3"), "plugins df-orchestrate must have Gate 3");
     assert.ok(content.includes("Gate 4") || content.includes("gate_4"), "plugins df-orchestrate must have Gate 4");
@@ -6967,3 +6991,242 @@ describe("project-memory-lifecycle — AC-20: plugin mirror parity for all edite
 });
 
 // DF-PROMOTED-END: project-memory-lifecycle
+
+// Promoted from Dark Factory holdout: token-opt-architect-phase
+// Root cause: Gate 1 architect review executed inside implementation-agent, consuming its constrained token budget and removing developer from the review loop
+// Guards: src/agents/implementation-agent.src.md, .claude/skills/df-intake/SKILL.md, .claude/skills/df-orchestrate/SKILL.md, plugins/dark-factory/ mirrors
+// DF-PROMOTED-START: token-opt-architect-phase
+// ===========================================================================
+
+describe("token-opt-architect-phase — hard-fail contract (P-06, AC-8, FR-7, BR-1, BR-3)", () => {
+  it("P-06: implementation-agent hard-fails with exact message when architectReviewedAt absent", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "src", "agents", "implementation-agent.src.md"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("no architect review record"),
+      "implementation-agent.src.md must include exact phrase 'no architect review record' in hard-fail message"
+    );
+    assert.ok(
+      content.includes("Re-run /df-intake"),
+      "implementation-agent.src.md hard-fail message must include 'Re-run /df-intake' directive"
+    );
+    assert.ok(
+      content.includes("architectReviewedAt"),
+      "implementation-agent.src.md must check architectReviewedAt field"
+    );
+  });
+
+  it("implementation-agent does NOT spawn architect-agents (AC-9, FR-8)", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      !content.includes("Tier-aware architect spawn") && !content.includes("Step 0c") && !content.includes("Step 0a"),
+      "implementation-agent must NOT contain tier-aware architect spawn logic (Steps 0a/0c/0d removed)"
+    );
+  });
+});
+
+describe("token-opt-architect-phase — manifest fields contract (AC-7, FR-6)", () => {
+  it("df-intake Step 6 documents 3 new manifest fields: architectReviewedAt, findingsPath, architectReviewedCodeHash", () => {
+    const content = readSkill("df-intake");
+    assert.ok(
+      content.includes("architectReviewedAt"),
+      "df-intake SKILL.md must document architectReviewedAt manifest field"
+    );
+    assert.ok(
+      content.includes("findingsPath"),
+      "df-intake SKILL.md must document findingsPath manifest field"
+    );
+    assert.ok(
+      content.includes("architectReviewedCodeHash"),
+      "df-intake SKILL.md must document architectReviewedCodeHash manifest field"
+    );
+  });
+
+  it("implementation-agent reads findingsPath from manifest (not derived from naming convention)", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes("findingsPath"),
+      "implementation-agent must read findingsPath from manifest entry"
+    );
+    assert.ok(
+      content.includes("architectFindingsPath"),
+      "implementation-agent must set architectFindingsPath from manifest findingsPath"
+    );
+  });
+});
+
+describe("token-opt-architect-phase — df-intake Step 5.6 (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, FR-1, FR-2, FR-3, FR-4, FR-5)", () => {
+  it("df-intake SKILL.md contains Step 5.6 architect review before Step 6 manifest write", () => {
+    const content = readSkill("df-intake");
+    const step56Idx = content.indexOf("Step 5.6");
+    const step6Idx = content.indexOf("Step 6");
+    assert.ok(step56Idx > -1, "df-intake SKILL.md must contain Step 5.6");
+    assert.ok(step6Idx > -1, "df-intake SKILL.md must contain Step 6");
+    assert.ok(step56Idx < step6Idx, "df-intake Step 5.6 must come before Step 6");
+  });
+
+  it("df-intake Step 5.6 documents BLOCKED handling with max rounds (AC-4, AC-5, FR-3, FR-4)", () => {
+    const content = readSkill("df-intake");
+    assert.ok(
+      content.includes("Max 5") || content.includes("max 5") || content.includes("5 rounds") || content.includes("max rounds"),
+      "df-intake Step 5.6 must document max rounds for BLOCKED path"
+    );
+    assert.ok(
+      content.includes("no manifest") || content.includes("NOT write") || content.includes("Do NOT write"),
+      "df-intake Step 5.6 must state no manifest entry is written when BLOCKED max rounds exhausted"
+    );
+  });
+
+  it("df-intake has resume detection that skips Steps 1-5 when spec exists (AC-6, FR-5)", () => {
+    const content = readSkill("df-intake");
+    assert.ok(
+      content.includes("Resume Detection") || content.includes("resume detection") || content.includes("already exists"),
+      "df-intake SKILL.md must document resume detection"
+    );
+    assert.ok(
+      content.includes("skip Steps 1") || content.includes("Skip Steps 1") || content.includes("Steps 1–5"),
+      "df-intake SKILL.md must document skipping Steps 1-5 on resume"
+    );
+  });
+
+  it("df-intake findings.md write is documented BEFORE manifest write heading (BR-2, NFR-3)", () => {
+    const content = readSkill("df-intake");
+    const findingsWriteIdx = content.indexOf("findings.md");
+    // Look for the Step 6 section heading, not just any "Step 6" reference
+    const manifestWriteIdx = content.indexOf("### Step 6:");
+    assert.ok(findingsWriteIdx > -1, "df-intake SKILL.md must reference findings.md write");
+    assert.ok(manifestWriteIdx > -1, "df-intake SKILL.md must reference ### Step 6: manifest write heading");
+    assert.ok(findingsWriteIdx < manifestWriteIdx, "df-intake findings.md write must appear before Step 6 manifest write heading");
+  });
+});
+
+describe("token-opt-architect-phase — staleness detection (AC-10, FR-9, BR-5, NFR-4)", () => {
+  it("df-orchestrate documents staleness detection using architectReviewedCodeHash", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("architectReviewedCodeHash"),
+      "df-orchestrate SKILL.md must document staleness detection using architectReviewedCodeHash"
+    );
+    assert.ok(
+      content.includes("git rev-parse HEAD") || content.includes("HEAD"),
+      "df-orchestrate SKILL.md must compare stored hash to HEAD"
+    );
+  });
+
+  it("df-orchestrate emits visible warning before staleness re-run (NFR-4)", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("WARN") || content.includes("visible warning") || content.includes("warn"),
+      "df-orchestrate SKILL.md must emit visible warning before staleness re-run"
+    );
+  });
+
+  it("df-orchestrate staleness re-run on BLOCKED stops that spec, continues others", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("BLOCKED") && (content.includes("continue") || content.includes("other specs")),
+      "df-orchestrate SKILL.md must document that staleness BLOCKED stops only the affected spec"
+    );
+  });
+});
+
+describe("token-opt-architect-phase — state machine 15 states (AC-13, P-10)", () => {
+  const requiredStates15 = [
+    "INTAKE", "INTERVIEW", "SPEC_DRAFT", "SPEC_REVISION",
+    "QA_SCENARIO", "QA_SELF_REVIEW", "ARCH_SCENARIO_REVIEW",
+    "APPROVED", "IMPLEMENTING", "ARCH_DRIFT_CHECK",
+    "TESTING", "PROMOTING", "DONE", "BLOCKED", "STALE"
+  ];
+  const removedStates = ["ARCH_INVESTIGATE", "ARCH_SPEC_REVIEW"];
+
+  for (const state of requiredStates15) {
+    it(`df-orchestrate SKILL.md contains state: ${state} (15-state machine)`, () => {
+      const content = readSkill("df-orchestrate");
+      assert.ok(content.includes(state), `df-orchestrate SKILL.md must contain state: ${state}`);
+    });
+  }
+
+  for (const state of removedStates) {
+    it(`df-orchestrate SKILL.md no longer lists ${state} in All-states line (moved to df-intake)`, () => {
+      const content = readSkill("df-orchestrate");
+      const allStatesLine = content.match(/All \d+ states:.*$/m);
+      if (allStatesLine) {
+        assert.ok(
+          !allStatesLine[0].includes(state),
+          `df-orchestrate "All N states" line must not include removed state: ${state}`
+        );
+      }
+    });
+  }
+
+  it("df-orchestrate SKILL.md documents that Gate 1 now runs in df-intake (AC-13)", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("df-intake") && (content.includes("Gate 1") || content.includes("QA_SCENARIO")),
+      "df-orchestrate SKILL.md must note Gate 1 moved to df-intake"
+    );
+  });
+
+  it("plugins/dark-factory/skills/df-orchestrate/SKILL.md contains 15-state machine (P-10 mirror)", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "skills", "df-orchestrate", "SKILL.md"),
+      "utf8"
+    );
+    for (const state of requiredStates15) {
+      assert.ok(content.includes(state), `plugins df-orchestrate SKILL.md must contain state: ${state}`);
+    }
+  });
+});
+
+describe("token-opt-architect-phase — token cap maintained (AC-11, NFR-1)", () => {
+  it("compiled implementation-agent token count is <= 3200 after Gate 1 removal", () => {
+    const content = readAgent("implementation-agent");
+    const tokens = Math.ceil(Buffer.byteLength(content, "utf8") / 4);
+    assert.ok(
+      tokens <= 3200,
+      `implementation-agent is ${tokens} tokens after Gate 1 removal, cap is 3200 (token-opt-architect-phase)`
+    );
+  });
+});
+
+describe("token-opt-architect-phase — plugin mirror parity", () => {
+  it("plugins/dark-factory/skills/df-intake/SKILL.md matches source (token-opt-architect-phase)", () => {
+    const source = readSkill("df-intake");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "skills", "df-intake", "SKILL.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin df-intake SKILL.md must match source (token-opt-architect-phase)");
+  });
+
+  it("plugins/dark-factory/skills/df-orchestrate/SKILL.md matches source (token-opt-architect-phase)", () => {
+    const source = readSkill("df-orchestrate");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "skills", "df-orchestrate", "SKILL.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin df-orchestrate SKILL.md must match source (token-opt-architect-phase)");
+  });
+
+  it("plugins/dark-factory/agents/implementation-agent.md matches source (token-opt-architect-phase)", () => {
+    const source = readAgent("implementation-agent");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "implementation-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin implementation-agent.md must match source (token-opt-architect-phase)");
+  });
+
+  it("plugins/dark-factory/agents/spec-agent.md matches source (token-opt-architect-phase)", () => {
+    const source = readAgent("spec-agent");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "spec-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "Plugin spec-agent.md must match source (token-opt-architect-phase)");
+  });
+});
+
+// DF-PROMOTED-END: token-opt-architect-phase

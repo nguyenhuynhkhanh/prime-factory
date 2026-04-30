@@ -128,11 +128,33 @@ Pass `SERENA_MODE` as explicit prompt context line (Claude Code agents do not re
 
 Default when absent: `read-only`.
 
+## Staleness Detection (per-spec — runs before each implementation-agent spawn)
+
+For each spec about to be dispatched to an implementation-agent, check whether the architect review is stale:
+
+1. Read `dark-factory/manifest.json`. Find the entry for the spec.
+2. Read `architectReviewedCodeHash` from the manifest entry.
+   - If `architectReviewedCodeHash` is `null` or absent: treat as "unknown — stale". Proceed to step 3.
+   - If `architectReviewedCodeHash` is a 40-character hex string: run `git rev-parse HEAD`. Compare using exact SHA equality (`===`).
+3. **If hashes match (or `architectReviewedCodeHash` matches HEAD)**: no action. Proceed to spawn implementation-agent normally.
+4. **If hashes differ (or hash is null/absent)**: emit a visible warning to the developer:
+   > "WARN: Architect review for `{name}` was performed at commit {stored-hash}, but HEAD is now {current-hash}. Re-running Gate 1 architect review before implementation..."
+   
+   Then re-run Gate 1 architect review (tier-aware, same logic as df-intake Step 5.6):
+   - Spawn architect-agent(s) with the spec file path
+   - On APPROVED/APPROVED WITH NOTES: overwrite `{name}.findings.md`, update `architectReviewedAt`, `findingsPath`, `architectReviewedCodeHash` in manifest
+   - On BLOCKED: surface to developer; do NOT spawn implementation-agent for this spec; other specs in the batch continue normally
+
+This check runs as a per-spec check before spawning each implementation-agent, not as a batch check before the wave loop. Each spec in a wave is independently checked.
+
+---
+
 ### Single spec: `/df-orchestrate my-feature`
 1. Enter worktree (EnterWorktree), write `.serena/project.yml` to worktree root (absolute path).
-2. Spawn **implementation-agent** (`.claude/agents/implementation-agent.md`) with: spec name, spec path, mode, branch name, skip-tests flag, pipeline mode, afk flag, and "Serena mode: full" in prompt context.
-3. Exit worktree (ExitWorktree). Delete `.serena/project.yml` from the worktree.
-4. If `--afk` flag is set and spec promoted: proceed to AFK PR Creation.
+2. Run staleness detection for `my-feature` (see Staleness Detection above). If BLOCKED after re-run: stop and report.
+3. Spawn **implementation-agent** (`.claude/agents/implementation-agent.md`) with: spec name, spec path, mode, branch name, skip-tests flag, pipeline mode, afk flag, and "Serena mode: full" in prompt context.
+4. Exit worktree (ExitWorktree). Delete `.serena/project.yml` from the worktree.
+5. If `--afk` flag is set and spec promoted: proceed to AFK PR Creation.
 
 ### Multiple specs: `/df-orchestrate spec-a spec-b spec-c`
 
@@ -248,7 +270,9 @@ Bugfix mode: test FAILS in red phase, test PASSES in green phase, checks for reg
 
 ## State Machine
 
-All 17 states: INTAKE, INTERVIEW, SPEC_DRAFT, ARCH_INVESTIGATE, ARCH_SPEC_REVIEW, SPEC_REVISION, QA_SCENARIO, QA_SELF_REVIEW, ARCH_SCENARIO_REVIEW, APPROVED, IMPLEMENTING, ARCH_DRIFT_CHECK, TESTING, PROMOTING, DONE, BLOCKED, STALE.
+**Note:** Gate 1 (ARCH_SPEC_REVIEW) now runs in df-intake, not df-orchestrate. Specs that arrive at df-orchestrate already have `architectReviewedAt` set in their manifest entry — df-orchestrate starts from `QA_SCENARIO` for approved specs. Staleness detection (see above) may re-run Gate 1 if the codebase has changed since the spec was reviewed.
+
+All 15 states: INTAKE, INTERVIEW, SPEC_DRAFT, SPEC_REVISION, QA_SCENARIO, QA_SELF_REVIEW, ARCH_SCENARIO_REVIEW, APPROVED, IMPLEMENTING, ARCH_DRIFT_CHECK, TESTING, PROMOTING, DONE, BLOCKED, STALE.
 
 Terminal states: BLOCKED (max retries exceeded — escalate to developer with full context), STALE (no activity 48h).
 
@@ -256,7 +280,6 @@ Terminal states: BLOCKED (max retries exceeded — escalate to developer with fu
 
 | Gate | State | Condition | Max Rounds |
 |------|-------|-----------|------------|
-| Gate 1 | ARCH_SPEC_REVIEW | Architect marks spec APPROVED | max 5 rounds |
 | Gate 2 | ARCH_SCENARIO_REVIEW | Architect marks ADR coverage APPROVED | max 3 rounds |
 | Gate 3 | ARCH_DRIFT_CHECK | Architect marks implementation CLEAN | max 2 rounds |
 | Gate 4 | TESTING | Test-agent reports all holdout PASS | max 3 rounds |

@@ -280,6 +280,8 @@ Any additional context for the test runner.
 
 ## Re-spawn During Architect Review (IMPORTANT)
 
+You may be re-spawned by the architect-agent during Gate 1 review. Gate 1 now runs in **df-intake** (the spec creation phase, while the developer is present) — not in implementation-agent. This means re-spawns during architect review occur during the interactive intake session, before any manifest entry is written.
+
 When you are re-spawned by the architect-agent to update a spec based on review feedback:
 
 1. Read the architect's feedback carefully

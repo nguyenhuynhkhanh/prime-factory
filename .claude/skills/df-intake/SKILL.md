@@ -35,6 +35,15 @@ If the input looks like a bug report:
 - Tell the developer: "This sounds like a bug report. Use `/df-debug {description}` instead — it uses a dedicated debug-agent that does forensic root cause analysis and impact assessment before any fix is attempted."
 - **STOP** — do not spawn any agents
 
+## Resume Detection (IMPORTANT — check before spawning any agents)
+
+If the developer invokes `/df-intake {name}` and `dark-factory/specs/features/{name}.spec.md` already exists on disk:
+
+1. Read `dark-factory/manifest.json`. Check if a manifest entry exists for `{name}`.
+2. **Manifest entry exists AND `architectReviewedAt` is present**: architect review already completed. Tell the developer: "Spec `{name}` already has an approved architect review. Proceed with `/df-orchestrate {name}` to start implementation." Do NOT re-run Steps 1–5.6.
+3. **Spec file exists BUT no manifest entry OR `architectReviewedAt` absent**: skip Steps 1–5 entirely. Resume from Step 5.6 (architect review) using the existing spec file.
+4. **Spec file does NOT exist**: proceed with normal intake flow (Steps 1 through 7).
+
 ## Process
 
 ### Pre-Phase: Code Map Refresh
@@ -384,10 +393,39 @@ After writing spec(s) and scenarios (Step 5), before updating the manifest (Step
 
 **Information barrier:** advisor output is returned to spec-agent ONLY. It is NEVER forwarded to architect-agent. architect-agent reads only the spec — it does not see advisor output, scenario revisions, or advisory data of any kind.
 
+### Step 5.6: Architect Review (Gate 1 — MANDATORY before manifest write)
+
+After spec(s) and scenarios are written (and test-advisor handoff completed), run Gate 1 (architect spec review) for EACH spec. Do NOT write any manifest entry until Gate 1 passes for that spec.
+
+**For decomposed specs**: Run architect reviews in wave order matching the `dependencies` array. Independent sub-specs (no unsatisfied dependencies) may be reviewed in parallel. A sub-spec that depends on another MUST wait until that dependency's Gate 1 is APPROVED before beginning its own review.
+
+**Per-spec architect review process:**
+
+1. Read the spec's `Architect Review Tier` field. If missing, unrecognized, or "Unset — architect self-assesses": default to Tier 3.
+
+2. **Tier 1**: Spawn 1 combined architect-agent (`.claude/agents/architect-agent.md`, no domain parameter). Produces single `{name}.review.md`.
+
+   **Tier 2/3**: Spawn 3 independent architect-agents in parallel, each with a domain parameter:
+   - **Security & Data Integrity**
+   - **Architecture & Performance**
+   - **API Design & Backward Compatibility**
+
+   Synthesize: **Strictest-wins** — any BLOCKED = overall BLOCKED; any APPROVED WITH NOTES = overall APPROVED WITH NOTES; otherwise APPROVED. Deduplicate overlapping findings. Write synthesized `{name}.review.md`.
+
+3. **On BLOCKED verdict**: Spawn spec-agent with all findings. Re-spawn only blocked domains. Max 5 total rounds. If overall BLOCKED after max rounds: surface blocker details to developer (include domain, round count, specific blocker text). Do NOT write manifest entry. The spec file remains on disk. Developer re-runs `/df-intake {name}` to resume from this step.
+
+4. **On APPROVED or APPROVED WITH NOTES verdict**:
+   - Extract "Key Decisions Made" and "Remaining Notes" sections from `{name}.review.md`.
+   - Write extracted findings to `dark-factory/specs/features/{name}.findings.md`. This file MUST be written before the manifest entry (Step 6). If the write fails: report the error and STOP — do NOT proceed to Step 6.
+   - Proceed to Step 6 for this spec.
+
+**Architect review rules:** The architect NEVER discusses tests or scenarios with the spec-agent. Information barrier is strictly enforced.
+
 ### Step 6: Update manifest
 
-Update `dark-factory/manifest.json` for EACH spec (single or multiple):
+Update `dark-factory/manifest.json` for EACH spec (single or multiple) that passed Gate 1:
 - Read the current manifest
+- Run `git rev-parse HEAD` to capture the current code hash. If this fails (detached HEAD, no git repo): log "Unable to capture architectReviewedCodeHash: git error" and set hash to `null`.
 - Add entries under `"features"` keyed by each spec name:
   ```json
   "{name}": {
@@ -397,12 +435,16 @@ Update `dark-factory/manifest.json` for EACH spec (single or multiple):
     "created": "{ISO timestamp}",
     "rounds": 0,
     "group": "{parent-feature-name or null}",
-    "dependencies": ["{dep-spec-name}", "..."]
+    "dependencies": ["{dep-spec-name}", "..."],
+    "architectReviewedAt": "{ISO timestamp of Gate 1 approval}",
+    "findingsPath": "dark-factory/specs/features/{name}.findings.md",
+    "architectReviewedCodeHash": "{output of git rev-parse HEAD, or null if git error}"
   }
   ```
 - **MANDATORY**: Every manifest entry MUST include both `group` and `dependencies` fields:
   - `"group"`: For decomposed specs, all sub-specs share the same `"group"` value (the parent feature name). For single/standalone specs, set to `null`. NEVER omit this field.
   - `"dependencies"`: Lists sub-spec names that must complete before this one. For independent specs (no dependencies), set to `[]` (empty array). NEVER omit this field.
+- **MANDATORY**: Every manifest entry written after `token-opt-architect-phase` ships MUST also include `architectReviewedAt`, `findingsPath`, and `architectReviewedCodeHash`. These fields are the handshake contract with implementation-agent. A manifest entry without `architectReviewedAt` will cause implementation-agent to hard-fail.
 - Write the updated manifest back
 
 ### Step 7: Present scenarios for review

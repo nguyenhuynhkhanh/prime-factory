@@ -162,7 +162,7 @@ describe("Cross-agent contracts", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Handoff 5: df-orchestrate -> implementation-agent -> architect-agent
+  // Handoff 5: df-orchestrate -> implementation-agent (Gate 1 now in df-intake)
   // -------------------------------------------------------------------------
   describe("df-orchestrate -> implementation-agent (per-spec lifecycle)", () => {
     it("df-orchestrate spawns implementation-agent for per-spec lifecycle", () => {
@@ -172,28 +172,40 @@ describe("Cross-agent contracts", () => {
         "df-orchestrate should reference implementation-agent.md"
       );
       assert.ok(
-        orch.includes("architect review") || orch.includes("Architect review"),
-        "df-orchestrate should mention implementation-agent handles architect review"
+        orch.includes("architect review") || orch.includes("Architect review") || orch.includes("Gate 1"),
+        "df-orchestrate should mention Gate 1 architect review context (staleness detection)"
       );
     });
 
-    it("implementation-agent spawns architect-agents with domain parameter", () => {
+    it("implementation-agent reads architectReviewedAt from manifest — does NOT spawn architect-agent (token-opt-architect-phase)", () => {
       const impl = readAgent("implementation-agent");
       assert.ok(
-        impl.includes("domain parameter") || impl.includes("domain"),
-        "implementation-agent should pass domain parameter to architect-agents"
+        impl.includes("architectReviewedAt"),
+        "implementation-agent should check architectReviewedAt from manifest"
       );
       assert.ok(
-        impl.includes("Security & Data Integrity"),
-        "implementation-agent should pass Security domain"
+        impl.includes("no architect review record") || impl.includes("hard-fail"),
+        "implementation-agent should hard-fail when architectReviewedAt absent"
       );
       assert.ok(
-        impl.includes("Architecture & Performance"),
-        "implementation-agent should pass Architecture domain"
+        impl.includes("findingsPath"),
+        "implementation-agent should read findingsPath from manifest"
+      );
+    });
+
+    it("df-intake Step 5.6 spawns architect-agents with domain parameter (Gate 1 moved from impl-agent)", () => {
+      const intake = readSkill("df-intake");
+      assert.ok(
+        intake.includes("Security & Data Integrity"),
+        "df-intake Step 5.6 should spawn Security domain architect-agent"
       );
       assert.ok(
-        impl.includes("API Design & Backward Compatibility"),
-        "implementation-agent should pass API domain"
+        intake.includes("Architecture & Performance"),
+        "df-intake Step 5.6 should spawn Architecture domain architect-agent"
+      );
+      assert.ok(
+        intake.includes("API Design & Backward Compatibility"),
+        "df-intake Step 5.6 should spawn API domain architect-agent"
       );
     });
 
@@ -896,4 +908,46 @@ describe("project-memory-lifecycle — AC-22: plugin mirror parity for lifecycle
       assert.equal(source, plugin, `Plugin ${name}/SKILL.md must match source exactly (project-memory-lifecycle)`);
     });
   }
+});
+
+// ===========================================================================
+// token-opt-architect-phase — Gate 1 handshake contract
+// ===========================================================================
+
+describe("token-opt-architect-phase — Gate 1 handshake: df-intake writes, impl-agent reads", () => {
+  it("df-intake documents writing architectReviewedAt, findingsPath, architectReviewedCodeHash before impl-agent sees them", () => {
+    const intake = readSkill("df-intake");
+    assert.ok(
+      intake.includes("architectReviewedAt"),
+      "df-intake must write architectReviewedAt field"
+    );
+    assert.ok(
+      intake.includes("findingsPath"),
+      "df-intake must write findingsPath field"
+    );
+    assert.ok(
+      intake.includes("architectReviewedCodeHash"),
+      "df-intake must write architectReviewedCodeHash field"
+    );
+  });
+
+  it("implementation-agent reads architectReviewedAt from manifest as single Gate 1 signal (BR-1)", () => {
+    const impl = readAgent("implementation-agent");
+    assert.ok(
+      impl.includes("architectReviewedAt"),
+      "implementation-agent must check architectReviewedAt from manifest"
+    );
+    assert.ok(
+      impl.includes("no architect review record") || impl.includes("hard-fail"),
+      "implementation-agent must hard-fail when architectReviewedAt absent — no fallback"
+    );
+  });
+
+  it("df-orchestrate checks architectReviewedCodeHash for staleness before spawning impl-agent (FR-9)", () => {
+    const orch = readSkill("df-orchestrate");
+    assert.ok(
+      orch.includes("architectReviewedCodeHash"),
+      "df-orchestrate must read architectReviewedCodeHash for staleness check"
+    );
+  });
 });

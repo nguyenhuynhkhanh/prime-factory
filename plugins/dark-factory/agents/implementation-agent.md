@@ -49,42 +49,32 @@ Neither condition alone is sufficient. Tier 1/2 specs in quality mode use a sing
 
 Record the `"mode"` field in the manifest entry at spec start. Record `"bestOfN"` when Best-of-N ran (with `"winner"` and `"loserResult"` fields).
 
+## Step 0: Gate 1 Verification (MANDATORY — both modes)
+
+Gate 1 (architect spec review) now runs in df-intake, not here. This step verifies it completed before proceeding.
+
+1. Read `dark-factory/manifest.json`. Find the entry for this spec by name.
+2. Check for `architectReviewedAt` field in the manifest entry.
+3. If `architectReviewedAt` is absent (key does not exist or is null): **hard-fail immediately** with this exact message:
+   > "Spec {name} has no architect review record. This spec was likely created before token-opt-architect-phase shipped. Re-run /df-intake {name} to complete architect review, then retry."
+   Emit structured JSON result `{ "specName": "{name}", "status": "blocked", "error": "Spec {name} has no architect review record. ..." }` and STOP. Do NOT proceed to pre-flight test gate. Do NOT spawn any architect-agent.
+4. If `architectReviewedAt` is present: set `architectFindingsPath` to the value of `findingsPath` from the manifest entry. If `findingsPath` file does not exist on disk: treat as non-blocking — log a warning and proceed without findings context (code-agent will self-load an empty findings set).
+5. Proceed to Pre-flight Test Gate.
+
 ## Pre-flight Test Gate
+
+Run the project's test suite if not already run at the orchestrator level:
 
 1. Read `dark-factory/project-profile.md` and extract the test command from `Run:` field.
 2. If profile or `Run:` field missing: warn "No test command found in project profile. Skipping pre-flight test gate." and proceed.
 3. If `--skip-tests`: log "Pre-flight test gate skipped by --skip-tests flag." Record `"testGateSkipped": true` and timestamp in manifest. Proceed.
-4. Run the test suite. If failures: report ALL failures and STOP. Do NOT proceed to architect review.
+4. Run the test suite. If failures: report ALL failures and STOP. Do NOT proceed to implementation.
 
 ## Smart Re-run Detection
 
 Check if `dark-factory/results/{name}/` has previous results:
 - **No results**: proceed as "new" (full run)
 - **Results exist**: default to "new" — wipe previous results and run full cycle. Do NOT prompt the developer.
-
-## Step 0: Architect Review (MANDATORY — both modes)
-
-**Step 0a:** Read spec's `Architect Review Tier` field. If missing, unrecognized, or "Unset — architect self-assesses": default to Tier 3. For Tier 2/3: if `{name}.review.md` exists with APPROVED/APPROVED WITH NOTES — skip to Step 0d. If BLOCKED or missing: check for cached domain files. After review, if "Escalated from Tier" found: record `"tierEscalation": { "from": N, "to": M, "reason": "..." }` in manifest.
-
-**Step 0c: Tier-aware architect spawn**
-
-Tier 1: Spawn 1 combined architect-agent (`.claude/agents/architect-agent.md`, no domain parameter). Produces single `{name}.review.md`.
-
-Tier 2/3: Spawn 3 independent architect-agents in parallel, each with a domain parameter:
-  1. **Security & Data Integrity**
-  2. **Architecture & Performance**
-  3. **API Design & Backward Compatibility**
-
-Synthesize: **Strictest-wins** — any BLOCKED = overall BLOCKED; any APPROVED WITH NOTES = overall APPROVED WITH NOTES; otherwise APPROVED. Deduplicate overlapping findings. Write synthesized `{name}.review.md`.
-
-If domain BLOCKED: spawn spec-agent (features) or debug-agent (bugs) with all findings. Re-spawn only blocked domains. Max 3 total passes. If overall BLOCKED after all passes: report to developer, do NOT proceed.
-
-**Step 0d: Extract findings and write to file**
-- Read `{name}.review.md`. Extract ONLY "Key Decisions Made" and "Remaining Notes" sections.
-- Write extracted findings to `dark-factory/specs/features/{name}.findings.md` (feature mode) or `dark-factory/specs/bugfixes/{name}.findings.md` (bugfix mode). This file MUST be written before code-agent is spawned in Step 1. If the write fails, report the error and STOP.
-- Set `architectFindingsPath` to the path of the file just written. Pass this path to code-agent.
-
-**Architect review rules:** The architect NEVER discusses tests or scenarios with the spec/debug agent. If architect and spec agent disagree, escalate to developer.
 
 ## Feature Mode — Implementation Cycle
 
