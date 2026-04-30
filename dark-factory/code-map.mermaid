@@ -3,45 +3,47 @@ graph TD
         df["df/SKILL.md<br/>(router)"]
         intake["df-intake/SKILL.md"]
         debug["df-debug/SKILL.md"]
-        orchestrate["df-orchestrate/SKILL.md<br/>--group / --all / --skip-tests"]
+        orchestrate["df-orchestrate/SKILL.md<br/>--group / --all / --skip-tests / --mode / --afk"]
         onboard["df-onboard/SKILL.md"]
         cleanup["df-cleanup/SKILL.md"]
     end
 
-    subgraph Agents["Agents"]
-        spec["spec-agent"]
+    subgraph Agents["Agents (10)"]
+        spec["spec-agent<br/>(reads intent-foundation.md)"]
         dbg["debug-agent"]
-        architect["architect-agent<br/>(3 parallel domains)"]
-        code["code-agent<br/>(1-4 in worktrees)"]
+        architect["architect-agent<br/>(3 parallel domains;<br/>Gate 1/2/3)"]
+        code["code-agent<br/>(1-4 in worktrees;<br/>BLOCKED result)"]
         test["test-agent<br/>(emits flakyE2E)"]
-        promote["promote-agent"]
-        impl["implementation-agent<br/>(orchestrator)"]
+        promote["promote-agent<br/>(DI write-through)"]
+        impl["implementation-agent<br/>(4-gate lifecycle)"]
         codemap["codemap-agent"]
-        onboardA["onboard-agent<br/>(Phase 2.5 + 7.5)"]
+        onboardA["onboard-agent<br/>(Phase 3.7d DI)"]
+        qa["qa-agent<br/>(QA_SCENARIO;<br/>coverage-map.json)"]
+    end
+
+    subgraph Memory["Intent & Memory (Hotspots)"]
+        foundation["intent-foundation.md<br/>Layer 0; fan-in: 3"]:::hotspot
+        adr["intent-adr-{spec_id}.md<br/>Layer 2 ADRs; fan-in: 4"]:::hotspot
+        coverage["results/{name}/coverage-map.json<br/>(Gate 2 artifact)"]
     end
 
     subgraph SharedData["Shared Data (Hotspots)"]
         profile["project-profile.md<br/>fan-in: 10"]:::hotspot
         map["code-map.md<br/>fan-in: 9"]:::hotspot
         manifest["manifest.json<br/>fan-in: 6"]:::hotspot
+        memIdx["memory/index.md<br/>fan-in: 5"]:::hotspot
+        diShards["memory/design-intent-{domain}.md<br/>fan-in: 5"]:::hotspot
         promoted["promoted-tests.json<br/>fan-in: 3"]
-        tmpl["project-profile-template.md<br/>(UI/E2E rows)"]
-    end
-
-    subgraph Hooks["Git Hooks (Phase 7.5)"]
-        husky[".husky/pre-commit"]
-        lefthook["lefthook.yml"]
-        sgh["package.json<br/>simple-git-hooks"]
-        rawhook[".git/hooks/pre-commit"]
+        tmpl["project-profile-template.md"]
     end
 
     subgraph CLI["CLI"]
         cli["bin/cli.js"]
-        plugin["plugins/dark-factory/"]
+        plugin["plugins/dark-factory/<br/>(10 agents mirrored)"]
     end
 
     subgraph Tests["Tests"]
-        setup["dark-factory-setup.test.js<br/>(3635 lines)"]
+        setup["dark-factory-setup.test.js<br/>(10 agents + qa-agent)"]
         contracts["dark-factory-contracts.test.js"]
     end
 
@@ -52,6 +54,7 @@ graph TD
     %% Skill -> Agent spawning
     intake --> codemap
     intake --> spec
+    intake -->|"Step 5 QA_SCENARIO"| qa
     debug --> codemap
     debug --> dbg
     orchestrate --> codemap
@@ -60,17 +63,27 @@ graph TD
     cleanup --> promote
     cleanup --> promoted
 
-    %% Agent -> Agent spawning
-    impl --> architect
+    %% Agent -> Agent spawning (3-gate pipeline)
+    impl -->|"Gate 1 ARCH_SPEC_REVIEW"| architect
+    impl -->|"QA_SCENARIO after Gate 1"| qa
     impl --> code
     impl --> test
     impl --> promote
-    impl -->|"flaky-E2E<br/>(bugfix mode)"| spec
+    impl -->|"flaky-E2E (bugfix)"| spec
     impl -->|"blockers"| spec
     impl -->|"blockers"| dbg
-    architect --> spec
-    architect --> dbg
+    architect -->|"spec revision"| spec
+    architect -->|"debug revision"| dbg
     onboardA --> codemap
+
+    %% Gate artifact chain
+    architect -->|"writes Gate 1"| adr
+    qa -->|"reads ADRs"| adr
+    qa -->|"writes"| coverage
+    architect -->|"reads Gate 2"| coverage
+    spec -->|"reads Layer 0"| foundation
+    qa -->|"reads Layer 0"| foundation
+    architect -->|"reads Layer 0"| foundation
 
     %% Agent -> Shared Data reads
     spec --> profile
@@ -94,12 +107,12 @@ graph TD
     onboardA -.-> profile
     onboardA --> tmpl
     codemap -.-> map
-
-    %% Onboard -> Hooks (Phase 7.5)
-    onboardA -.->|"if Husky"| husky
-    onboardA -.->|"if Lefthook"| lefthook
-    onboardA -.->|"if simple-git-hooks"| sgh
-    onboardA -.->|"fallback"| rawhook
+    spec --> memIdx
+    dbg --> memIdx
+    code --> memIdx
+    architect --> diShards
+    spec --> diShards
+    onboardA -.-> diShards
 
     %% CLI
     cli --> plugin
@@ -114,18 +127,20 @@ graph TD
     setup --> impl
     setup --> codemap
     setup --> onboardA
+    setup --> qa
     setup --> tmpl
     setup --> promoted
     contracts --> plugin
+    contracts --> qa
 
     %% Styles
     classDef hotspot fill:#ff6b6b,stroke:#c92a2a,color:#fff,stroke-width:2px
     classDef agent fill:#4dabf7,stroke:#1971c2,color:#fff
     classDef skill fill:#69db7c,stroke:#2b8a3e,color:#fff
     classDef test fill:#ffd43b,stroke:#e67700,color:#000
-    classDef hook fill:#b197fc,stroke:#5f3dc4,color:#fff
+    classDef intent fill:#e599f7,stroke:#7048e8,color:#000,stroke-width:2px
 
-    class spec,dbg,architect,code,test,promote,impl,codemap,onboardA agent
+    class spec,dbg,architect,code,test,promote,impl,codemap,onboardA,qa agent
     class df,intake,debug,orchestrate,onboard,cleanup skill
     class setup,contracts test
-    class husky,lefthook,sgh,rawhook hook
+    class foundation,adr intent

@@ -1,15 +1,6 @@
 {
   "version": 1,
   "features": {
-    "playwright-onboard": {
-      "type": "feature",
-      "status": "active",
-      "specPath": "dark-factory/specs/features/playwright-onboard.spec.md",
-      "created": "2026-04-15T00:00:00Z",
-      "rounds": 0,
-      "group": "playwright-e2e",
-      "dependencies": []
-    },
     "playwright-test-hardening": {
       "type": "feature",
       "status": "active",
