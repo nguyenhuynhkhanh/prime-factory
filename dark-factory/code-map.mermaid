@@ -5,7 +5,7 @@ graph TD
         debug["df-debug/SKILL.md"]
         orchestrate["df-orchestrate/SKILL.md<br/>--group / --all / --skip-tests / --mode / --afk"]
         onboard["df-onboard/SKILL.md"]
-        cleanup["df-cleanup/SKILL.md"]
+        cleanup["df-cleanup/SKILL.md<br/>(--rebuild-index / --rebuild-memory)"]
     end
 
     subgraph Agents["Agents (10)"]
@@ -13,9 +13,9 @@ graph TD
         dbg["debug-agent"]
         architect["architect-agent<br/>(3 parallel domains;<br/>Gate 1/2/3)"]
         code["code-agent<br/>(1-4 in worktrees;<br/>BLOCKED result)"]
-        test["test-agent<br/>(emits flakyE2E)"]
-        promote["promote-agent<br/>(DI write-through)"]
-        impl["implementation-agent<br/>(4-gate lifecycle)"]
+        test["test-agent<br/>(validator + advisor modes;<br/>Step 2.75 regression gate)"]
+        promote["promote-agent<br/>(shard-first memory write;<br/>DI write-through)"]
+        impl["implementation-agent<br/>(4-gate lifecycle;<br/>Step 2.75 regression flags)"]
         codemap["codemap-agent"]
         onboardA["onboard-agent<br/>(Phase 3.7d DI)"]
         qa["qa-agent<br/>(QA_SCENARIO;<br/>coverage-map.json)"]
@@ -33,8 +33,9 @@ graph TD
         manifest["manifest.json<br/>fan-in: 6"]:::hotspot
         memIdx["memory/index.md<br/>fan-in: 5"]:::hotspot
         diShards["memory/design-intent-{domain}.md<br/>fan-in: 5"]:::hotspot
-        promoted["promoted-tests.json<br/>fan-in: 3"]
+        promoted["promoted-tests.json<br/>fan-in: 4; 16 entries"]:::hotspot
         tmpl["project-profile-template.md"]
+        memShards["memory/ INV/DEC shards<br/>+ ledger.md"]
     end
 
     subgraph CLI["CLI"]
@@ -43,8 +44,8 @@ graph TD
     end
 
     subgraph Tests["Tests"]
-        setup["dark-factory-setup.test.js<br/>(10 agents + qa-agent)"]
-        contracts["dark-factory-contracts.test.js"]
+        setup["dark-factory-setup.test.js<br/>(16 promoted sections)"]
+        contracts["dark-factory-contracts.test.js<br/>(lifecycle mirror parity)"]
     end
 
     %% Skill routing
@@ -55,6 +56,7 @@ graph TD
     intake --> codemap
     intake --> spec
     intake -->|"Step 5 QA_SCENARIO"| qa
+    intake -->|"Step 5.5 advisor mode"| test
     debug --> codemap
     debug --> dbg
     orchestrate --> codemap
@@ -62,12 +64,13 @@ graph TD
     onboard --> onboardA
     cleanup --> promote
     cleanup --> promoted
+    cleanup -.->|"--rebuild-index / --rebuild-memory"| memIdx
 
     %% Agent -> Agent spawning (3-gate pipeline)
     impl -->|"Gate 1 ARCH_SPEC_REVIEW"| architect
     impl -->|"QA_SCENARIO after Gate 1"| qa
     impl --> code
-    impl --> test
+    impl -->|"Gate 4 validator mode"| test
     impl --> promote
     impl -->|"flaky-E2E (bugfix)"| spec
     impl -->|"blockers"| spec
@@ -85,6 +88,10 @@ graph TD
     qa -->|"reads Layer 0"| foundation
     architect -->|"reads Layer 0"| foundation
 
+    %% Step 2.75 regression gate
+    test -->|"reads Step 2.75"| promoted
+    test -.->|"advisor: reads"| memIdx
+
     %% Agent -> Shared Data reads
     spec --> profile
     spec --> map
@@ -99,6 +106,7 @@ graph TD
     promote --> profile
     promote --> map
     promote --> promoted
+    promote -.->|"writes shard-first"| memShards
     impl --> manifest
     intake --> manifest
     debug --> manifest
@@ -106,6 +114,7 @@ graph TD
     cleanup --> manifest
     onboardA -.-> profile
     onboardA --> tmpl
+    onboardA -.-> memShards
     codemap -.-> map
     spec --> memIdx
     dbg --> memIdx
@@ -132,6 +141,9 @@ graph TD
     setup --> promoted
     contracts --> plugin
     contracts --> qa
+    contracts --> test
+    contracts --> promote
+    contracts --> impl
 
     %% Styles
     classDef hotspot fill:#ff6b6b,stroke:#c92a2a,color:#fff,stroke-width:2px

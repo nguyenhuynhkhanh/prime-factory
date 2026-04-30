@@ -8,7 +8,10 @@
       "created": "2026-04-15T00:00:00Z",
       "rounds": 0,
       "group": "playwright-e2e",
-      "dependencies": ["playwright-onboard", "playwright-test-hardening"]
+      "dependencies": [
+        "playwright-onboard",
+        "playwright-test-hardening"
+      ]
     },
     "project-memory-onboard": {
       "type": "feature",
@@ -17,19 +20,9 @@
       "created": "2026-04-21T00:00:00Z",
       "rounds": 0,
       "group": "project-memory",
-      "dependencies": ["project-memory-foundation"]
-    },
-    "token-opt-architect-phase": {
-      "type": "feature",
-      "status": "passed",
-      "specPath": "dark-factory/specs/features/token-opt-architect-phase.spec.md",
-      "created": "2026-04-30T00:00:00Z",
-      "rounds": 1,
-      "group": "token-opt",
-      "dependencies": [],
-      "architectReviewedAt": "2026-04-30T00:10:00Z",
-      "findingsPath": "dark-factory/specs/features/token-opt-architect-phase.findings.md",
-      "architectReviewedCodeHash": "4de2e67f2af7e2c345d1a234567890abcdef1234"
+      "dependencies": [
+        "project-memory-foundation"
+      ]
     },
     "token-opt-trimming": {
       "type": "feature",
@@ -38,7 +31,9 @@
       "created": "2026-04-30T00:00:00Z",
       "rounds": 0,
       "group": "token-opt",
-      "dependencies": ["token-opt-architect-phase"]
+      "dependencies": [
+        "token-opt-architect-phase"
+      ]
     }
   }
 }
