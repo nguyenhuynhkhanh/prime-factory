@@ -1,5 +1,5 @@
 > Slim map — generated from code-map.md. For full context read code-map.md.
-> Git hash: 449db91f5f583630b37f889e0bc0d52ec1d8b536
+> Git hash: 574d1e0909bf770ccf140381c762ba4622a1e4e7
 
 ## Shared Dependency Hotspots
 
@@ -35,7 +35,7 @@
 
 ### .claude/agents/
 - `architect-agent.md` [judge] -> [project-profile.md OR project-profile-slim.md, code-map.md OR code-map-slim.md, spec-agent.md, debug-agent.md, memory/design-intent-{domain}.md]
-- `code-agent.md` [generator] -> [project-profile.md, code-map.md, spec, public scenarios]
+- `code-agent.md` [generator] -> [project-profile.md, code-map.md, specPath (self-load), publicScenariosDir (self-load), architectFindingsPath (self-load)]
 - `codemap-agent.md` -> [project-profile.md, code-map.md, code-map-slim.md, code-map.mermaid]
 - `debug-agent.md` [generator] -> [project-profile.md, code-map.md, memory/index.md, invariants-{domain}.md (selective), templates/debug-report-template.md]
 - `implementation-agent.md` [judge] -> [project-profile.md, manifest.json, architect-agent.md, code-agent.md, test-agent.md, promote-agent.md, spec-agent.md, debug-agent.md]
