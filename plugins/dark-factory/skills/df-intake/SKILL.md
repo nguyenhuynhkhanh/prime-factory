@@ -352,6 +352,38 @@ For each sub-spec:
 
 After all spec-agents complete, merge their worktree branches back.
 
+### Step 5.5: Test-Advisor Handoff
+
+After writing spec(s) and scenarios (Step 5), before updating the manifest (Step 6), run a testability review.
+
+1. **Spawn test-agent with `mode: advisor`** passing:
+   - Spec file path(s)
+   - Draft public scenario file paths
+   - Draft holdout scenario file paths
+   - `dark-factory/promoted-tests.json` path
+   - `dark-factory/memory/index.md` path and relevant shard file paths
+
+2. **test-agent returns structured advisory** covering: `feasibility`, `flakiness`, `dedup`, `missing` (INV-IDs only), `infrastructureGaps`.
+
+3. **spec-agent reviews the advisory output** and MAY revise scenarios:
+   - Remove scenarios flagged as `dedup` (already covered by promoted tests)
+   - Flag scenarios with `infeasible` verdict
+   - Add coverage for `missing` INV-IDs (if appropriate)
+   - Note `infrastructureGaps` for developer awareness
+   - spec-agent is authoritative — it MAY accept or reject any advisory item based on its own judgment
+
+4. **Append a testability summary line to the intake output:**
+   > Testability review: N kept, M revised, K removed as duplicate, J flagged for infrastructure.
+
+5. **If advisor call fails or times out:**
+   - If `status: timeout` or `status: error` or advisor does not complete within soft cap (~60s):
+     - Proceed with original scenarios (no changes)
+     - Emit warning: "Testability advisor unavailable — proceeding with original scenarios"
+     - Set manifest flag `testAdvisoryCompleted: false` for this spec
+   - Do NOT retry. Advisor is optional; its absence must not block.
+
+**Information barrier:** advisor output is returned to spec-agent ONLY. It is NEVER forwarded to architect-agent. architect-agent reads only the spec — it does not see advisor output, scenario revisions, or advisory data of any kind.
+
 ### Step 6: Update manifest
 
 Update `dark-factory/manifest.json` for EACH spec (single or multiple):

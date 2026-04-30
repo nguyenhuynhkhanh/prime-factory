@@ -863,3 +863,37 @@ describe("ao-compile-time-agents — build script zero npm dependencies", () => 
     }
   });
 });
+
+// ===========================================================================
+// project-memory-lifecycle — AC-22: plugin mirror parity for all edited files
+// ===========================================================================
+
+describe("project-memory-lifecycle — AC-22: plugin mirror parity for lifecycle-edited files", () => {
+  const lifecycleAgentMirrors = [
+    "promote-agent",
+    "test-agent",
+    "implementation-agent",
+  ];
+
+  for (const name of lifecycleAgentMirrors) {
+    it(`plugins/dark-factory/agents/${name}.md matches source (project-memory-lifecycle)`, () => {
+      const source = readAgent(name);
+      const plugin = readPlugin("agent", name);
+      assert.equal(source, plugin, `Plugin ${name}.md must match source exactly (project-memory-lifecycle)`);
+    });
+  }
+
+  const lifecycleSkillMirrors = [
+    "df-intake",
+    "df-orchestrate",
+    "df-cleanup",
+  ];
+
+  for (const name of lifecycleSkillMirrors) {
+    it(`plugins/dark-factory/skills/${name}/SKILL.md matches source (project-memory-lifecycle)`, () => {
+      const source = readSkill(name);
+      const plugin = readPlugin("skill", name);
+      assert.equal(source, plugin, `Plugin ${name}/SKILL.md must match source exactly (project-memory-lifecycle)`);
+    });
+  }
+});

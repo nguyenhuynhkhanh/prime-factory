@@ -86,7 +86,23 @@ Section markers are ONLY for co-located tests. Standalone promoted test files (n
 - If tests fail: diagnose and fix import/path issues (NOT the test logic itself)
 - Report the final promoted test file paths
 
-### 7. Write Design Intent Memory (DI write-through)
+### 7. Write Project Memory
+
+**Shard-first, index-last.** Write shard before index. Shard-ok + index-fail: log ORPHANED_SHARD, leave shard entry in place (NOT deleted), run `--rebuild-index` to repair. Manifest stays `passed`.
+
+**ID assignment.** Fast path: read `index.md`, compute `max + 1` per type (INV/DEC/FEAT), 4-digit zero-padded. Shard-scan fallback: if shard has ID heading missing from index, scan all shard files for true max. Re-read index AND shards at commit time.
+
+**Domain shard routing.** `security` → `invariants-security.md`/`decisions-security.md`; `architecture` → `invariants-architecture.md`/`decisions-architecture.md`; `api` → `invariants-api.md`/`decisions-api.md`.
+
+**Handlers.** Introduces: assign ID, write shard, update index. Modifies: update shard in-place + `history:` append + update index row. Supersedes: Introduces new + mark old `status: superseded` in shard + update old index row. References: append `referencedBy:` in shard only.
+
+**FEAT ledger (ALWAYS append, even zero-decl).** `gitSha` = `git rev-parse HEAD` BEFORE cleanup commit (commit-before; no amend). Append FEAT-NNNN to `ledger.md`: name, summary, promotedAt, `introducedInvariants: []`, introducedDecisions, promotedTests, gitSha.
+
+**Legacy specs** (no `## Invariants`/`## Decisions`): skip materialization; still append FEAT ledger with empty lists.
+
+**Frontmatter.** Set `lastUpdated`/`gitHash` on written shards + `index.md`; update `entryCount`/`shardCount`.
+
+### 7b. Write Design Intent Memory (DI write-through)
 
 After verifying promoted tests, check the spec's `## Design Intent` section for new DI entries to materialize.
 
@@ -97,7 +113,7 @@ After verifying promoted tests, check the spec's `## Design Intent` section for 
 5. **Update `memory/index.md`**: Add one new row per DI entry: `## DI-NNNN [type:design-intent] [domain:{domain}] [tags:{csv}] [status:active] [shard:design-intent-{domain}.md]` followed by a one-line summary. Update `entryCount` and `shardCount` in the index frontmatter.
 6. **Record in FEAT ledger entry**: Include `introducedDesignIntents: [DI-NNNN, ...]` in the FEAT ledger entry written in step 8 below.
 
-### 8. Update Registry
+### 8. Update Registry (promoted-tests.json)
 
 After successfully placing and verifying tests, write an entry to `dark-factory/promoted-tests.json`:
 
@@ -135,6 +151,7 @@ After successfully placing and verifying tests, write an entry to `dark-factory/
 - NEVER change test assertions or logic — only adapt paths, imports, and structure
 - If tests cannot be made to pass due to source code issues, report the problem without fixing source code
 - You are spawned as an independent agent — you have NO context from previous runs
+- **Single-writer**: promote-agent is the SOLE runtime writer of `dark-factory/memory/*.md`. df-cleanup `--rebuild-index` is the only maintenance exception for `index.md`. onboard-agent writes at bootstrap only. No other agent writes these files.
 
 ## Output
 Report:

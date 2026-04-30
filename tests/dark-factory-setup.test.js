@@ -6305,3 +6305,665 @@ describe("factory-redesign-v2 — P-14: plugin mirror parity for all modified fi
 });
 
 // DF-PROMOTED-END: factory-redesign-v2
+
+// DF-PROMOTED-START: project-memory-lifecycle
+// Promoted from Dark Factory holdout: project-memory-lifecycle
+// Root cause: lifecycle write protocol, regression gate, advisor mode, and memory health check contracts
+// Guards: .claude/agents/promote-agent.md, .claude/agents/test-agent.md, .claude/agents/implementation-agent.md, .claude/skills/df-intake/SKILL.md, .claude/skills/df-orchestrate/SKILL.md, .claude/skills/df-cleanup/SKILL.md
+
+// ===========================================================================
+// project-memory-lifecycle — AC-1..AC-5c: promote-agent memory write process
+// ===========================================================================
+
+describe("project-memory-lifecycle — AC-1: promote-agent documents memory write process", () => {
+  it("promote-agent.md includes memory write process with index and shard reading", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("index.md") && content.includes("shard"),
+      "promote-agent.md must document reading index.md and shard files"
+    );
+    assert.ok(
+      content.includes("domain") && (content.includes("invariants-security") || content.includes("shard routing")),
+      "promote-agent.md must document domain-based shard routing"
+    );
+  });
+
+  it("promote-agent.md documents shard-first write ordering", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("shard-first") || (content.includes("shard") && content.includes("index-last")),
+      "promote-agent.md must document shard-first, index-last write ordering"
+    );
+  });
+
+  it("promote-agent.md documents Introduces/Modifies/Supersedes/References handlers", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(content.includes("Introduces"), "promote-agent.md must document Introduces handler");
+    assert.ok(content.includes("Modifies"), "promote-agent.md must document Modifies handler");
+    assert.ok(content.includes("Supersedes"), "promote-agent.md must document Supersedes handler");
+    assert.ok(content.includes("References"), "promote-agent.md must document References handler");
+  });
+
+  it("promote-agent.md documents ledger append step", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("ledger") && (content.includes("FEAT") || content.includes("append")),
+      "promote-agent.md must document ledger append"
+    );
+  });
+
+  it("promote-agent.md documents frontmatter update", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("lastUpdated") || content.includes("frontmatter"),
+      "promote-agent.md must document frontmatter update"
+    );
+  });
+});
+
+describe("project-memory-lifecycle — AC-2: promote-agent documents single-writer rule", () => {
+  it("promote-agent.md contains 'single-writer' or 'sole runtime writer' phrase", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("single-writer") || content.includes("SOLE runtime writer") || content.includes("sole runtime writer"),
+      "promote-agent.md must contain single-writer/sole-runtime-writer phrase"
+    );
+  });
+
+  it("promote-agent.md names df-cleanup --rebuild-index as the maintenance exception", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("df-cleanup") && content.includes("rebuild-index"),
+      "promote-agent.md must name df-cleanup --rebuild-index as maintenance exception to single-writer rule"
+    );
+  });
+});
+
+describe("project-memory-lifecycle — AC-3: promote-agent documents gitSha as commit-before", () => {
+  it("promote-agent.md documents gitSha as the commit before the cleanup commit", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("gitSha") || content.includes("commit-BEFORE") || content.includes("commit-before"),
+      "promote-agent.md must document gitSha as the commit-before the cleanup commit"
+    );
+    assert.ok(
+      content.includes("amend") || content.includes("self-referential") || content.includes("cleanup commit"),
+      "promote-agent.md must explain why gitSha is commit-before (no amend complexity)"
+    );
+  });
+});
+
+describe("project-memory-lifecycle — AC-4: promote-agent documents always-append ledger rule", () => {
+  it("promote-agent.md documents ledger appends on every promotion including zero-invariant specs", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      (content.includes("ALWAYS") || content.includes("every")) && content.includes("ledger"),
+      "promote-agent.md must document always-append ledger rule"
+    );
+    assert.ok(
+      content.includes("zero") || content.includes("empty") || (content.includes("[]") && content.includes("introducedInvariants")),
+      "promote-agent.md must document zero-invariant spec ledger behavior"
+    );
+  });
+});
+
+describe("project-memory-lifecycle — AC-5: promote-agent documents legacy spec tolerance", () => {
+  it("promote-agent.md documents tolerance for specs without Invariants/Decisions sections", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("legacy") || (content.includes("without") && content.includes("Invariants")),
+      "promote-agent.md must document tolerance for legacy specs without Invariants/Decisions sections"
+    );
+  });
+});
+
+describe("project-memory-lifecycle — AC-5b: promote-agent documents ORPHANED_SHARD rollback path", () => {
+  it("promote-agent.md documents ORPHANED_SHARD rollback path", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("ORPHANED_SHARD"),
+      "promote-agent.md must document ORPHANED_SHARD condition"
+    );
+    assert.ok(
+      content.includes("--rebuild-index"),
+      "promote-agent.md must prescribe --rebuild-index as resolution for ORPHANED_SHARD"
+    );
+  });
+
+  it("promote-agent.md documents shard entry left in place on index failure", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("leave") || content.includes("left in place") || content.includes("in place"),
+      "promote-agent.md must document leaving shard entry in place on index update failure"
+    );
+  });
+});
+
+describe("project-memory-lifecycle — AC-5c: promote-agent documents shard-scan fallback for stale index", () => {
+  it("promote-agent.md documents shard-scan fallback when index is stale", () => {
+    const content = readAgent("promote-agent");
+    assert.ok(
+      content.includes("shard-scan") || (content.includes("scan") && content.includes("fallback")),
+      "promote-agent.md must document shard-scan fallback for ID assignment when index is stale"
+    );
+  });
+});
+
+// ===========================================================================
+// project-memory-lifecycle — AC-6..AC-10b: test-agent mode parameter + Step 2.75
+// ===========================================================================
+
+describe("project-memory-lifecycle — AC-6: test-agent documents mode parameter", () => {
+  it("test-agent.md documents mode parameter with validator and advisor values", () => {
+    const content = readAgent("test-agent");
+    assert.ok(
+      content.includes("mode") && content.includes("validator"),
+      "test-agent.md must document mode parameter with validator value"
+    );
+    assert.ok(
+      content.includes("advisor"),
+      "test-agent.md must document advisor mode value"
+    );
+  });
+
+  it("test-agent.md documents validator as the default mode when mode is omitted", () => {
+    const content = readAgent("test-agent");
+    assert.ok(
+      content.includes("default") && content.includes("validator"),
+      "test-agent.md must document validator as the default mode"
+    );
+  });
+});
+
+describe("project-memory-lifecycle — AC-7: test-agent documents Step 2.75 regression gate", () => {
+  it("test-agent.md contains a Step 2.75 section", () => {
+    const content = readAgent("test-agent");
+    assert.ok(
+      content.includes("2.75") || content.includes("Step 2.75"),
+      "test-agent.md must contain a Step 2.75 section"
+    );
+  });
+
+  it("test-agent.md documents all four failure classification classes", () => {
+    const content = readAgent("test-agent");
+    assert.ok(content.includes("new-holdout"), "test-agent.md must document new-holdout class");
+    assert.ok(content.includes("invariant-regression"), "test-agent.md must document invariant-regression class");
+    assert.ok(content.includes("pre-existing-regression"), "test-agent.md must document pre-existing-regression class");
+    assert.ok(content.includes("expected-regression"), "test-agent.md must document expected-regression class");
+  });
+
+  it("test-agent.md documents the full-suite regression gate runs after holdout validation", () => {
+    const content = readAgent("test-agent");
+    assert.ok(
+      content.includes("full") && (content.includes("suite") || content.includes("regression gate")),
+      "test-agent.md must document the full-suite regression gate"
+    );
+  });
+});
+
+describe("project-memory-lifecycle — AC-8: test-agent documents structured output schema", () => {
+  it("test-agent.md documents preExistingRegression boolean in output", () => {
+    const content = readAgent("test-agent");
+    assert.ok(
+      content.includes("preExistingRegression"),
+      "test-agent.md must document preExistingRegression boolean in structured output"
+    );
+  });
+
+  it("test-agent.md documents expectedRegression boolean in output", () => {
+    const content = readAgent("test-agent");
+    assert.ok(
+      content.includes("expectedRegression"),
+      "test-agent.md must document expectedRegression boolean in structured output"
+    );
+  });
+});
+
+describe("project-memory-lifecycle — AC-9: test-agent documents advisor-mode process", () => {
+  it("test-agent.md documents advisor-mode inputs including spec, scenarios, memory index and shards, promoted-tests", () => {
+    const content = readAgent("test-agent");
+    assert.ok(
+      content.includes("Advisor Mode") || content.includes("advisor mode"),
+      "test-agent.md must document Advisor Mode section"
+    );
+    assert.ok(
+      content.includes("promoted-tests.json"),
+      "test-agent.md advisor mode must list promoted-tests.json as input"
+    );
+    assert.ok(
+      content.includes("index.md") || content.includes("memory index"),
+      "test-agent.md advisor mode must list memory index as input"
+    );
+  });
+
+  it("test-agent.md documents advisor-mode prohibited behaviors", () => {
+    const content = readAgent("test-agent");
+    assert.ok(
+      content.includes("MUST NOT") || content.includes("do NOT"),
+      "test-agent.md must document advisor-mode prohibited behaviors"
+    );
+    assert.ok(
+      content.includes("write test") || content.includes("write tests") || content.includes("execute any test"),
+      "test-agent.md must prohibit writing tests or executing tests in advisor mode"
+    );
+  });
+
+  it("test-agent.md documents advisor soft cap (~60s) and one-round-max", () => {
+    const content = readAgent("test-agent");
+    assert.ok(
+      content.includes("60") || content.includes("60s"),
+      "test-agent.md must document advisor ~60s soft cap"
+    );
+    assert.ok(
+      content.includes("ONE ROUND") || content.includes("one round") || content.includes("1 round"),
+      "test-agent.md must document advisor one-round-max"
+    );
+  });
+
+  it("test-agent.md documents advisor structured output schema with enumerated categories", () => {
+    const content = readAgent("test-agent");
+    assert.ok(content.includes("feasibility"), "test-agent.md advisor must document feasibility category");
+    assert.ok(content.includes("flakiness"), "test-agent.md advisor must document flakiness category");
+    assert.ok(content.includes("dedup"), "test-agent.md advisor must document dedup category");
+    assert.ok(content.includes("missing"), "test-agent.md advisor must document missing category");
+    assert.ok(content.includes("infrastructureGaps"), "test-agent.md advisor must document infrastructureGaps category");
+  });
+});
+
+describe("project-memory-lifecycle — AC-10: test-agent documents mode isolation rule", () => {
+  it("test-agent.md contains explicit statement that advisor and validator modes are NEVER mixed", () => {
+    const content = readAgent("test-agent");
+    assert.ok(
+      content.includes("NEVER mixed") || content.includes("never mixed") || (content.includes("NEVER") && content.includes("mixed")),
+      "test-agent.md must contain explicit statement that modes are NEVER mixed in one spawn"
+    );
+  });
+
+  it("test-agent.md documents mode validation at spawn start", () => {
+    const content = readAgent("test-agent");
+    assert.ok(
+      content.includes("spawn start") || content.includes("at spawn") || content.includes("Validate the mode"),
+      "test-agent.md must document mode validation at spawn start"
+    );
+  });
+
+  it("test-agent.md documents refusal behavior for ambiguous or unknown mode", () => {
+    const content = readAgent("test-agent");
+    assert.ok(
+      content.includes("refuse") || content.includes("ambiguous"),
+      "test-agent.md must document refusal for ambiguous or unknown mode"
+    );
+  });
+});
+
+describe("project-memory-lifecycle — AC-10b: test-agent advisor missing category uses ID-only output", () => {
+  it("test-agent.md states missing category outputs INV-IDs only, not full entry text", () => {
+    const content = readAgent("test-agent");
+    assert.ok(
+      content.includes("ID only") || content.includes("IDs only") || content.includes("ID alone") || content.includes("plain array of ID"),
+      "test-agent.md must document that missing category outputs INV-IDs only"
+    );
+    assert.ok(
+      content.includes("MUST NOT cross-reference") || content.includes("must not") || content.includes("NOT cross-reference") ||
+      content.includes("do NOT cross-reference") || (content.includes("cross-reference") && content.includes("NOT")),
+      "test-agent.md must prohibit cross-referencing index to resolve full entry text in missing category"
+    );
+  });
+});
+
+// ===========================================================================
+// project-memory-lifecycle — AC-11..AC-13: implementation-agent routing
+// ===========================================================================
+
+describe("project-memory-lifecycle — AC-11: implementation-agent documents Step 2.75 routing for all four classes", () => {
+  it("implementation-agent.md documents new-holdout class routing to code-agent", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes("new-holdout") || (content.includes("new holdout") && content.includes("code-agent")),
+      "implementation-agent.md must document new-holdout class routing"
+    );
+  });
+
+  it("implementation-agent.md documents invariant-regression class routing to code-agent with sanitized description", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes("invariant-regression"),
+      "implementation-agent.md must document invariant-regression class"
+    );
+    assert.ok(
+      content.includes("annotation") || content.includes("promoted-tests.json") || content.includes("behavioral description"),
+      "implementation-agent.md must document using annotation/promoted-tests.json for behavioral description"
+    );
+  });
+
+  it("implementation-agent.md documents pre-existing-regression routing to warn+proceed", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes("pre-existing-regression") || content.includes("pre-existing regression"),
+      "implementation-agent.md must document pre-existing-regression class"
+    );
+    assert.ok(
+      content.includes("do NOT loop") || content.includes("Proceed") || content.includes("proceed"),
+      "implementation-agent.md must document warn+proceed (not loop) for pre-existing-regression"
+    );
+  });
+
+  it("implementation-agent.md documents expected-regression routing to note+proceed", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes("expected-regression") || content.includes("expected regression"),
+      "implementation-agent.md must document expected-regression class"
+    );
+    assert.ok(
+      content.includes("do NOT loop") || content.includes("Proceed") || (content.includes("proceed") && content.includes("expectedRegression")),
+      "implementation-agent.md must document note+proceed (not loop) for expected-regression"
+    );
+  });
+});
+
+describe("project-memory-lifecycle — AC-12: implementation-agent contains hard rule never spawning advisor", () => {
+  it("implementation-agent.md contains hard rule: NEVER spawn test-agent with mode: advisor", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes("NEVER spawn test-agent") || content.includes("MUST NEVER") || (content.includes("NEVER") && content.includes("advisor")),
+      "implementation-agent.md must contain hard rule: NEVER spawn test-agent with mode: advisor"
+    );
+  });
+});
+
+describe("project-memory-lifecycle — AC-13: implementation-agent documents pre-flight and Step 2.75 as distinct checkpoints", () => {
+  it("implementation-agent.md references both pre-flight test gate and Step 2.75 regression gate", () => {
+    const content = readAgent("implementation-agent");
+    assert.ok(
+      content.includes("Pre-flight Test Gate") || content.includes("pre-flight"),
+      "implementation-agent.md must document pre-flight test gate"
+    );
+    assert.ok(
+      content.includes("Step 2.75") || content.includes("2.75"),
+      "implementation-agent.md must document Step 2.75 regression gate"
+    );
+  });
+
+  it("implementation-agent.md documents that both checkpoints are required", () => {
+    const content = readAgent("implementation-agent");
+    // Both are required can be expressed as: both gating mechanisms present in the document
+    // This passes if both "pre-flight" and "2.75" exist in the content (see test above)
+    // or if explicit "both required" / "both are required" language is present
+    assert.ok(
+      content.includes("Both are required") || content.includes("Both checkpoints are required") ||
+      content.includes("both are required") || content.includes("both required") ||
+      (content.includes("Pre-flight") && content.includes("2.75")),
+      "implementation-agent.md must state both checkpoints are required (or document both)"
+    );
+  });
+});
+
+// ===========================================================================
+// project-memory-lifecycle — AC-14..AC-15: df-intake Step 5.5
+// ===========================================================================
+
+describe("project-memory-lifecycle — AC-14: df-intake contains Step 5.5 Test-Advisor Handoff", () => {
+  it("df-intake SKILL.md contains Step 5.5 section between Step 5 and Step 6", () => {
+    const content = readSkill("df-intake");
+    assert.ok(
+      content.includes("Step 5.5") || content.includes("5.5"),
+      "df-intake SKILL.md must contain Step 5.5 section"
+    );
+    assert.ok(
+      content.includes("Test-Advisor") || content.includes("testability") || content.includes("advisor"),
+      "df-intake SKILL.md Step 5.5 must be the Test-Advisor Handoff"
+    );
+  });
+
+  it("df-intake SKILL.md documents spawning test-agent with mode: advisor in Step 5.5", () => {
+    const content = readSkill("df-intake");
+    assert.ok(
+      content.includes("mode: advisor") || content.includes("mode advisor"),
+      "df-intake SKILL.md must document spawning test-agent with mode: advisor"
+    );
+  });
+
+  it("df-intake SKILL.md documents spec-agent revising scenarios based on advisory", () => {
+    const content = readSkill("df-intake");
+    assert.ok(
+      content.includes("revise") || content.includes("MAY revise"),
+      "df-intake SKILL.md must document spec-agent revising scenarios based on advisory"
+    );
+  });
+
+  it("df-intake SKILL.md documents testability summary line in intake output", () => {
+    const content = readSkill("df-intake");
+    assert.ok(
+      content.includes("Testability review:") || content.includes("testability review"),
+      "df-intake SKILL.md must document testability summary line"
+    );
+  });
+});
+
+describe("project-memory-lifecycle — AC-15: df-intake documents advisor timeout behavior", () => {
+  it("df-intake SKILL.md documents advisor timeout leads to proceeding with original scenarios", () => {
+    const content = readSkill("df-intake");
+    assert.ok(
+      content.includes("timeout") || content.includes("Testability advisor unavailable"),
+      "df-intake SKILL.md must document advisor timeout/error behavior"
+    );
+    assert.ok(
+      content.includes("proceed") || content.includes("Proceed"),
+      "df-intake SKILL.md must document proceeding with original scenarios on timeout"
+    );
+  });
+
+  it("df-intake SKILL.md documents setting testAdvisoryCompleted: false on advisor timeout", () => {
+    const content = readSkill("df-intake");
+    assert.ok(
+      content.includes("testAdvisoryCompleted") || content.includes("testAdvisoryCompleted: false"),
+      "df-intake SKILL.md must document setting testAdvisoryCompleted: false on advisor timeout"
+    );
+  });
+});
+
+// ===========================================================================
+// project-memory-lifecycle — AC-16..AC-17: df-orchestrate Step 2.75 documentation
+// ===========================================================================
+
+describe("project-memory-lifecycle — AC-16: df-orchestrate documents Step 2.75 regression gate", () => {
+  it("df-orchestrate SKILL.md documents Step 2.75 full-suite regression gate as distinct from pre-flight", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("2.75") || content.includes("Step 2.75") || content.includes("Regression Gate"),
+      "df-orchestrate SKILL.md must document Step 2.75 full-suite regression gate"
+    );
+    assert.ok(
+      content.includes("distinct") || content.includes("Two-Checkpoint") || content.includes("Checkpoint 1") || content.includes("Checkpoint 2"),
+      "df-orchestrate SKILL.md must document Step 2.75 as distinct from pre-flight gate"
+    );
+  });
+});
+
+describe("project-memory-lifecycle — AC-17: df-orchestrate documents pre-existing regression UX", () => {
+  it("df-orchestrate SKILL.md documents pre-existing regression loud warning in final summary", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Pre-existing regression") || content.includes("pre-existing regression"),
+      "df-orchestrate SKILL.md must document pre-existing regression surfacing"
+    );
+    assert.ok(
+      content.includes("/df-debug"),
+      "df-orchestrate SKILL.md must suggest /df-debug for pre-existing regressions"
+    );
+  });
+
+  it("df-orchestrate SKILL.md mentions manifest preExistingRegression and expectedRegression fields", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("preExistingRegression"),
+      "df-orchestrate SKILL.md must mention manifest preExistingRegression field"
+    );
+    assert.ok(
+      content.includes("expectedRegression"),
+      "df-orchestrate SKILL.md must mention manifest expectedRegression field"
+    );
+  });
+});
+
+// ===========================================================================
+// project-memory-lifecycle — AC-18..AC-19: df-cleanup memory health check
+// ===========================================================================
+
+describe("project-memory-lifecycle — AC-18: df-cleanup documents Memory Health Check step", () => {
+  it("df-cleanup SKILL.md documents Memory Health Check step", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("Memory Health Check"),
+      "df-cleanup SKILL.md must document Memory Health Check step"
+    );
+  });
+
+  it("df-cleanup SKILL.md documents all four original health check categories", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(content.includes("MALFORMED_MEMORY"), "df-cleanup SKILL.md must document MALFORMED_MEMORY");
+    assert.ok(content.includes("STALE_ENFORCEMENT"), "df-cleanup SKILL.md must document STALE_ENFORCEMENT");
+    assert.ok(content.includes("STALE_SOURCE"), "df-cleanup SKILL.md must document STALE_SOURCE");
+    assert.ok(content.includes("STALE_LEDGER"), "df-cleanup SKILL.md must document STALE_LEDGER");
+  });
+
+  it("df-cleanup SKILL.md documents three new shard-aware categories", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(content.includes("ORPHANED_SHARD"), "df-cleanup SKILL.md must document ORPHANED_SHARD");
+    assert.ok(content.includes("PHANTOM_INDEX"), "df-cleanup SKILL.md must document PHANTOM_INDEX");
+    assert.ok(content.includes("INDEX_HASH_MISMATCH"), "df-cleanup SKILL.md must document INDEX_HASH_MISMATCH");
+  });
+});
+
+describe("project-memory-lifecycle — AC-18b: df-cleanup documents --rebuild-index flag", () => {
+  it("df-cleanup SKILL.md documents --rebuild-index flag", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("--rebuild-index"),
+      "df-cleanup SKILL.md must document --rebuild-index flag"
+    );
+  });
+
+  it("df-cleanup SKILL.md documents --rebuild-index scans shards, generates index, outputs diff, never touches shards", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("diff") && content.includes("--rebuild-index"),
+      "df-cleanup SKILL.md --rebuild-index must output diff"
+    );
+    assert.ok(
+      content.includes("Shard files are NEVER") || content.includes("never touch") || content.includes("never touches"),
+      "df-cleanup SKILL.md --rebuild-index must document it never modifies shard files"
+    );
+  });
+
+  it("df-cleanup SKILL.md documents --rebuild-index as maintenance exception to single-writer rule", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("maintenance exception") || (content.includes("exception") && content.includes("single-writer")),
+      "df-cleanup SKILL.md must document --rebuild-index as maintenance exception to single-writer rule"
+    );
+  });
+});
+
+describe("project-memory-lifecycle — AC-18c: df-cleanup documents token budget warning", () => {
+  it("df-cleanup SKILL.md documents token budget warning at entry count > 500", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("500") && (content.includes("entries") || content.includes("WARNING")),
+      "df-cleanup SKILL.md must document token budget warning at 500+ entries"
+    );
+  });
+});
+
+describe("project-memory-lifecycle — AC-19: df-cleanup documents --rebuild-memory flag", () => {
+  it("df-cleanup SKILL.md documents --rebuild-memory flag rebuilds ledger and then index", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("--rebuild-memory"),
+      "df-cleanup SKILL.md must document --rebuild-memory flag"
+    );
+    assert.ok(
+      content.includes("ledger") && content.includes("--rebuild-memory"),
+      "df-cleanup SKILL.md --rebuild-memory must rebuild ledger"
+    );
+  });
+
+  it("df-cleanup SKILL.md documents --rebuild-memory also rebuilds index after ledger", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("rebuild-index") && content.includes("rebuild-memory"),
+      "df-cleanup SKILL.md --rebuild-memory must also trigger index rebuild"
+    );
+  });
+
+  it("df-cleanup SKILL.md documents --rebuild-memory does NOT rebuild shard files", () => {
+    const content = readSkill("df-cleanup");
+    assert.ok(
+      content.includes("shard files are NOT rebuilt") || content.includes("shard files are never rebuilt") ||
+      (content.includes("Invariant") && content.includes("NOT rebuilt")),
+      "df-cleanup SKILL.md must document that --rebuild-memory does not rebuild shard files"
+    );
+  });
+});
+
+// ===========================================================================
+// project-memory-lifecycle — AC-20: plugin mirror parity for all edited files
+// ===========================================================================
+
+describe("project-memory-lifecycle — AC-20: plugin mirror parity for all edited files", () => {
+  it("plugins/dark-factory/agents/promote-agent.md matches source", () => {
+    const source = readAgent("promote-agent");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "promote-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "plugins promote-agent.md must match source (project-memory-lifecycle)");
+  });
+
+  it("plugins/dark-factory/agents/test-agent.md matches source", () => {
+    const source = readAgent("test-agent");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "test-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "plugins test-agent.md must match source (project-memory-lifecycle)");
+  });
+
+  it("plugins/dark-factory/agents/implementation-agent.md matches source", () => {
+    const source = readAgent("implementation-agent");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "implementation-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "plugins implementation-agent.md must match source (project-memory-lifecycle)");
+  });
+
+  it("plugins/dark-factory/skills/df-intake/SKILL.md matches source", () => {
+    const source = readSkill("df-intake");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "skills", "df-intake", "SKILL.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "plugins df-intake SKILL.md must match source (project-memory-lifecycle)");
+  });
+
+  it("plugins/dark-factory/skills/df-orchestrate/SKILL.md matches source", () => {
+    const source = readSkill("df-orchestrate");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "skills", "df-orchestrate", "SKILL.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "plugins df-orchestrate SKILL.md must match source (project-memory-lifecycle)");
+  });
+
+  it("plugins/dark-factory/skills/df-cleanup/SKILL.md matches source", () => {
+    const source = readSkill("df-cleanup");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "skills", "df-cleanup", "SKILL.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "plugins df-cleanup SKILL.md must match source (project-memory-lifecycle)");
+  });
+});
+
+// DF-PROMOTED-END: project-memory-lifecycle

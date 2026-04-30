@@ -18,15 +18,6 @@
       "rounds": 0,
       "group": "project-memory",
       "dependencies": ["project-memory-foundation"]
-    },
-    "project-memory-lifecycle": {
-      "type": "feature",
-      "status": "active",
-      "specPath": "dark-factory/specs/features/project-memory-lifecycle.spec.md",
-      "created": "2026-04-21T00:00:00Z",
-      "rounds": 0,
-      "group": "project-memory",
-      "dependencies": ["project-memory-foundation", "project-memory-consumers", "project-memory-onboard"]
     }
   }
 }

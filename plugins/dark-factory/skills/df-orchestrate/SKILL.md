@@ -218,8 +218,12 @@ Failed specs:
 Blocked specs (dependency on failed spec):
   - spec-d: blocked by spec-b
 
+Pre-existing regressions (not failures): spec-c guards don't overlap → `/df-debug {owning-feature}`
+
 Summary: 1 passed, 1 failed, 1 blocked
 ```
+
+**Step 2.75** (Checkpoint 2, distinct from Checkpoint 1 pre-flight): classifies `pre-existing-regression` (`preExistingRegression: true`) and `expected-regression` (`expectedRegression: true`) — surface both in summary above (not counted as failures). `/df-debug` suggested for pre-existing.
 
 ## AFK PR Creation
 

@@ -51,8 +51,6 @@ Record the `"mode"` field in the manifest entry at spec start. Record `"bestOfN"
 
 ## Pre-flight Test Gate
 
-Before architect review, run the project's test suite if not already run at the orchestrator level:
-
 1. Read `dark-factory/project-profile.md` and extract the test command from `Run:` field.
 2. If profile or `Run:` field missing: warn "No test command found in project profile. Skipping pre-flight test gate." and proceed.
 3. If `--skip-tests`: log "Pre-flight test gate skipped by --skip-tests flag." Record `"testGateSkipped": true` and timestamp in manifest. Proceed.
@@ -117,6 +115,7 @@ When pipeline mode is `quality` AND spec tier is Tier 3: spawn two parallel code
 - All passed: proceed to Post-Implementation File Count, then Post-Implementation Lifecycle.
 - Failures and rounds < 3: extract behavioral failure descriptions (NO holdout content), re-spawn only failing tracks.
 - Failures and rounds = 3: report to developer.
+- **Step 2.75:** new-holdout/invariant-regression → loop; pre-existing-regression → `preExistingRegression`; expected-regression → `expectedRegression`; proceed. NEVER: advisor.
 
 ### Flaky E2E Routing
 
