@@ -28,21 +28,6 @@
       "group": "project-memory",
       "dependencies": ["project-memory-foundation"]
     },
-    "project-memory-consumers": {
-      "type": "feature",
-      "status": "promoted",
-      "specPath": "dark-factory/specs/features/project-memory-consumers.spec.md",
-      "created": "2026-04-21T00:00:00Z",
-      "rounds": 1,
-      "group": "project-memory",
-      "dependencies": ["project-memory-foundation"],
-      "passedAt": "2026-04-30T00:00:00Z",
-      "promotedAt": "2026-04-30T00:00:00Z",
-      "promotedTestPath": "tests/dark-factory-setup.test.js",
-      "testGateSkipped": false,
-      "actualFiles": 12,
-      "estimatedFiles": 12
-    },
     "project-memory-lifecycle": {
       "type": "feature",
       "status": "active",
