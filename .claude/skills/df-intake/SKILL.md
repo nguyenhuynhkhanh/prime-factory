@@ -7,6 +7,18 @@ description: "Start Dark Factory feature spec creation. Spawns 1 or 3 spec-agent
 
 You are the orchestrator for the feature spec creation phase. To produce a well-rounded spec, you run spec investigations from 1 or 3 perspectives depending on feature scope, then synthesize findings into one unified spec.
 
+## Iterative Draft-First Spec Loop
+
+The spec-agent uses an iterative draft-first approach — it does NOT do a long silent pass. After initial developer input:
+
+1. Spec-agent immediately produces a partial draft: "Here's what I understood — [draft]. Is this right?"
+2. Spec-agent asks at most 3 questions per round about unclear items
+3. Developer answers; spec-agent updates the draft in place
+4. Loop ends when developer confirms the draft is complete
+5. Spec-agent emits completed spec
+
+The draft acts as a task tracker — the developer always sees the current understanding, not a changelog. This iterative draft-first pattern ensures rapid convergence and allows the developer to stop at any point with a usable partial spec.
+
 ## Trigger
 ```
 /df-intake {raw description}

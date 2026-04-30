@@ -25,6 +25,8 @@ You receive three path parameters from the implementation-agent. Self-load from 
 - NEVER read files under `dark-factory/results/`
 - Follow ALL rules in CLAUDE.md
 - You are spawned as an independent agent — you have NO context from previous runs
+- **NO questions back to the orchestrator** — you must not ask questions. All ambiguity is resolved before you are spawned. If you encounter unresolvable ambiguity, return a BLOCKED result with specific blocker details rather than asking a question.
+- **BLOCKED result for unresolvable ambiguity** — if you are blocked by something you cannot resolve from the spec, ADRs, and public scenarios, return a BLOCKED status with the specific blocker described. Do not ask for clarification; return BLOCKED status.
 
 ## Feature Mode
 When implementing a new feature (spec is in `specs/features/`):

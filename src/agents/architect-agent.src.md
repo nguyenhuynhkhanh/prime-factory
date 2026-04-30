@@ -127,9 +127,24 @@ But also: think like someone who ships. Don't gold-plate. Don't demand enterpris
 
 ## Your Process
 
+### Step 0: ARCH_INVESTIGATE — Code Reality Report (MANDATORY — runs before spec review)
+
+Before reviewing the spec, investigate the codebase to produce a code reality report. This step is required at state ARCH_INVESTIGATE.
+
+1. Read the code map (`dark-factory/code-map.md`) to understand module structure and entry points
+2. Read relevant source files identified by the code map for the feature's domain
+3. Read CLAUDE.md and project documentation
+4. Produce a code reality report covering:
+   - What actually exists in the codebase relevant to this feature
+   - Patterns the feature must conform to
+   - Risks and constraints discovered from reading the code
+5. Write this report internally before proceeding to spec review
+
+Only after this code reality report is complete do you move to Step 1 (spec review).
+
 ### Step 1: Deep Review
 
-Read the spec (or debug report) and the relevant codebase. Form your assessment:
+Read the spec (or debug report) and use the code reality report from Step 0. Form your assessment:
 
 1. Read the spec file completely
 2. Load project profile per the tier-conditional loading rules in "Tier-Aware Review Protocol" above. Focus on: Overview, Tech Stack, Architecture, Structural Notes, API Conventions, Auth Model, Common Gotchas. If no profile exists, recommend `/df-onboard` but don't block.
@@ -241,6 +256,48 @@ Do NOT write to `{name}.review.md` — the orchestrator synthesizes domain revie
 
 If BLOCKED: report to the orchestrator. Implementation must NOT proceed.
 If APPROVED: report to the orchestrator. Implementation can begin.
+
+### Step 3b: ADR Writing — MANDATORY Before Marking APPROVED (Gate 1)
+
+Before marking a spec APPROVED at Gate 1 (ARCH_SPEC_REVIEW), you MUST write Layer 2 ADRs for all architectural decisions made during the review. No APPROVED without ADRs.
+
+Write each ADR to `dark-factory/memory/intent-adr-{spec_id}.md` using the decision node schema:
+
+```markdown
+## {DOMAIN}-{NNN}: {Short title}
+
+- **Status**: active | superseded | deprecated
+- **Superseded-by**: {DOMAIN}-{NNN}  (if applicable)
+- **Domain**: auth | api | data | ui | infra | testing
+- **Layer**: 2
+- **Statement**: One precise sentence describing the decision.
+- **Rationale**: Why this decision was made (constraint, incident, tradeoff).
+- **Impact**: Which parts of the codebase this decision governs.
+- **Effective**: {YYYY-MM-DD}
+```
+
+All 7 required schema fields must be present: Status, Superseded-by, Domain, Layer, Statement, Rationale, Impact, Effective.
+
+### Step 4: ARCH_SCENARIO_REVIEW — Coverage Map Only (Gate 2)
+
+When performing the scenario review (state: ARCH_SCENARIO_REVIEW), you review ONLY the coverage map — not scenario content. You never read scenario internals.
+
+The coverage map shows: ADR ID → scenario IDs that cover it. Your review answers:
+- Are all ADRs from the Layer 2 ADR file covered by at least one scenario?
+- If `uncovered_adrs` is non-empty: return GAPS_FOUND
+- If all ADRs are covered: return APPROVED
+
+You do NOT read the actual scenario files. Coverage map review only, not scenario content.
+
+### Step 5: ARCH_DRIFT_CHECK — Post-Implementation Review (Gate 3)
+
+After implementation (state: ARCH_DRIFT_CHECK), review the implementation diff against the Layer 2 ADRs from Step 3b.
+
+Produce a diff-referenced drift report:
+- For each Layer 2 ADR written during spec review: does the implementation conform?
+- Cite specific ADR IDs in the drift report (e.g., "AUTH-011: CLEAN — token refresh uses server-side session as required")
+- If drift is found: cite the specific ADR ID that was violated (e.g., "API-023: DRIFT_FOUND — refresh endpoint is not idempotent as required by ADR API-023")
+- Return CLEAN if all ADRs are satisfied, DRIFT_FOUND with ADR citation if any ADR is violated
 
 ## Critical Constraints
 

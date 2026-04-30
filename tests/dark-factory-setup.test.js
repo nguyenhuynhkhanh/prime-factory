@@ -62,6 +62,7 @@ describe("Agent definitions", () => {
     "promote-agent",
     "codemap-agent",
     "implementation-agent",
+    "qa-agent",
   ];
 
   for (const name of expectedAgents) {
@@ -5769,3 +5770,538 @@ describe("ao-thin-wave-orchestration — plugin mirror parity (AC-11, AC-12, AC-
 });
 
 // DF-PROMOTED-END: ao-thin-wave-orchestration
+
+// Promoted from Dark Factory holdout: factory-redesign-v2
+// Root cause: spec-agent read code, architect had no ADR requirement, no qa-agent existed, code-agent could ask questions, orchestrator had no state machine documentation
+// Guards: .claude/agents/spec-agent.md, .claude/agents/architect-agent.md, .claude/agents/qa-agent.md, .claude/agents/code-agent.md, .claude/skills/df-orchestrate/SKILL.md, .claude/skills/df-intake/SKILL.md, plugins/dark-factory/agents/spec-agent.md, plugins/dark-factory/agents/architect-agent.md, plugins/dark-factory/agents/qa-agent.md, plugins/dark-factory/agents/code-agent.md, plugins/dark-factory/skills/df-orchestrate/SKILL.md, plugins/dark-factory/skills/df-intake/SKILL.md
+// DF-PROMOTED-START: factory-redesign-v2
+// ===========================================================================
+
+describe("factory-redesign-v2 — P-01: spec-agent codebase access prohibition", () => {
+  it("spec-agent.md contains explicit codebase access prohibition", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(
+      content.includes("does not read the codebase") ||
+        content.includes("must not access the codebase") ||
+        content.includes("NEVER read the codebase") ||
+        content.includes("reads project-profile.md and Layer 0 intent only"),
+      "spec-agent.md must contain explicit codebase-access prohibition"
+    );
+  });
+
+  it("plugins/dark-factory/agents/spec-agent.md contains same prohibition (P-01 mirror)", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "spec-agent.md"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("does not read the codebase") ||
+        content.includes("must not access the codebase") ||
+        content.includes("NEVER read the codebase") ||
+        content.includes("reads project-profile.md and Layer 0 intent only"),
+      "plugins spec-agent.md must contain explicit codebase-access prohibition"
+    );
+  });
+});
+
+describe("factory-redesign-v2 — P-02: spec-agent draft-first iterative loop", () => {
+  it("spec-agent.md describes draft-first iterative loop", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(
+      content.includes("draft immediately") ||
+        content.includes("partial draft") ||
+        content.includes("update in place") ||
+        content.includes("Is this right"),
+      "spec-agent.md must describe draft-first iterative loop (partial draft, update in place, or is this right)"
+    );
+  });
+
+  it("plugins/dark-factory/agents/spec-agent.md has same draft-first loop (P-02 mirror)", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "spec-agent.md"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("draft immediately") ||
+        content.includes("partial draft") ||
+        content.includes("update in place") ||
+        content.includes("Is this right"),
+      "plugins spec-agent.md must describe draft-first iterative loop"
+    );
+  });
+});
+
+describe("factory-redesign-v2 — P-03: spec-agent max 3 questions per round", () => {
+  it("spec-agent.md explicitly caps questions per round at 3", () => {
+    const content = readAgent("spec-agent");
+    assert.ok(
+      content.includes("at most 3 questions") ||
+        content.includes("maximum 3 questions") ||
+        content.includes("no more than 3 questions per round") ||
+        content.includes("Maximum 3 questions per round"),
+      "spec-agent.md must contain explicit per-round question cap of 3"
+    );
+  });
+
+  it("plugins/dark-factory/agents/spec-agent.md has same question cap (P-03 mirror)", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "spec-agent.md"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("at most 3 questions") ||
+        content.includes("maximum 3 questions") ||
+        content.includes("no more than 3 questions per round") ||
+        content.includes("Maximum 3 questions per round"),
+      "plugins spec-agent.md must contain explicit per-round question cap of 3"
+    );
+  });
+});
+
+describe("factory-redesign-v2 — P-04: architect code investigation step (ARCH_INVESTIGATE)", () => {
+  it("architect-agent.md contains code investigation step before spec review", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("code reality report") ||
+        content.includes("ARCH_INVESTIGATE") ||
+        content.includes("investigate codebase") ||
+        content.includes("read codebase before reviewing"),
+      "architect-agent.md must contain a code investigation step before spec review"
+    );
+  });
+
+  it("plugins/dark-factory/agents/architect-agent.md has same code investigation step (P-04 mirror)", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "architect-agent.md"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("code reality report") ||
+        content.includes("ARCH_INVESTIGATE") ||
+        content.includes("investigate codebase") ||
+        content.includes("read codebase before reviewing"),
+      "plugins architect-agent.md must contain code investigation step"
+    );
+  });
+});
+
+describe("factory-redesign-v2 — P-05: architect ADR writing before APPROVED", () => {
+  it("architect-agent.md requires writing ADRs before APPROVED (Gate 1)", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("write ADR") ||
+        content.includes("Layer 2 ADR") ||
+        content.includes("decision node") ||
+        content.includes("must write at least one ADR before approving") ||
+        content.includes("No APPROVED without ADRs"),
+      "architect-agent.md must require ADR writing before APPROVED"
+    );
+  });
+
+  it("architect-agent.md contains ADR schema fields", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(content.includes("Status"), "architect-agent.md ADR schema must include Status field");
+    assert.ok(content.includes("Domain"), "architect-agent.md ADR schema must include Domain field");
+    assert.ok(content.includes("Layer"), "architect-agent.md ADR schema must include Layer field");
+    assert.ok(content.includes("Statement"), "architect-agent.md ADR schema must include Statement field");
+    assert.ok(content.includes("Rationale"), "architect-agent.md ADR schema must include Rationale field");
+    assert.ok(content.includes("Impact"), "architect-agent.md ADR schema must include Impact field");
+    assert.ok(content.includes("Effective"), "architect-agent.md ADR schema must include Effective field");
+  });
+
+  it("plugins/dark-factory/agents/architect-agent.md has same ADR requirement (P-05 mirror)", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "architect-agent.md"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("write ADR") ||
+        content.includes("Layer 2 ADR") ||
+        content.includes("decision node") ||
+        content.includes("No APPROVED without ADRs"),
+      "plugins architect-agent.md must require ADR writing before APPROVED"
+    );
+  });
+});
+
+describe("factory-redesign-v2 — P-06: architect coverage-map-only scenario review", () => {
+  it("architect-agent.md restricts scenario review to coverage map only", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("coverage map only") ||
+        content.includes("not scenario content") ||
+        content.includes("does not read scenario internals") ||
+        content.includes("reviews coverage map") ||
+        content.includes("Coverage Map Only"),
+      "architect-agent.md must restrict scenario review to coverage map only"
+    );
+  });
+
+  it("plugins/dark-factory/agents/architect-agent.md has same coverage-map-only restriction (P-06 mirror)", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "architect-agent.md"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("coverage map only") ||
+        content.includes("not scenario content") ||
+        content.includes("does not read scenario internals") ||
+        content.includes("reviews coverage map") ||
+        content.includes("Coverage Map Only"),
+      "plugins architect-agent.md must restrict scenario review to coverage map only"
+    );
+  });
+});
+
+describe("factory-redesign-v2 — P-07: architect drift check with ADR IDs", () => {
+  it("architect-agent.md contains drift check step with ADR ID citations", () => {
+    const content = readAgent("architect-agent");
+    assert.ok(
+      content.includes("drift check") ||
+        content.includes("ARCH_DRIFT_CHECK") ||
+        content.includes("post-implementation review") ||
+        content.includes("review implementation against ADRs"),
+      "architect-agent.md must contain post-implementation drift check step"
+    );
+    assert.ok(
+      content.includes("ADR ID") ||
+        content.includes("ADR IDs") ||
+        content.includes("specific ADR") ||
+        content.includes("citing specific ADR"),
+      "architect-agent.md drift check must reference specific ADR IDs in output"
+    );
+  });
+
+  it("plugins/dark-factory/agents/architect-agent.md has same drift check (P-07 mirror)", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "architect-agent.md"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("drift check") ||
+        content.includes("ARCH_DRIFT_CHECK") ||
+        content.includes("post-implementation review") ||
+        content.includes("review implementation against ADRs"),
+      "plugins architect-agent.md must contain drift check step"
+    );
+  });
+});
+
+describe("factory-redesign-v2 — P-08: qa-agent exists with coverage map instruction", () => {
+  it("qa-agent.md exists", () => {
+    const filePath = path.join(ROOT, ".claude", "agents", "qa-agent.md");
+    assert.ok(fs.existsSync(filePath), "qa-agent.md must exist at .claude/agents/qa-agent.md");
+  });
+
+  it("qa-agent.md has valid frontmatter", () => {
+    const content = readAgent("qa-agent");
+    const fm = parseFrontmatter(content);
+    assert.ok(fm, "qa-agent.md must have frontmatter");
+    assert.equal(fm.name, "qa-agent", "qa-agent.md frontmatter name must be qa-agent");
+    assert.ok(fm.description, "qa-agent.md must have description");
+    assert.ok(fm.tools, "qa-agent.md must have tools");
+  });
+
+  it("qa-agent.md contains coverage map instruction", () => {
+    const content = readAgent("qa-agent");
+    assert.ok(
+      content.includes("coverage map") ||
+        content.includes("ADR ID to scenario") ||
+        content.includes("which scenarios cover which ADRs"),
+      "qa-agent.md must contain coverage map production instruction"
+    );
+  });
+
+  it("plugins/dark-factory/agents/qa-agent.md exists (P-08 mirror)", () => {
+    const filePath = path.join(ROOT, "plugins", "dark-factory", "agents", "qa-agent.md");
+    assert.ok(fs.existsSync(filePath), "plugins/dark-factory/agents/qa-agent.md must exist");
+  });
+
+  it("plugins/dark-factory/agents/qa-agent.md contains coverage map instruction (P-08 mirror)", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "qa-agent.md"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("coverage map") ||
+        content.includes("ADR ID to scenario") ||
+        content.includes("which scenarios cover which ADRs"),
+      "plugins qa-agent.md must contain coverage map instruction"
+    );
+  });
+});
+
+describe("factory-redesign-v2 — P-09: qa-agent self-review pass with all four coverage areas", () => {
+  it("qa-agent.md describes self-review pass covering all four areas", () => {
+    const content = readAgent("qa-agent");
+    assert.ok(
+      content.includes("edge case") || content.includes("edge cases"),
+      "qa-agent.md self-review must cover edge cases"
+    );
+    assert.ok(
+      content.includes("negative path") || content.includes("negative paths"),
+      "qa-agent.md self-review must cover negative paths"
+    );
+    assert.ok(
+      content.includes("boundary condition") || content.includes("boundary conditions"),
+      "qa-agent.md self-review must cover boundary conditions"
+    );
+    assert.ok(
+      content.includes("security surface"),
+      "qa-agent.md self-review must cover security surface"
+    );
+  });
+
+  it("plugins/dark-factory/agents/qa-agent.md has same self-review coverage (P-09 mirror)", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "qa-agent.md"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("edge case") || content.includes("edge cases"),
+      "plugins qa-agent.md self-review must cover edge cases"
+    );
+    assert.ok(
+      content.includes("negative path") || content.includes("negative paths"),
+      "plugins qa-agent.md self-review must cover negative paths"
+    );
+    assert.ok(
+      content.includes("boundary condition") || content.includes("boundary conditions"),
+      "plugins qa-agent.md self-review must cover boundary conditions"
+    );
+    assert.ok(
+      content.includes("security surface"),
+      "plugins qa-agent.md self-review must cover security surface"
+    );
+  });
+});
+
+describe("factory-redesign-v2 — P-10: code-agent no-questions prohibition with BLOCKED result", () => {
+  it("code-agent.md contains explicit no-questions prohibition", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("no questions back") ||
+        content.includes("must not ask questions") ||
+        content.includes("NO questions back"),
+      "code-agent.md must explicitly prohibit asking questions back"
+    );
+  });
+
+  it("code-agent.md contains BLOCKED result instruction for ambiguity", () => {
+    const content = readAgent("code-agent");
+    assert.ok(
+      content.includes("BLOCKED result") ||
+        content.includes("return BLOCKED") ||
+        content.includes("BLOCKED status"),
+      "code-agent.md must describe BLOCKED result for unresolvable ambiguity"
+    );
+  });
+
+  it("plugins/dark-factory/agents/code-agent.md has same prohibitions (P-10 mirror)", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "code-agent.md"),
+      "utf8"
+    );
+    assert.ok(
+      content.includes("no questions back") ||
+        content.includes("must not ask questions") ||
+        content.includes("NO questions back"),
+      "plugins code-agent.md must prohibit asking questions back"
+    );
+    assert.ok(
+      content.includes("BLOCKED result") ||
+        content.includes("return BLOCKED") ||
+        content.includes("BLOCKED status"),
+      "plugins code-agent.md must describe BLOCKED result"
+    );
+  });
+});
+
+describe("factory-redesign-v2 — P-11: df-orchestrate state machine with all 17 states", () => {
+  const requiredStates = [
+    "INTAKE", "INTERVIEW", "SPEC_DRAFT", "ARCH_INVESTIGATE", "ARCH_SPEC_REVIEW",
+    "SPEC_REVISION", "QA_SCENARIO", "QA_SELF_REVIEW", "ARCH_SCENARIO_REVIEW",
+    "APPROVED", "IMPLEMENTING", "ARCH_DRIFT_CHECK", "TESTING", "PROMOTING",
+    "DONE", "BLOCKED", "STALE"
+  ];
+
+  for (const state of requiredStates) {
+    it(`df-orchestrate SKILL.md contains state: ${state}`, () => {
+      const content = readSkill("df-orchestrate");
+      assert.ok(
+        content.includes(state),
+        `df-orchestrate SKILL.md must contain state: ${state}`
+      );
+    });
+  }
+
+  it("plugins/dark-factory/skills/df-orchestrate/SKILL.md contains all 17 states (P-11 mirror)", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "skills", "df-orchestrate", "SKILL.md"),
+      "utf8"
+    );
+    for (const state of requiredStates) {
+      assert.ok(content.includes(state), `plugins df-orchestrate SKILL.md must contain state: ${state}`);
+    }
+  });
+});
+
+describe("factory-redesign-v2 — P-12: df-orchestrate gates with max-round limits", () => {
+  it("df-orchestrate SKILL.md documents Gate 1 (ARCH_SPEC_REVIEW) with max 5 rounds", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Gate 1") || content.includes("gate 1") || content.includes("gate_1"),
+      "df-orchestrate SKILL.md must document Gate 1"
+    );
+    assert.ok(
+      content.includes("max 5") || content.includes("Max 5") || content.includes("5 rounds"),
+      "df-orchestrate SKILL.md Gate 1 must show max 5 rounds"
+    );
+  });
+
+  it("df-orchestrate SKILL.md documents Gate 2 (ARCH_SCENARIO_REVIEW) with max 3 rounds", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Gate 2") || content.includes("gate 2") || content.includes("gate_2"),
+      "df-orchestrate SKILL.md must document Gate 2"
+    );
+  });
+
+  it("df-orchestrate SKILL.md documents Gate 3 (ARCH_DRIFT_CHECK) with max 2 rounds", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Gate 3") || content.includes("gate 3") || content.includes("gate_3"),
+      "df-orchestrate SKILL.md must document Gate 3"
+    );
+    assert.ok(
+      content.includes("max 2") || content.includes("Max 2") || content.includes("2 rounds"),
+      "df-orchestrate SKILL.md Gate 3 must show max 2 rounds"
+    );
+  });
+
+  it("df-orchestrate SKILL.md documents Gate 4 (TESTING) with max 3 rounds", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("Gate 4") || content.includes("gate 4") || content.includes("gate_4"),
+      "df-orchestrate SKILL.md must document Gate 4"
+    );
+  });
+
+  it("df-orchestrate SKILL.md documents BLOCKED as outcome when gate max exceeded", () => {
+    const content = readSkill("df-orchestrate");
+    assert.ok(
+      content.includes("BLOCKED"),
+      "df-orchestrate SKILL.md must describe BLOCKED state as gate failure outcome"
+    );
+  });
+
+  it("plugins/dark-factory/skills/df-orchestrate/SKILL.md has same gate definitions (P-12 mirror)", () => {
+    const content = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "skills", "df-orchestrate", "SKILL.md"),
+      "utf8"
+    );
+    assert.ok(content.includes("Gate 1") || content.includes("gate_1"), "plugins df-orchestrate must have Gate 1");
+    assert.ok(content.includes("Gate 2") || content.includes("gate_2"), "plugins df-orchestrate must have Gate 2");
+    assert.ok(content.includes("Gate 3") || content.includes("gate_3"), "plugins df-orchestrate must have Gate 3");
+    assert.ok(content.includes("Gate 4") || content.includes("gate_4"), "plugins df-orchestrate must have Gate 4");
+    assert.ok(content.includes("BLOCKED"), "plugins df-orchestrate must document BLOCKED outcome");
+  });
+});
+
+describe("factory-redesign-v2 — P-13: intent-foundation.md template exists", () => {
+  const foundationPath = path.join(ROOT, "dark-factory", "memory", "intent-foundation.md");
+
+  it("dark-factory/memory/intent-foundation.md exists", () => {
+    assert.ok(fs.existsSync(foundationPath), "dark-factory/memory/intent-foundation.md must exist");
+  });
+
+  it("intent-foundation.md contains decision node schema fields", () => {
+    const content = fs.readFileSync(foundationPath, "utf8");
+    assert.ok(content.includes("Status"), "intent-foundation.md must include Status schema field");
+    assert.ok(content.includes("Superseded-by"), "intent-foundation.md must include Superseded-by schema field");
+    assert.ok(content.includes("Domain"), "intent-foundation.md must include Domain schema field");
+    assert.ok(content.includes("Layer"), "intent-foundation.md must include Layer schema field");
+    assert.ok(content.includes("Statement"), "intent-foundation.md must include Statement schema field");
+    assert.ok(content.includes("Rationale"), "intent-foundation.md must include Rationale schema field");
+    assert.ok(content.includes("Impact"), "intent-foundation.md must include Impact schema field");
+    assert.ok(content.includes("Effective"), "intent-foundation.md must include Effective schema field");
+  });
+
+  it("intent-foundation.md contains at least one example decision node with status active", () => {
+    const content = fs.readFileSync(foundationPath, "utf8");
+    assert.ok(
+      content.includes("Status**: active") ||
+        content.includes("Status: active"),
+      "intent-foundation.md must contain at least one example decision with status: active"
+    );
+  });
+
+  it("intent-foundation.md documents max-20-decisions constraint", () => {
+    const content = fs.readFileSync(foundationPath, "utf8");
+    assert.ok(
+      content.includes("max 20") ||
+        content.includes("maximum 20") ||
+        content.includes("20 decisions") ||
+        content.includes("max-20"),
+      "intent-foundation.md must document the maximum-20-decisions constraint"
+    );
+  });
+});
+
+describe("factory-redesign-v2 — P-14: plugin mirror parity for all modified files", () => {
+  it("plugins/dark-factory/agents/spec-agent.md matches source", () => {
+    const source = readAgent("spec-agent");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "spec-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "plugins/dark-factory/agents/spec-agent.md must match .claude/agents/spec-agent.md");
+  });
+
+  it("plugins/dark-factory/agents/architect-agent.md matches source", () => {
+    const source = readAgent("architect-agent");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "architect-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "plugins/dark-factory/agents/architect-agent.md must match source");
+  });
+
+  it("plugins/dark-factory/agents/qa-agent.md matches source", () => {
+    const source = readAgent("qa-agent");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "qa-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "plugins/dark-factory/agents/qa-agent.md must match .claude/agents/qa-agent.md");
+  });
+
+  it("plugins/dark-factory/agents/code-agent.md matches source", () => {
+    const source = readAgent("code-agent");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "agents", "code-agent.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "plugins/dark-factory/agents/code-agent.md must match source");
+  });
+
+  it("plugins/dark-factory/skills/df-orchestrate/SKILL.md matches source (factory-redesign-v2)", () => {
+    const source = readSkill("df-orchestrate");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "skills", "df-orchestrate", "SKILL.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "plugins df-orchestrate SKILL.md must match source (factory-redesign-v2)");
+  });
+
+  it("plugins/dark-factory/skills/df-intake/SKILL.md matches source (factory-redesign-v2)", () => {
+    const source = readSkill("df-intake");
+    const plugin = fs.readFileSync(
+      path.join(ROOT, "plugins", "dark-factory", "skills", "df-intake", "SKILL.md"),
+      "utf8"
+    );
+    assert.equal(source, plugin, "plugins df-intake SKILL.md must match source (factory-redesign-v2)");
+  });
+});
+
+// DF-PROMOTED-END: factory-redesign-v2

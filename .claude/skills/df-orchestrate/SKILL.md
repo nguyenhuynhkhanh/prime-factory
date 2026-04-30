@@ -241,3 +241,20 @@ Bugfix mode: test FAILS in red phase, test PASSES in green phase, checks for reg
 - The implementation-agent forwards to code-agents: Extract ONLY the "Key Decisions Made" and "Remaining Notes" sections. Strip round-by-round discussion.
 - Passes the feature name and spec file path or debug report path to the test-agent
 - Passes the feature name and results path to promote-agent
+
+## State Machine
+
+All 17 states: INTAKE, INTERVIEW, SPEC_DRAFT, ARCH_INVESTIGATE, ARCH_SPEC_REVIEW, SPEC_REVISION, QA_SCENARIO, QA_SELF_REVIEW, ARCH_SCENARIO_REVIEW, APPROVED, IMPLEMENTING, ARCH_DRIFT_CHECK, TESTING, PROMOTING, DONE, BLOCKED, STALE.
+
+Terminal states: BLOCKED (max retries exceeded — escalate to developer with full context), STALE (no activity 48h).
+
+## Gate Definitions
+
+| Gate | State | Condition | Max Rounds |
+|------|-------|-----------|------------|
+| Gate 1 | ARCH_SPEC_REVIEW | Architect marks spec APPROVED | max 5 rounds |
+| Gate 2 | ARCH_SCENARIO_REVIEW | Architect marks ADR coverage APPROVED | max 3 rounds |
+| Gate 3 | ARCH_DRIFT_CHECK | Architect marks implementation CLEAN | max 2 rounds |
+| Gate 4 | TESTING | Test-agent reports all holdout PASS | max 3 rounds |
+
+When any gate exceeds its max rounds: set state = BLOCKED. Surface escalation to developer with: gate name, last round output, specific blocker, required action. Never silently loop.
